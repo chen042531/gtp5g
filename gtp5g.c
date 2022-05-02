@@ -3765,6 +3765,43 @@ out:
     return skb->len;
 }
 
+static int gtp5g_genl_add_urr(struct sk_buff *skb, struct genl_info *info)
+{
+    struct gtp5g_dev *gtp;
+    int err = 0;
+
+    printk(">>>>> urr_ID %u", nla_get_u32(info->attrs[GTP5G_URR_ID]));
+    printk(">>>>> MeasurementMethod %u", nla_get_u8(info->attrs[GTP5G_URR_MEASUREMENT_METHOD]));
+    printk(">>>>> ReportingTrigger %u", nla_get_u32(info->attrs[GTP5G_URR_REPORTING_TRIGGER]));
+    printk(">>>>> MeasurementPeriod %u", nla_get_u32(info->attrs[GTP5G_URR_MEASUREMENT_PERIOD]));
+    printk(">>>>> MeasurementInformation %u", nla_get_u8(info->attrs[GTP5G_URR_MEASUREMENT_INFO]));
+    printk(">>>>> Seq %u", nla_get_u32(info->attrs[GTP5G_URR_SEQ]));
+    printk(">>>>> Seid %llu", nla_get_u64(info->attrs[GTP5G_URR_SEID]));
+
+    if (!info->attrs[GTP5G_URR_ID] ||
+        !info->attrs[GTP5G_LINK]) {
+        GTP5G_ERR(NULL, "URR-Add: URR_ID or GTP5G_LINK is not present\n");
+        return -EINVAL;
+    }
+
+    rtnl_lock();
+    rcu_read_lock();
+
+    gtp = gtp5g_find_dev(sock_net(skb->sk), info->attrs);
+    if (!gtp) {
+        GTP5G_ERR(NULL, "URR-Add: Unable to find the gtp device\n");
+        err = -ENODEV;
+        goto unlock;
+    }
+
+    // err = gtp5g_gnl_add_qer(gtp, info);
+
+unlock:
+    rcu_read_unlock();
+    rtnl_unlock();
+    return err;
+}
+
 static const struct nla_policy gtp5g_genl_pdr_policy[GTP5G_PDR_ATTR_MAX + 1] = {
     [GTP5G_PDR_ID]                              = { .type = NLA_U32, },
     [GTP5G_PDR_PRECEDENCE]                      = { .type = NLA_U32, },
@@ -3859,7 +3896,13 @@ static const struct genl_ops gtp5g_genl_ops[] = {
         // .policy = gtp5g_genl_qer_policy,
         .flags = GENL_ADMIN_PERM,
     },
-
+    {
+        .cmd = GTP5G_CMD_ADD_URR,
+        // .validate = GENL_DONT_VALIDATE_STRICT | GENL_DONT_VALIDATE_DUMP,
+        .doit = gtp5g_genl_add_urr,
+        // .policy = gtp5g_genl_pdr_policy,
+        .flags = GENL_ADMIN_PERM,
+    },
 };
 
 static struct genl_family gtp5g_genl_family __ro_after_init = {

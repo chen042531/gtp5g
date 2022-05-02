@@ -227,6 +227,8 @@ enum gtp5g_cmd {
     GTP5G_CMD_GET_FAR,
     GTP5G_CMD_GET_QER,
 
+    GTP5G_CMD_ADD_URR,
+
     __GTP5G_CMD_MAX,
 };
 #define GTP5G_CMD_MAX (__GTP5G_CMD_MAX - 1)
@@ -425,5 +427,23 @@ enum gtp5g_qer_gbr_attrs {
     __GTP5G_QER_GBR_ATTR_MAX,
 };
 #define GTP5G_QER_GBR_ATTR_MAX (__GTP5G_QER_GBR_ATTR_MAX - 1)
+
+/* ------------------------------------------------------------------
+ *								URR
+ * ------------------------------------------------------------------
+ * */
+enum gtp5g_urr_attrs {
+    /* gtp5g_device_attrs in this part */
+
+    GTP5G_URR_ID = 3,
+    GTP5G_URR_MEASUREMENT_METHOD,
+	GTP5G_URR_REPORTING_TRIGGER,
+	GTP5G_URR_MEASUREMENT_PERIOD,
+	GTP5G_URR_MEASUREMENT_INFO,
+	GTP5G_URR_SEQ,
+    GTP5G_URR_SEID,
+
+    __GTP5G_URR_ATTR_MAX,
+};
 
 #endif
