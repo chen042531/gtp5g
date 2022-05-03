@@ -861,15 +861,15 @@ static int pdr_fill(struct gtp5g_pdr *pdr, struct gtp5g_dev *gtp, struct genl_in
     }
 
     /* URR */
-    printk("^^^^^ GTP5G_PDR_URR_ID>>>111>>");
+    printk("^^@@^^^ GTP5G_PDR_URR_ID>>>111>>");
     if (info->attrs[GTP5G_PDR_URR_ID]) {
-        printk("^^^^^ GTP5G_PDR_URR_ID exist");
+        printk("^^@@^^^ GTP5G_PDR_URR_ID exist");
         u32 *urr_ids = nla_data(info->attrs[GTP5G_PDR_URR_ID]);
         u32 num_of_urr = nla_len(info->attrs[GTP5G_PDR_URR_ID]) / sizeof(u32);
 
 
         for (i = 0; i < num_of_urr; i++) {
-            printk("^^^^^ urrId %u->%u", i, urr_ids[i]);
+            printk("^^^@@^^ urrId %u->%u", i, urr_ids[i]);
         }
     }
     /* QER */
@@ -3910,11 +3910,38 @@ static const struct genl_ops gtp5g_genl_ops[] = {
     },
     {
         .cmd = GTP5G_CMD_ADD_URR,
-        // .validate = GENL_DONT_VALIDATE_STRICT | GENL_DONT_VALIDATE_DUMP,
         .doit = gtp5g_genl_add_urr,
-        // .policy = gtp5g_genl_pdr_policy,
         .flags = GENL_ADMIN_PERM,
     },
+    /*
+    {
+        .cmd = GTP5G_CMD_DEL_URR,
+        .doit = gtp5g_genl_del_urr,
+        .flags = GENL_ADMIN_PERM,
+    },
+    {
+        .cmd = GTP5G_CMD_GET_URR,
+        .doit = gtp5g_genl_get_urr,
+        .dumpit = gtp5g_genl_dump_urr,
+        .flags = GENL_ADMIN_PERM,
+    },
+    {
+        .cmd = GTP5G_CMD_ADD_BAR,
+        .doit = gtp5g_genl_add_bar,
+        .flags = GENL_ADMIN_PERM,
+    },
+    {
+        .cmd = GTP5G_CMD_DEL_BAR,
+        .doit = gtp5g_genl_del_bar,
+        .flags = GENL_ADMIN_PERM,
+    },
+    {
+        .cmd = GTP5G_CMD_GET_BAR,
+        .doit = gtp5g_genl_get_bar,
+        .dumpit = gtp5g_genl_dump_bar,
+        .flags = GENL_ADMIN_PERM,
+    }, 
+    */
 };
 
 static struct genl_family gtp5g_genl_family __ro_after_init = {
