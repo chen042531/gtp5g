@@ -261,10 +261,13 @@ enum gtp5g_pdr_attrs {
     GTP5G_PDR_QER_ID,
 
     GTP5G_PDR_SEID,
-	/* Add newly supported feature ON ABOVE
+	
+    GTP5G_PDR_URR_ID,
+    /* Add newly supported feature ON ABOVE
 	 * for compatability with older version of
 	 * free5GC's UPF or libgtp5gnl
 	 * */
+
 
     __GTP5G_PDR_ATTR_MAX,
 };

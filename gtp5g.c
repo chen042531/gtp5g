@@ -860,6 +860,18 @@ static int pdr_fill(struct gtp5g_pdr *pdr, struct gtp5g_dev *gtp, struct genl_in
         GTP5G_ERR(NULL, "FAR ID not exist\n");
     }
 
+    /* URR */
+    printk("^^^^^ GTP5G_PDR_URR_ID>>>111>>");
+    if (info->attrs[GTP5G_PDR_URR_ID]) {
+        printk("^^^^^ GTP5G_PDR_URR_ID exist");
+        u32 *urr_ids = nla_data(info->attrs[GTP5G_PDR_URR_ID]);
+        u32 num_of_urr = nla_len(info->attrs[GTP5G_PDR_URR_ID]) / sizeof(u32);
+
+
+        for (i = 0; i < num_of_urr; i++) {
+            printk("^^^^^ urrId %u->%u", i, urr_ids[i]);
+        }
+    }
     /* QER */
     if (info->attrs[GTP5G_PDR_QER_ID]) {
         if (!pdr->qer_id) {
