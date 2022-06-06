@@ -1196,6 +1196,7 @@ static void __gtp5g_encap_destroy(struct sock *sk)
 {
     struct gtp5g_dev *gtp;
 
+    printk(">>>>>>> __gtp5g_encap_destroy\n");
     lock_sock(sk);
     gtp = sk->sk_user_data;
     if (gtp) {
@@ -1223,7 +1224,7 @@ static void gtp5g_encap_disable(struct gtp5g_dev *gtp)
 static void gtp5g_dev_uninit(struct net_device *dev)
 {
     struct gtp5g_dev *gtp = netdev_priv(dev);
-
+    printk(">>>>> gtp5g_dev_uninit ");
     gtp5g_encap_disable(gtp);
     free_percpu(dev->tstats);
 }
@@ -2030,6 +2031,7 @@ static struct gtp5g_far *gtp5g_find_far(struct net *net, struct nlattr *nla[])
 
 static void gtp5g_encap_destroy(struct sock *sk)
 {
+    printk(">>>>>> gtp5g_encap_destroy\n");
     rtnl_lock();
     __gtp5g_encap_destroy(sk);
     rtnl_unlock();
@@ -2448,6 +2450,7 @@ static struct sock *gtp5g_encap_enable_socket(int fd, int type,
     sk = sock->sk;
     sock_hold(sk);
 
+    printk(">>>> gtp5g_encap_enable\n");
     tuncfg.sk_user_data = gtp;
     tuncfg.encap_type = type;
     tuncfg.encap_rcv = gtp5g_encap_recv;
@@ -2502,6 +2505,7 @@ static int gtp5g_newlink(struct net *src_net, struct net_device *dev,
         return -EINVAL;
     }
 
+    printk(">>>>>> gtp5g newlink");
     gtp = netdev_priv(dev);
 
     err = gtp5g_encap_enable(gtp, data);
@@ -2544,10 +2548,13 @@ static void gtp5g_dellink(struct net_device *dev, struct list_head *head)
 {
     struct gtp5g_dev *gtp = netdev_priv(dev);
 
-    gtp5g_hashtable_free(gtp);
+    printk(">>>>> gtp5g_dellink yyyggg");
     list_del_rcu(&gtp->list);
     list_del_rcu(&gtp->proc_list);
     unregister_netdevice_queue(dev, head);
+    gtp5g_hashtable_free(gtp);
+    
+    // unregister_netdevice_queue(dev, head);
 
     GTP5G_LOG(dev, "De-registered 5G GTP interface\n");
 }
@@ -4021,6 +4028,7 @@ static void __net_exit gtp5g_net_exit(struct net *net)
     struct gtp5g_dev *gtp;
     LIST_HEAD(list);
 
+    printk(">>>>>> gtp5g_net_exit");
     rtnl_lock();
     list_for_each_entry(gtp, &gn->gtp5g_dev_list, list)
         gtp5g_dellink(gtp->dev, &list);
