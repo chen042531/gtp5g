@@ -3,6 +3,7 @@
 #include "genl.h"
 #include "link.h"
 #include "net.h"
+#include "proc.h"
 
 #define DRV_VERSION "0.5.4"
 
@@ -34,53 +35,15 @@ static int __init gtp5g_init(void)
         goto unreg_genl_family;
     }
 
-    // proc_gtp5g = proc_mkdir("gtp5g", NULL);
-    // if (!proc_gtp5g) {
-    //     GTP5G_ERR(NULL, "Failed to create /proc/gtp5g\n");
-    //     goto unreg_pernet;
-    // }
-
-    // proc_gtp5g_dbg = proc_create("dbg", (S_IFREG | S_IRUGO | S_IWUGO),
-    //     proc_gtp5g, &proc_gtp5g_dbg_ops);
-    // if (!proc_gtp5g_dbg) {
-    //     GTP5G_ERR(NULL, "Failed to create /proc/gtp5g/dbg\n");
-    //     goto remove_gtp5g_proc;
-    // }
-
-    // proc_gtp5g_pdr = proc_create("pdr", (S_IFREG | S_IRUGO | S_IWUGO),
-    //     proc_gtp5g, &proc_gtp5g_pdr_ops);
-    // if (!proc_gtp5g_pdr) {
-    //     GTP5G_ERR(NULL, "Failed to create /proc/gtp5g/pdr\n");
-    //     goto remove_dbg_proc;
-    // }
-
-    // proc_gtp5g_far = proc_create("far", (S_IFREG | S_IRUGO | S_IWUGO),
-    //     proc_gtp5g, &proc_gtp5g_far_ops);
-    // if (!proc_gtp5g_far) {
-    //     GTP5G_ERR(NULL, "Failed to create /proc/gtp5g/far\n");
-    //     goto remove_pdr_proc;
-    // }
-
-    // proc_gtp5g_qer = proc_create("qer", (S_IFREG | S_IRUGO | S_IWUGO), 
-    //     proc_gtp5g, &proc_gtp5g_qer_ops);
-    // if (!proc_gtp5g_qer) {
-    //     GTP5G_ERR(NULL, "Failed to create /proc/gtp5g/qer\n");
-    //     goto remove_far_proc;
-    // }
-
+    err = create_proc();
+    if (err < 0) {
+        goto unreg_pernet;
+    }
     // GTP5G_LOG(NULL, "5G GTP module loaded\n");
 
     return 0;
-// remove_far_proc:
-//     remove_proc_entry("far", proc_gtp5g);
-// remove_pdr_proc:
-//     remove_proc_entry("pdr", proc_gtp5g);
-// remove_dbg_proc:
-//     remove_proc_entry("dbg", proc_gtp5g);
-// remove_gtp5g_proc:
-//     remove_proc_entry("gtp5g", NULL);
-// unreg_pernet:
-//     unregister_pernet_subsys(&gtp5g_net_ops);
+unreg_pernet:
+    unregister_pernet_subsys(&gtp5g_net_ops);
 unreg_genl_family:
     genl_unregister_family(&gtp5g_genl_family);
 unreg_rtnl_link:
@@ -97,6 +60,7 @@ static void __exit gtp5g_fini(void)
     rtnl_link_unregister(&gtp5g_link_ops);
     unregister_pernet_subsys(&gtp5g_net_ops);
 
+    remove_proc();
     // remove_proc_entry("qer", proc_gtp5g);
     // remove_proc_entry("far", proc_gtp5g);
     // remove_proc_entry("pdr", proc_gtp5g);
