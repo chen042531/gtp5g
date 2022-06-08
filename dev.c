@@ -3,6 +3,10 @@
 
 #include "dev.h"
 #include "genl.h"
+#include "encap.h"
+#include "pdr.h"
+#include "far.h"
+#include "qer.h"
 
 
 struct gtp5g_dev *gtp5g_find_dev(struct net *src_net, int ifindex, int netnsfd)
@@ -36,7 +40,11 @@ struct gtp5g_dev *gtp5g_find_dev(struct net *src_net, int ifindex, int netnsfd)
 
 static int gtp5g_dev_init(struct net_device *dev)
 {
+    struct gtp5g_dev *gtp = netdev_priv(dev);
+    
     printk("<%s: %d> start\n", __func__, __LINE__);
+
+    gtp->dev = dev;
 
     dev->tstats = netdev_alloc_pcpu_stats(struct pcpu_sw_netstats);
     if (!dev->tstats) {
@@ -48,7 +56,10 @@ static int gtp5g_dev_init(struct net_device *dev)
 
 static void gtp5g_dev_uninit(struct net_device *dev)
 {
+    struct gtp5g_dev *gtp = netdev_priv(dev);
     printk("<%s: %d> start\n", __func__, __LINE__);
+
+    gtp5g_encap_disable(gtp);
     free_percpu(dev->tstats);
 }
 
@@ -75,3 +86,96 @@ const struct net_device_ops gtp5g_netdev_ops = {
     .ndo_get_stats64    = ip_tunnel_get_stats64,
 #endif
 };
+
+static int dev_hashtable_new(struct gtp5g_dev *gtp, int hsize)
+{
+    int i;
+
+    gtp->addr_hash = kmalloc_array(hsize, sizeof(struct hlist_head),
+        GFP_KERNEL);
+    if (gtp->addr_hash == NULL)
+        return -ENOMEM;
+
+    gtp->i_teid_hash = kmalloc_array(hsize, sizeof(struct hlist_head),
+        GFP_KERNEL);
+    if (gtp->i_teid_hash == NULL)
+        goto err1;
+
+    gtp->pdr_id_hash = kmalloc_array(hsize, sizeof(struct hlist_head),
+        GFP_KERNEL);
+    if (gtp->pdr_id_hash == NULL)
+        goto err2;
+
+    gtp->far_id_hash = kmalloc_array(hsize, sizeof(struct hlist_head),
+        GFP_KERNEL);
+    if (gtp->far_id_hash == NULL)
+        goto err3;
+
+    gtp->qer_id_hash = kmalloc_array(hsize, sizeof(struct hlist_head),
+        GFP_KERNEL);
+    if (gtp->qer_id_hash == NULL)
+        goto err4;
+
+    gtp->related_far_hash = kmalloc_array(hsize, sizeof(struct hlist_head),
+        GFP_KERNEL);
+    if (gtp->related_far_hash == NULL)
+        goto err5;
+
+    gtp->related_qer_hash = kmalloc_array(hsize, sizeof(struct hlist_head),
+        GFP_KERNEL);
+    if (gtp->related_qer_hash == NULL)
+        goto err6;
+
+    gtp->hash_size = hsize;
+
+    for (i = 0; i < hsize; i++) {
+        INIT_HLIST_HEAD(&gtp->addr_hash[i]);
+        INIT_HLIST_HEAD(&gtp->i_teid_hash[i]);
+        INIT_HLIST_HEAD(&gtp->pdr_id_hash[i]);
+        INIT_HLIST_HEAD(&gtp->far_id_hash[i]);
+        INIT_HLIST_HEAD(&gtp->qer_id_hash[i]);
+        INIT_HLIST_HEAD(&gtp->related_far_hash[i]);
+        INIT_HLIST_HEAD(&gtp->related_qer_hash[i]);
+    }
+
+    return 0;
+err6:
+    kfree(gtp->related_far_hash);
+err5:
+    kfree(gtp->qer_id_hash);
+err4:
+    kfree(gtp->far_id_hash);
+err3:
+    kfree(gtp->pdr_id_hash);
+err2:
+    kfree(gtp->i_teid_hash);
+err1:
+    kfree(gtp->addr_hash);
+    return -ENOMEM;
+}
+
+static void dev_hashtable_free(struct gtp5g_dev *gtp)
+{
+    struct gtp5g_pdr *pdr;
+    struct gtp5g_far *far;
+    struct gtp5g_qer *qer;
+    int i;
+
+    for (i = 0; i < gtp->hash_size; i++) {
+        hlist_for_each_entry_rcu(far, &gtp->far_id_hash[i], hlist_id)
+            far_context_delete(far);
+        hlist_for_each_entry_rcu(qer, &gtp->qer_id_hash[i], hlist_id)
+            qer_context_delete(qer);
+        hlist_for_each_entry_rcu(pdr, &gtp->pdr_id_hash[i], hlist_id)
+            pdr_context_delete(pdr);
+    }
+
+    synchronize_rcu();
+    kfree(gtp->addr_hash);
+    kfree(gtp->i_teid_hash);
+    kfree(gtp->pdr_id_hash);
+    kfree(gtp->far_id_hash);
+    kfree(gtp->qer_id_hash);
+    kfree(gtp->related_far_hash);
+    kfree(gtp->related_qer_hash);
+}

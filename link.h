@@ -3,12 +3,6 @@
 
 #include <net/rtnetlink.h>
 
-/* Maybe add this part to if_link.h */
-enum ifla_gtp5g_role {
-    GTP5G_ROLE_UPF = 0,
-    GTP5G_ROLE_RAN,
-};
-
 enum {
     IFLA_GTP5G_UNSPEC,
 
@@ -21,6 +15,13 @@ enum {
 #define IFLA_GTP5G_MAX (__IFLA_GTP5G_MAX - 1)
 /* end of part */
 
+enum ifla_gtp5g_role {
+    GTP5G_ROLE_UPF = 0,
+    GTP5G_ROLE_RAN,
+};
+
 extern struct rtnl_link_ops gtp5g_link_ops;
+
+extern void gtp5g_link_all_del(struct list_head *);
 
 #endif

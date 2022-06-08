@@ -1,9 +1,12 @@
 #include <net/rtnetlink.h>
 #include <net/ip.h>
 #include <net/udp.h>
+#include <net/netns/generic.h>
 
 #include "dev.h"
 #include "link.h"
+#include "net.h"
+#include "encap.h"
 
 const struct nla_policy gtp5g_policy[IFLA_GTP5G_MAX + 1] = {
     [IFLA_GTP5G_FD1]             = { .type = NLA_U32 },
@@ -88,35 +91,101 @@ static int gtp5g_newlink(struct net *src_net, struct net_device *dev,
     struct nlattr *tb[], struct nlattr *data[],
     struct netlink_ext_ack *extack)
 {
-    int err;
+    struct gtp5g_dev *gtp;
+    struct gtp5g_net *gn;
+    struct sock *sk;
+    u32 fd1;
+    int hashsize, err;
+
+    gtp = netdev_priv(dev);
 
     printk("<%s: %d> start\n", __func__, __LINE__);
+
+    if (!data[IFLA_GTP5G_FD1]) {
+        // GTP5G_ERR(NULL, "Failed to create a new link\n");
+        return -EINVAL;
+    }
+    fd1 = nla_get_u32(data[IFLA_GTP5G_FD1]);
+    sk = gtp5g_encap_enable(fd1, UDP_ENCAP_GTP1U, gtp);
+    if (IS_ERR(sk))
+        return PTR_ERR(sk);
+    gtp->sk1u = sk;
     
+    if (data[IFLA_GTP5G_ROLE]) {
+        role = nla_get_u32(data[IFLA_GTP5G_ROLE]);
+        if (role > GTP5G_ROLE_RAN) {
+            if (sk)
+                gtp5g_encap_disable(sk);
+            return -EINVAL;
+        }
+    }
+    gtp->role = role;
+    
+    if (!data[IFLA_GTP5G_PDR_HASHSIZE])
+        hashsize = 1024;
+    else
+        hashsize = nla_get_u32(data[IFLA_GTP5G_PDR_HASHSIZE]);
+
+    err = gtp5g_hashtable_new(gtp, hashsize);
+    if (err < 0) {
+        gtp5g_encap_disable(upf->sk1u);
+        // GTP5G_ERR(dev, "Failed to create a hash table\n");
+        goto out_encap;
+    }
+
     err = register_netdevice(dev);
 	if (err < 0) {
 		netdev_dbg(dev, "failed to register new netdev %d\n", err);
-		return err;
+        dev_hashtable_free(upf);
+		gtp5g_encap_disable(upf->sk1u);
+		goto out_hashtable;
 	}
 
+    gn = net_generic(dev_net(dev), gtp5g_net_id);
+    list_add_rcu(&gtp->list, &gn->gtp5g_dev_list);
+    // list_add_rcu(&gtp->proc_list, &proc_gtp5g_dev);
+
+    // GTP5G_LOG(dev, "Registered a new 5G GTP interface\n");
 	return 0;
+out_hashtable:
+    gtp5g_hashtable_free(gtp);
+out_encap:
+    gtp5g_encap_disable(gtp);
+    return err;
 }
 
 static void gtp5g_dellink(struct net_device *dev, struct list_head *head)
 {
+    struct gtp5g_dev *gtp = netdev_priv(dev);
+
     printk("<%s: %d> start\n", __func__, __LINE__);
+
+    // gtp5g_hashtable_free(gtp);
+    list_del_rcu(&gtp->list);
+    // list_del_rcu(&gtp->proc_list);
     unregister_netdevice_queue(dev, head);
 }
 
 static size_t gtp5g_get_size(const struct net_device *dev)
 {
     printk("<%s: %d> start\n", __func__, __LINE__);
-	return 0;
+	
+    /* IFLA_UPF_PDR_HASHSIZE */
+	return nla_total_size(sizeof(__u32));
 }
 
 static int gtp5g_fill_info(struct sk_buff *skb, const struct net_device *dev)
 {
+    struct gtp5g_dev *gtp = netdev_priv(dev);
+
     printk("<%s: %d> start\n", __func__, __LINE__);
-	return 0;
+	
+    if (nla_put_u32(skb, IFLA_GTP5G_PDR_HASHSIZE, gtp->hash_size))
+        goto nla_put_failure;
+
+    return 0;
+nla_put_failure:
+    return -EMSGSIZE;
 }
 
 struct rtnl_link_ops gtp5g_link_ops __read_mostly = {
@@ -131,3 +200,16 @@ struct rtnl_link_ops gtp5g_link_ops __read_mostly = {
     .get_size     = gtp5g_get_size,
     .fill_info    = gtp5g_fill_info,
 };
+
+void upf_link_all_del(struct list_head *dev_list)
+{
+    struct gtp5g_dev *gtp;
+    LIST_HEAD(list);
+
+    rtnl_lock();
+    list_for_each_entry(gtp, dev_list, list)
+        gtp5g_dellink(gtp->dev, &list);
+
+    unregister_netdevice_many(&list);
+    rtnl_unlock();
+}
