@@ -24,7 +24,7 @@ extern const struct net_device_ops gtp5g_netdev_ops;
 
 extern struct gtp5g_dev *gtp5g_find_dev(struct net *, int, int);
 
-extern int dev_hashtable_new(struct upf_dev *, int);
-extern void dev_hashtable_free(struct upf_dev *);
+extern int dev_hashtable_new(struct gtp5g_dev *, int);
+extern void dev_hashtable_free(struct gtp5g_dev *);
 
 #endif

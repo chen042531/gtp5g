@@ -92,6 +92,24 @@ enum gtp5g_f_teid_attrs {
 };
 #define GTP5G_F_TEID_ATTR_MAX (__GTP5G_F_TEID_ATTR_MAX - 1)
 
+enum {
+    GTP5G_SDF_FILTER_ACTION_UNSPEC = 0,
+
+    GTP5G_SDF_FILTER_PERMIT,
+
+    __GTP5G_SDF_FILTER_ACTION_MAX,
+};
+#define GTP5G_SDF_FILTER_ACTION_MAX (__GTP5G_SDF_FILTER_ACTION_MAX - 1)
+
+enum {
+    GTP5G_SDF_FILTER_DIRECTION_UNSPEC = 0,
+
+    GTP5G_SDF_FILTER_IN,
+    GTP5G_SDF_FILTER_OUT,
+
+    __GTP5G_SDF_FILTER_DIRECTION_MAX,
+};
+#define GTP5G_SDF_FILTER_DIRECTION_MAX (__GTP5G_SDF_FILTER_DIRECTION_MAX - 1)
 /* ------------------------------------------------------------------
  *								FAR
  * ------------------------------------------------------------------

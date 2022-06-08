@@ -7,7 +7,7 @@
 #include "pdr.h"
 #include "far.h"
 #include "qer.h"
-
+#include "pktinfo.h"
 
 struct gtp5g_dev *gtp5g_find_dev(struct net *src_net, int ifindex, int netnsfd)
 {
@@ -59,7 +59,7 @@ static void gtp5g_dev_uninit(struct net_device *dev)
     struct gtp5g_dev *gtp = netdev_priv(dev);
     printk("<%s: %d> start\n", __func__, __LINE__);
 
-    gtp5g_encap_disable(gtp);
+    gtp5g_encap_disable(gtp->sk1u);
     free_percpu(dev->tstats);
 }
 
@@ -68,12 +68,41 @@ static void gtp5g_dev_uninit(struct net_device *dev)
  * */
 static netdev_tx_t gtp5g_dev_xmit(struct sk_buff *skb, struct net_device *dev)
 {
-    printk("<%s: %d> start\n", __func__, __LINE__);
-    
-    // skb_dump("packet:", skb, 1);
+    unsigned int proto = ntohs(skb->protocol);
+    struct gtp5g_pktinfo pktinfo;
+    int ret = 0;
 
-	dev_kfree_skb(skb);
-	return NETDEV_TX_OK;
+    /* Ensure there is sufficient headroom */
+    if (skb_cow_head(skb, dev->needed_headroom)) {
+        goto tx_err;
+    }
+
+    skb_reset_inner_headers(skb);
+
+    /* PDR lookups in gtp5g_build_skb_*() need rcu read-side lock. 
+     * */
+    rcu_read_lock();
+    switch (proto) {
+    case ETH_P_IP:
+        ret = gtp5g_handle_skb_ipv4(skb, dev, &pktinfo);
+        break;
+    default:
+        ret = -EOPNOTSUPP;
+    }
+    rcu_read_unlock();
+
+    if (ret < 0)
+        goto tx_err;
+
+    if (ret == FAR_ACTION_FORW)
+        gtp5g_xmit_skb_ipv4(skb, &pktinfo);
+
+    return NETDEV_TX_OK;
+
+tx_err:
+    dev->stats.tx_errors++;
+    dev_kfree_skb(skb);
+    return NETDEV_TX_OK;
 }
 
 const struct net_device_ops gtp5g_netdev_ops = {
@@ -87,7 +116,7 @@ const struct net_device_ops gtp5g_netdev_ops = {
 #endif
 };
 
-static int dev_hashtable_new(struct gtp5g_dev *gtp, int hsize)
+int dev_hashtable_new(struct gtp5g_dev *gtp, int hsize)
 {
     int i;
 
@@ -154,11 +183,11 @@ err1:
     return -ENOMEM;
 }
 
-static void dev_hashtable_free(struct gtp5g_dev *gtp)
+void dev_hashtable_free(struct gtp5g_dev *gtp)
 {
-    struct gtp5g_pdr *pdr;
-    struct gtp5g_far *far;
-    struct gtp5g_qer *qer;
+    struct pdr *pdr;
+    struct far *far;
+    struct qer *qer;
     int i;
 
     for (i = 0; i < gtp->hash_size; i++) {

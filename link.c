@@ -7,24 +7,13 @@
 #include "link.h"
 #include "net.h"
 #include "encap.h"
+#include "gtp.h"
 
 const struct nla_policy gtp5g_policy[IFLA_GTP5G_MAX + 1] = {
     [IFLA_GTP5G_FD1]             = { .type = NLA_U32 },
     [IFLA_GTP5G_PDR_HASHSIZE]    = { .type = NLA_U32 },
     [IFLA_GTP5G_ROLE]            = { .type = NLA_U32 },
 };
-/* According to 3GPP TS 29.060. */
-struct gtpv1_hdr {
-	__u8	flags;
-#define GTPV1_HDR_FLG_NPDU		0x01
-#define GTPV1_HDR_FLG_SEQ		0x02
-#define GTPV1_HDR_FLG_EXTHDR	0x04
-#define GTPV1_HDR_FLG_MASK		0x07
-
-	__u8	type;
-	__be16	length;
-	__be32	tid;
-} __attribute__((packed)) gtpv1_hdr_t;
 
 static void gtp5g_link_setup(struct net_device *dev)
 {
@@ -94,6 +83,7 @@ static int gtp5g_newlink(struct net *src_net, struct net_device *dev,
     struct gtp5g_dev *gtp;
     struct gtp5g_net *gn;
     struct sock *sk;
+    unsigned int role = GTP5G_ROLE_UPF;
     u32 fd1;
     int hashsize, err;
 
@@ -126,9 +116,9 @@ static int gtp5g_newlink(struct net *src_net, struct net_device *dev,
     else
         hashsize = nla_get_u32(data[IFLA_GTP5G_PDR_HASHSIZE]);
 
-    err = gtp5g_hashtable_new(gtp, hashsize);
+    err = dev_hashtable_new(gtp, hashsize);
     if (err < 0) {
-        gtp5g_encap_disable(upf->sk1u);
+        gtp5g_encap_disable(gtp->sk1u);
         // GTP5G_ERR(dev, "Failed to create a hash table\n");
         goto out_encap;
     }
@@ -136,21 +126,21 @@ static int gtp5g_newlink(struct net *src_net, struct net_device *dev,
     err = register_netdevice(dev);
 	if (err < 0) {
 		netdev_dbg(dev, "failed to register new netdev %d\n", err);
-        dev_hashtable_free(upf);
-		gtp5g_encap_disable(upf->sk1u);
+        dev_hashtable_free(gtp);
+		gtp5g_encap_disable(gtp->sk1u);
 		goto out_hashtable;
 	}
 
-    gn = net_generic(dev_net(dev), gtp5g_net_id);
+    gn = net_generic(dev_net(dev), UPF_NET_ID());
     list_add_rcu(&gtp->list, &gn->gtp5g_dev_list);
     // list_add_rcu(&gtp->proc_list, &proc_gtp5g_dev);
 
     // GTP5G_LOG(dev, "Registered a new 5G GTP interface\n");
 	return 0;
 out_hashtable:
-    gtp5g_hashtable_free(gtp);
+    dev_hashtable_free(gtp);
 out_encap:
-    gtp5g_encap_disable(gtp);
+    gtp5g_encap_disable(gtp->sk1u);
     return err;
 }
 
@@ -201,7 +191,7 @@ struct rtnl_link_ops gtp5g_link_ops __read_mostly = {
     .fill_info    = gtp5g_fill_info,
 };
 
-void upf_link_all_del(struct list_head *dev_list)
+void gtp5g_link_all_del(struct list_head *dev_list)
 {
     struct gtp5g_dev *gtp;
     LIST_HEAD(list);

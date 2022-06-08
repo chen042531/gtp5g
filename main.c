@@ -4,6 +4,7 @@
 #include "link.h"
 #include "net.h"
 #include "proc.h"
+#include "hash.h"
 
 #define DRV_VERSION "0.5.4"
 
@@ -15,7 +16,8 @@ static int __init gtp5g_init(void)
 
     // INIT_LIST_HEAD(&proc_gtp5g_dev);
 
-    // get_random_bytes(&gtp5g_h_initval, sizeof(gtp5g_h_initval));
+    // set hash initial value
+    get_random_bytes(&gtp5g_h_initval, sizeof(gtp5g_h_initval));
 
     err = rtnl_link_register(&gtp5g_link_ops);
     if (err < 0) {
