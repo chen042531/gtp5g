@@ -131,7 +131,7 @@ static int gtp5g_newlink(struct net *src_net, struct net_device *dev,
 		goto out_hashtable;
 	}
 
-    gn = net_generic(dev_net(dev), UPF_NET_ID());
+    gn = net_generic(dev_net(dev), GTP5G_NET_ID());
     list_add_rcu(&gtp->list, &gn->gtp5g_dev_list);
     // list_add_rcu(&gtp->proc_list, &proc_gtp5g_dev);
 

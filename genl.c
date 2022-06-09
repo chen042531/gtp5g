@@ -2,252 +2,54 @@
 #include <net/genetlink.h>
 
 #include "genl.h"
+#include "genl_pdr.h"
+#include "genl_far.h"
+#include "genl_qer.h"
 
-static int parse_f_teid(struct nlattr *a)
-{
-	struct nlattr *attrs[GTP5G_F_TEID_ATTR_MAX + 1];
-	u32 teid;
-	u32 gtpu_addr;
-	int err;
 
-	printk("<%s:%d> start\n", __func__, __LINE__);
-
-	err = nla_parse_nested(attrs, GTP5G_F_TEID_ATTR_MAX, a, NULL, NULL);
-	if (err != 0) {
-		return err;
-	}
-
-	if (attrs[GTP5G_F_TEID_I_TEID]) {
-		teid = htonl(nla_get_u32(attrs[GTP5G_F_TEID_I_TEID]));
-		printk("TEID: %u\n", teid);
-	}
-
-	if (attrs[GTP5G_F_TEID_GTPU_ADDR_IPV4]) {
-		gtpu_addr = nla_get_be32(attrs[GTP5G_F_TEID_GTPU_ADDR_IPV4]);
-		printk("GTP-U Addr: %08x\n", gtpu_addr);
-	}
-
-	return 0;
-}
-
-static int parse_sdf_filter(struct nlattr *a)
-{
-	printk("<%s:%d> start\n", __func__, __LINE__);
-
-	return 0;
-}
-
-static int parse_pdi(struct nlattr *a)
-{
-	struct nlattr *attrs[GTP5G_PDI_ATTR_MAX + 1];
-	u32 ue_addr;
-	int err;
-
-	printk("<%s:%d> start\n", __func__, __LINE__);
-
-	err = nla_parse_nested(attrs, GTP5G_PDI_ATTR_MAX, a, NULL, NULL);
-	if (err != 0) {
-		return err;
-	}
-
-	if (attrs[GTP5G_PDI_UE_ADDR_IPV4]) {
-		ue_addr = nla_get_be32(attrs[GTP5G_PDI_UE_ADDR_IPV4]);
-		printk("UE Addr: %08x\n", ue_addr);
-	}
-
-	if (attrs[GTP5G_PDI_F_TEID]) {
-		parse_f_teid(attrs[GTP5G_PDI_F_TEID]);
-	}
-
-	if (attrs[GTP5G_PDI_SDF_FILTER]) {
-		parse_sdf_filter(attrs[GTP5G_PDI_SDF_FILTER]);
-	}
-
-	return 0;
-}
-
-static int gtp5g_genl_add_pdr(struct sk_buff *skb, struct genl_info *info)
-{
-    int ifindex;
-	int netnsfd;
-	u32 pdr_id;
-	u32 precedence;
-	u8 removal;
-	u32 far_id;
-	u32 qer_id;
-
-	printk("<%s:%d> start\n", __func__, __LINE__);
-
-	printk("info.net: %p\n", genl_info_net(info));
-	printk("info.nlhdr: %p\n", info->nlhdr);
-	printk("info.snd_portid: %u\n", info->snd_portid);
-
-    if (info->attrs[GTP5G_LINK]) {
-		ifindex = nla_get_u32(info->attrs[GTP5G_LINK]);
-	} else {
-		ifindex = -1;
-	}
-    printk("ifindex: %d\n", ifindex);
-
-    if (info->attrs[GTP5G_NET_NS_FD]) {
-		netnsfd = nla_get_u32(info->attrs[GTP5G_NET_NS_FD]);
-	} else {
-		netnsfd = -1;
-	}
-	printk("netnsfd: %d\n", netnsfd);
-
-	if (info->attrs[GTP5G_PDR_ID]) {
-		pdr_id = nla_get_u32(info->attrs[GTP5G_PDR_ID]);
-		printk("PDR ID: %u\n", pdr_id);
-	}
-
-	if (info->attrs[GTP5G_PDR_PRECEDENCE]) {
-		precedence = nla_get_u32(info->attrs[GTP5G_PDR_PRECEDENCE]);
-		printk("precedence: %u\n", precedence);
-	}
-
-	if (info->attrs[GTP5G_PDR_PDI]) {
-		parse_pdi(info->attrs[GTP5G_PDR_PDI]);
-	}
-
-	if (info->attrs[GTP5G_OUTER_HEADER_REMOVAL]) {
-		removal = nla_get_u8(info->attrs[GTP5G_OUTER_HEADER_REMOVAL]);
-		printk("removal: %u\n", removal);
-	}
-
-	if (info->attrs[GTP5G_PDR_FAR_ID]) {
-		far_id = nla_get_u32(info->attrs[GTP5G_PDR_FAR_ID]);
-		printk("far_id: %u\n", far_id);
-	}
-
-	if (info->attrs[GTP5G_PDR_QER_ID]) {
-		qer_id = nla_get_u32(info->attrs[GTP5G_PDR_QER_ID]);
-		printk("qer_id: %u\n", qer_id);
-	}
-
-	return 0;
-}
-
-static int gtp5g_genl_del_pdr(struct sk_buff *skb, struct genl_info *info)
-{
-    printk("<%s:%d> start\n", __func__, __LINE__);
-
-	return 0;
-}  
-
-static int gtp5g_genl_get_pdr(struct sk_buff *skb, struct genl_info *info)
-{
-    printk("<%s:%d> start\n", __func__, __LINE__);
-
-	return 0;
-}  
-
-static int gtp5g_genl_dump_pdr(struct sk_buff *skb, struct netlink_callback *cb)
-{
-    printk("<%s:%d> start\n", __func__, __LINE__);
-
-	return 0;
-}  
-
-static int gtp5g_genl_add_far(struct sk_buff *skb, struct genl_info *info)
-{
-    printk("<%s:%d> start\n", __func__, __LINE__);
-
-	return 0;
-}  
-
-static int gtp5g_genl_del_far(struct sk_buff *skb, struct genl_info *info)
-{
-    printk("<%s:%d> start\n", __func__, __LINE__);
-
-	return 0;
-}   
-
-static int gtp5g_genl_get_far(struct sk_buff *skb, struct genl_info *info)
-{
-    printk("<%s:%d> start\n", __func__, __LINE__);
-
-	return 0;
-}
-
-static int gtp5g_genl_dump_far(struct sk_buff *skb, struct netlink_callback *cb)
-{
-    printk("<%s:%d> start\n", __func__, __LINE__);
-
-	return 0;
-}
-
-static int gtp5g_genl_add_qer(struct sk_buff *skb, struct genl_info *info)
-{
-    printk("<%s:%d> start\n", __func__, __LINE__);
-
-	return 0;
-}
-
-static int gtp5g_genl_del_qer(struct sk_buff *skb, struct genl_info *info)
-{
-    printk("<%s:%d> start\n", __func__, __LINE__);
-
-	return 0;
-}
-
-static int gtp5g_genl_get_qer(struct sk_buff *skb, struct genl_info *info)
-{
-    printk("<%s:%d> start\n", __func__, __LINE__);
-
-	return 0;
-}
-
-static int gtp5g_genl_dump_qer(struct sk_buff *skb, struct netlink_callback *cb)
-{
-    printk("<%s:%d> start\n", __func__, __LINE__);
-
-	return 0;
-}
-
-static int gtp5g_genl_add_urr(struct sk_buff *skb, struct genl_info *info)
+int gtp5g_genl_add_urr(struct sk_buff *skb, struct genl_info *info)
 {
     /* Not implemented yet */
     return -1; 
 }
 
-static int gtp5g_genl_del_urr(struct sk_buff *skb, struct genl_info *info)
+int gtp5g_genl_del_urr(struct sk_buff *skb, struct genl_info *info)
 {
     /* Not implemented yet */
     return -1; 
 }
 
-static int gtp5g_genl_get_urr(struct sk_buff *skb, struct genl_info *info)
+int gtp5g_genl_get_urr(struct sk_buff *skb, struct genl_info *info)
 {
     /* Not implemented yet */
     return -1; 
 }
 
-static int gtp5g_genl_dump_urr(struct sk_buff *skb, struct netlink_callback *cb)
+int gtp5g_genl_dump_urr(struct sk_buff *skb, struct netlink_callback *cb)
 {
     /* Not implemented yet */
     return -1; 
 }
 
-static int gtp5g_genl_add_bar(struct sk_buff *skb, struct genl_info *info)
+int gtp5g_genl_add_bar(struct sk_buff *skb, struct genl_info *info)
 {
     /* Not implemented yet */
     return -1; 
 }
 
-static int gtp5g_genl_del_bar(struct sk_buff *skb, struct genl_info *info)
+int gtp5g_genl_del_bar(struct sk_buff *skb, struct genl_info *info)
 {
     /* Not implemented yet */
     return -1; 
 }
 
-static int gtp5g_genl_get_bar(struct sk_buff *skb, struct genl_info *info)
+int gtp5g_genl_get_bar(struct sk_buff *skb, struct genl_info *info)
 {
     /* Not implemented yet */
     return -1; 
 }
 
-static int gtp5g_genl_dump_bar(struct sk_buff *skb, struct netlink_callback *cb)
+int gtp5g_genl_dump_bar(struct sk_buff *skb, struct netlink_callback *cb)
 {
     /* Not implemented yet */
     return -1; 

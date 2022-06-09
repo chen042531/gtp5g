@@ -11,6 +11,6 @@ struct gtp5g_net {
 
 extern struct pernet_operations gtp5g_net_ops;
 
-#define UPF_NET_ID() (*gtp5g_net_ops.id)
+#define GTP5G_NET_ID() (*gtp5g_net_ops.id)
 
 #endif
