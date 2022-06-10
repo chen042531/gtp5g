@@ -482,10 +482,10 @@ static int far_fill(struct far *far, struct gtp5g_dev *gtp, struct genl_info *in
 	if (info->attrs[GTP5G_FAR_APPLY_ACTION])
 		far->action = nla_get_u8(info->attrs[GTP5G_FAR_APPLY_ACTION]);
 
-	if (info->attrs[GTP5G_FORWARDING_PARAMETER_ATTR_MAX]) {
+	if (info->attrs[GTP5G_FAR_FORWARDING_PARAMETER]) {
 		err = nla_parse_nested(attrs,
 				GTP5G_FORWARDING_PARAMETER_ATTR_MAX,
-				info->attrs[GTP5G_FORWARDING_PARAMETER_ATTR_MAX],
+				info->attrs[GTP5G_FAR_FORWARDING_PARAMETER],
 				NULL,
 				NULL);
 		if (err)
