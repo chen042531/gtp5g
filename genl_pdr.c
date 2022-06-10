@@ -443,7 +443,11 @@ static int parse_pdi(struct pdr *pdr, struct nlattr *a)
 				return -ENOMEM;
 		}
 		pdi->ue_addr_ipv4->s_addr = nla_get_be32(attrs[GTP5G_PDI_UE_ADDR_IPV4]);
-		printk("UE Addr: %08x\n", pdi->ue_addr_ipv4->s_addr);
+		printk("UE Addr: %i.%i.%i.%i",
+          (pdi->ue_addr_ipv4->s_addr) & 0xFF,
+          (pdi->ue_addr_ipv4->s_addr >> 8) & 0xFF,
+          (pdi->ue_addr_ipv4->s_addr >> 16) & 0xFF,
+          (pdi->ue_addr_ipv4->s_addr >> 24) & 0xFF);
 	}
 
 	if (attrs[GTP5G_PDI_F_TEID]) {
