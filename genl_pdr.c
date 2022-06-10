@@ -10,6 +10,7 @@
 #include "genl.h"
 #include "genl_pdr.h"
 #include "pdr.h"
+#include "encap.h"
 
 #include <linux/rculist.h>
 #include <net/netns/generic.h>
@@ -68,11 +69,25 @@ int gtp5g_genl_add_pdr(struct sk_buff *skb, struct genl_info *info)
 	}
 
 	if (info->attrs[GTP5G_PDR_SEID]) {
+		set_api_with_seid(true);
 		seid = nla_get_u32(info->attrs[GTP5G_PDR_SEID]);
 		printk("SEID: %llu\n", seid);
 	} else {
+		set_api_with_seid(false);
 		seid = 0;
 	}
+
+	printk("**************** api_with_seid:%u", get_api_with_seid());
+	/* 
+     * For backward compatability: 
+     * If information has GTP5G_PDR_URR_ID, 
+     * it means that user use the API which support 
+     * URR and BAR feature. Otherwise, use the older API. 
+     */
+    if (info->attrs[GTP5G_PDR_URR_ID])
+        set_api_with_urr_bar(true);
+    else
+        set_api_with_urr_bar(false);
 
 	if (info->attrs[GTP5G_PDR_ID]) {
 		pdr_id = nla_get_u32(info->attrs[GTP5G_PDR_ID]);

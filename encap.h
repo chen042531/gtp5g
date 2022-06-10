@@ -11,4 +11,10 @@ extern void gtp5g_encap_disable(struct sock *);
 extern int gtp5g_handle_skb_ipv4(struct sk_buff *, struct net_device *,
 		struct gtp5g_pktinfo *);
 
+extern void set_api_with_seid(bool);
+extern bool get_api_with_seid(void);
+
+extern void set_api_with_urr_bar(bool);
+extern bool get_api_with_urr_bar(void);
+
 #endif

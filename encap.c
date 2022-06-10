@@ -21,14 +21,15 @@
 #define MSG_URR_BAR_IOV_LEN 4
 #define MSG_SEID_IOV_LEN 3
 #define MSG_NO_SEID_IOV_LEN 2
-bool api_with_seid = false;
-bool api_with_urr_bar = false;
 
 enum msg_type {
     TYPE_BUFFER = 1,
     TYPE_URR_REPORT,
     TYPE_BAR_INFO,
 };
+
+bool api_with_seid = false;
+bool api_with_urr_bar = false;
 
 static void gtp5g_encap_disable_locked(struct sock *);
 static int gtp5g_encap_recv(struct sock *, struct sk_buff *);
@@ -40,6 +41,22 @@ static int unix_sock_send(struct pdr *, void *, u32);
 static int gtp5g_fwd_skb_ipv4(struct sk_buff *, 
     struct net_device *, struct gtp5g_pktinfo *, 
     struct pdr *);
+
+void set_api_with_seid(bool val){
+    api_with_seid = val;
+}
+
+bool get_api_with_seid(){
+    return api_with_seid;
+}
+
+void set_api_with_urr_bar(bool val){
+    api_with_urr_bar = val;
+}
+
+bool get_api_with_urr_bar(){
+    return api_with_urr_bar;
+}
 
 struct sock *gtp5g_encap_enable(int fd, int type, struct gtp5g_dev *gtp){
     struct udp_tunnel_sock_cfg tuncfg = {NULL};
@@ -204,6 +221,7 @@ static int gtp5g_drop_skb_encap(struct sk_buff *skb, struct net_device *dev,
 static int gtp5g_buf_skb_encap(struct sk_buff *skb, struct net_device *dev, 
     struct pdr *pdr)
 {
+    printk(">>>>>> gtp5g_buf_skb_encap");
     if (unix_sock_send(pdr, skb->data, skb_headlen(skb)) < 0) {
         // GTP5G_ERR(dev, "Failed to send skb to unix domain socket PDR(%u)", pdr->id);
         ++pdr->ul_drop_cnt;
@@ -228,13 +246,17 @@ static int unix_sock_send(struct pdr *pdr, void *buf, u32 len)
     u64 self_seid_hdr[1] = {pdr->seid};
     u16 self_hdr[2] = {pdr->id, pdr->far->action};
 
+    printk(">>>>>>>>>> unix socket send");
     if (!pdr->sock_for_buf) {
         // GTP5G_ERR(NULL, "Failed Socket buffer is NULL\n");
         return -EINVAL;
     }
 
+    printk(">>>>>>^^^ send seid api_with_seid val:%u", api_with_seid);
+    // api_with_seid = true;
     memset(&msg, 0, sizeof(msg));
-    if (api_with_seid && api_with_urr_bar) {    
+    if (get_api_with_seid() && get_api_with_urr_bar()) {    
+        printk(">>>>>>>>>> api_with_seid && api_with_urr_bar");
         msg_iovlen = MSG_URR_BAR_IOV_LEN;
         iov = kmalloc_array(msg_iovlen, sizeof(struct iovec),
             GFP_KERNEL);
@@ -251,7 +273,8 @@ static int unix_sock_send(struct pdr *pdr, void *buf, u32 len)
         iov[2].iov_len = sizeof(self_hdr);
         iov[3].iov_base = buf;
         iov[3].iov_len = len;
-    } else if (api_with_seid) {
+    } else if (get_api_with_seid()) {
+        printk(">>>>>>>>>> api_with_seid ");
         msg_iovlen = MSG_SEID_IOV_LEN;
         iov = kmalloc_array(msg_iovlen, sizeof(struct iovec),
             GFP_KERNEL);
@@ -268,6 +291,7 @@ static int unix_sock_send(struct pdr *pdr, void *buf, u32 len)
         iov[2].iov_len = len;
     } else {
         // for backward compatible
+        printk(">>>>>>>>>> api_not_with_seid ");
         msg_iovlen = MSG_NO_SEID_IOV_LEN;
         iov = kmalloc_array(msg_iovlen, sizeof(struct iovec),
             GFP_KERNEL);
@@ -282,6 +306,7 @@ static int unix_sock_send(struct pdr *pdr, void *buf, u32 len)
         iov[1].iov_len = len;
     }
     
+    printk(">>>>>>>>>> unix socket send 11");
     for (i = 0; i < msg_iovlen; i++)
         total_iov_len += iov[i].iov_len;
 
@@ -291,7 +316,7 @@ static int unix_sock_send(struct pdr *pdr, void *buf, u32 len)
     msg.msg_control = NULL;
     msg.msg_controllen = 0;
     msg.msg_flags = MSG_DONTWAIT;
-
+    printk(">>>>>>>>>> unix socket send 22");
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
     oldfs = force_uaccess_begin();
 #else
@@ -300,6 +325,7 @@ static int unix_sock_send(struct pdr *pdr, void *buf, u32 len)
 #endif
 
     rt = sock_sendmsg(pdr->sock_for_buf, &msg);
+    printk(">>>>>>>>>> unix socket send 33");
     kfree(iov);
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
@@ -341,9 +367,11 @@ static int gtp5g_rx(struct pdr *pdr, struct sk_buff *skb,
             rt = gtp5g_drop_skb_encap(skb, pdr->dev, pdr);
             break;
         case FAR_ACTION_FORW:
+            printk(">>>>> FAR_ACTION_FORW");
             rt = gtp5g_fwd_skb_encap(skb, pdr->dev, hdrlen, pdr);
             break;
         case FAR_ACTION_BUFF:
+            printk(">>>>> FAR_ACTION_BUFF");
             rt = gtp5g_buf_skb_encap(skb, pdr->dev, pdr);
             break;
         // default:
@@ -513,7 +541,9 @@ static int gtp5g_buf_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     struct pdr *pdr)
 {
     // TODO: handle nonlinear part
+    printk(">>>>>>>>> gtp5g_buf_skb_ipv4");
     if (unix_sock_send(pdr, skb->data, skb_headlen(skb)) < 0) {
+        printk(">>>>>>>>> failed to send");
         // GTP5G_ERR(dev, "Failed to send skb to unix domain socket PDR(%u)", pdr->id);
         ++pdr->dl_drop_cnt;
     }
@@ -562,8 +592,10 @@ int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
         case FAR_ACTION_DROP:
             return gtp5g_drop_skb_ipv4(skb, dev, pdr);
         case FAR_ACTION_FORW:
+        printk(">>>>>>> dev_forward");
             return gtp5g_fwd_skb_ipv4(skb, dev, pktinfo, pdr);
         case FAR_ACTION_BUFF:
+            printk(">>>>>>> dev_buff");
             return gtp5g_buf_skb_ipv4(skb, dev, pdr);
         // default:
             // GTP5G_ERR(dev, "Unspec apply action(%u) in FAR(%u) and related to PDR(%u)",
