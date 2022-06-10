@@ -92,6 +92,7 @@ void pdr_context_delete(struct pdr *pdr)
 // Delete the AF_UNIX client
 void unix_sock_client_delete(struct pdr *pdr)
 {
+	printk(">>> unix_sock_client_delete");
 	if (pdr->sock_for_buf)
 		sock_release(pdr->sock_for_buf);
 
@@ -105,28 +106,38 @@ int unix_sock_client_new(struct pdr *pdr)
 	struct sockaddr_un *addr = &pdr->addr_unix;
 	int err;
 
-	if (strlen(addr->sun_path) == 0)
+	printk("######### unix_sock_client_new ^^^^##ss");
+	printk("######### path:%s", addr->sun_path);
+	if (strlen(addr->sun_path) == 0){
+		printk("######### strlen(addr->sun_path) == 0");
 		return -EINVAL;
-
+	}
+	printk("######### unix_sock_client_new ^^^^ 1");
 	err = sock_create(AF_UNIX, SOCK_DGRAM, 0, psock);
-	if (err)
-		return err;
-
-	err = (*psock)->ops->connect(*psock, (struct sockaddr *)addr,
-			sizeof(addr->sun_family) + strlen(addr->sun_path), 0);
-	if (err) {
-		unix_sock_client_delete(pdr);
+	if (err){
+		printk("######### sock_create error");
 		return err;
 	}
 
+	printk("######### unix_sock_client_new ^^^^ 2");
+	err = (*psock)->ops->connect(*psock, (struct sockaddr *)addr,
+			sizeof(addr->sun_family) + strlen(addr->sun_path), 0);
+	if (err) {
+		printk("######### (*psock)->ops->connect(sock_create");
+		unix_sock_client_delete(pdr);
+		return err;
+	}
+	printk("######### unix_sock_client_new_end");
 	return 0;
 }
 
 // Handle PDR/FAR changed and affect buffering
 int unix_sock_client_update(struct pdr *pdr)
 {
+	
 	struct far *far = pdr->far;
 
+	printk("###### unix_sock_client_update");
 	unix_sock_client_delete(pdr);
 
 	if (far && (far->action & FAR_ACTION_BUFF))

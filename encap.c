@@ -325,7 +325,7 @@ static int unix_sock_send(struct pdr *pdr, void *buf, u32 len)
 #endif
 
     rt = sock_sendmsg(pdr->sock_for_buf, &msg);
-    printk(">>>>>>>>>> unix socket send 33");
+    printk(">>>>>>>>>> unix socket send 33 %d", rt);
     kfree(iov);
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
