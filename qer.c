@@ -26,7 +26,7 @@ void qer_context_delete(struct qer *qer)
 	struct gtp5g_dev *gtp = netdev_priv(qer->dev);
 	struct hlist_head *head;
 	struct pdr *pdr;
-	char *seid_qer_id_hexstr;
+	char seid_qer_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};;
 
 	if (!qer)
 		return;

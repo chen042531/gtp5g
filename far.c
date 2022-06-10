@@ -35,7 +35,7 @@ void far_context_delete(struct far *far)
 	struct hlist_head *head;
 	struct pdr *pdr;
 
-	char *seid_far_id_hexstr;
+	char seid_far_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};;
 
 	if (!far)
 		return;
