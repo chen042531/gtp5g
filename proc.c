@@ -8,6 +8,8 @@
 #include "pdr.h"
 #include "far.h"
 
+#include "util.h"
+
 struct list_head proc_gtp5g_dev;
 struct proc_gtp5g_pdr {
     u16     id;
@@ -121,6 +123,10 @@ static int proc_dbg_read(struct inode *inode, struct file *file)
 
 static int gtp5g_pdr_read(struct seq_file *s, void *v) 
 {
+    char role_addr[35];
+    char pdi_ue_addr[35];
+    char pdu_gtpu_addr[35];
+
     if (!proc_pdr_id) {
         seq_printf(s, "Given PDR ID does not exists\n");
         return -1;
@@ -131,10 +137,13 @@ static int gtp5g_pdr_read(struct seq_file *s, void *v)
     seq_printf(s, "\t ID : %u\n", proc_pdr.id);
     seq_printf(s, "\t Precedence: %u\n", proc_pdr.precedence);
     seq_printf(s, "\t OHR: %u\n", proc_pdr.ohr);
-    seq_printf(s, "\t Role Addr4: %#08x\n", ntohl(proc_pdr.role_addr4));
-    seq_printf(s, "\t PDI UE Addr4: %#08x\n", ntohl(proc_pdr.pdi_ue_addr4));
+    ip_string(role_addr, proc_pdr.role_addr4);
+    seq_printf(s, "\t Role Addr4: %s(%#08x)\n", role_addr, ntohl(proc_pdr.role_addr4));
+    ip_string(pdi_ue_addr, proc_pdr.pdi_ue_addr4);
+    seq_printf(s, "\t PDI UE Addr4: %s(%#08x)\n", pdi_ue_addr, ntohl(proc_pdr.pdi_ue_addr4));
     seq_printf(s, "\t PDI TEID: %#08x\n", ntohl(proc_pdr.pdi_fteid));
-    seq_printf(s, "\t PDU GTPU Addr4: %#08x\n", ntohl(proc_pdr.pdi_gtpu_addr4));
+    ip_string(pdu_gtpu_addr, proc_pdr.pdi_gtpu_addr4);
+    seq_printf(s, "\t PDU GTPU Addr4: %s(%#08x)\n", pdu_gtpu_addr, ntohl(proc_pdr.pdi_gtpu_addr4));
     seq_printf(s, "\t FAR ID: %u\n", proc_pdr.far_id);
     seq_printf(s, "\t QER ID: %u\n", proc_pdr.qer_id);
     seq_printf(s, "\t UL Drop Count: %#llx\n", proc_pdr.ul_drop_cnt);

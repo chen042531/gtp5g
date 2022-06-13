@@ -15,6 +15,7 @@
 #include <linux/rculist.h>
 #include <net/netns/generic.h>
 #include "net.h"
+#include "util.h"
 
 static int pdr_fill(struct pdr *, struct gtp5g_dev *, struct genl_info *);
 static int parse_pdi(struct pdr *, struct nlattr *);
@@ -437,6 +438,7 @@ static int parse_pdi(struct pdr *pdr, struct nlattr *a)
 	struct nlattr *attrs[GTP5G_PDI_ATTR_MAX + 1];
 	struct pdi *pdi;
 	int err;
+	char ip_str[40];
 
 	printk("<%s:%d> start\n", __func__, __LINE__);
 
@@ -458,11 +460,14 @@ static int parse_pdi(struct pdr *pdr, struct nlattr *a)
 				return -ENOMEM;
 		}
 		pdi->ue_addr_ipv4->s_addr = nla_get_be32(attrs[GTP5G_PDI_UE_ADDR_IPV4]);
-		printk("UE Addr: %i.%i.%i.%i",
-          (pdi->ue_addr_ipv4->s_addr) & 0xFF,
-          (pdi->ue_addr_ipv4->s_addr >> 8) & 0xFF,
-          (pdi->ue_addr_ipv4->s_addr >> 16) & 0xFF,
-          (pdi->ue_addr_ipv4->s_addr >> 24) & 0xFF);
+		// printk("UE Addr: %i.%i.%i.%i",
+        //   (pdi->ue_addr_ipv4->s_addr) & 0xFF,
+        //   (pdi->ue_addr_ipv4->s_addr >> 8) & 0xFF,
+        //   (pdi->ue_addr_ipv4->s_addr >> 16) & 0xFF,
+        //   (pdi->ue_addr_ipv4->s_addr >> 24) & 0xFF);
+		
+		ip_string(ip_str, pdi->ue_addr_ipv4->s_addr);
+		printk(">>>> UE Addr:%s", ip_str);
 	}
 
 	if (attrs[GTP5G_PDI_F_TEID]) {
