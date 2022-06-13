@@ -37,7 +37,7 @@ EXTRA_CFLAGS += -Wno-misleading-indentation -Wuninitialized
 CC += ${MY_CFLAGS}
 
 obj-m := $(MODULE_NAME).o
-gtp5g-y += main.o dev.o genl.o net.o link.o proc.o gtp.o pktinfo.o hash.o seid.o encap.o pdr.o far.o qer.o genl.o genl_pdr.o genl_far.o genl_qer.o
+gtp5g-y += main.o dev.o genl.o net.o link.o proc.o gtp.o pktinfo.o hash.o seid.o encap.o pdr.o far.o qer.o genl.o genl_pdr.o genl_far.o genl_qer.o log.o
 
 default: module
 

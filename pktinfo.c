@@ -11,6 +11,7 @@
 #include "far.h"
 #include "qer.h"
 #include "pktinfo.h"
+#include "log.h"
 
 struct rtable *ip4_find_route(struct sk_buff *skb, struct iphdr *iph,
     struct sock *sk, struct net_device *gtp_dev, 
@@ -29,13 +30,13 @@ struct rtable *ip4_find_route(struct sk_buff *skb, struct iphdr *iph,
 
     rt = ip_route_output_key(dev_net(gtp_dev), fl4);
     if (IS_ERR(rt)) {
-        // GTP5G_ERR(gtp_dev, "no route to %pI4\n", &iph->daddr);
+        GTP5G_ERR(gtp_dev, "no route to %pI4\n", &iph->daddr);
         gtp_dev->stats.tx_carrier_errors++;
         goto err;
     }
 
     if (rt->dst.dev == gtp_dev) {
-        // GTP5G_ERR(gtp_dev, "circular route to %pI4\n", &iph->daddr);
+        GTP5G_ERR(gtp_dev, "circular route to %pI4\n", &iph->daddr);
         gtp_dev->stats.collisions++;
         goto err_rt;
     }
@@ -62,7 +63,7 @@ struct rtable *ip4_find_route(struct sk_buff *skb, struct iphdr *iph,
 
     if (!skb_is_gso(skb) && (iph->frag_off & htons(IP_DF)) &&
         mtu < ntohs(iph->tot_len)) {
-        // GTP5G_ERR(gtp_dev, "packet too big, fragmentation needed\n");
+        GTP5G_ERR(gtp_dev, "packet too big, fragmentation needed\n");
         memset(IPCB(skb), 0, sizeof(*IPCB(skb)));
         icmp_send(skb, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED,
               htonl(mtu));
@@ -91,14 +92,14 @@ struct rtable *ip4_find_route_simple(struct sk_buff *skb,
 
     rt = ip_route_output_key(dev_net(gtp_dev), fl4);
     if (IS_ERR(rt)) {
-        // GTP5G_ERR(gtp_dev, "no route from %#x to %#x\n", saddr, daddr);
+        GTP5G_ERR(gtp_dev, "no route from %#x to %#x\n", saddr, daddr);
         gtp_dev->stats.tx_carrier_errors++;
         goto err;
     }
 
     if (rt->dst.dev == gtp_dev) {
-        // GTP5G_ERR(gtp_dev, "Packet colllisions from %#x to %#x\n", 
-            // saddr, daddr);
+        GTP5G_ERR(gtp_dev, "Packet colllisions from %#x to %#x\n", 
+            saddr, daddr);
         gtp_dev->stats.collisions++;
         goto err_rt;
     }
@@ -121,7 +122,7 @@ int ip_xmit(struct sk_buff *skb, struct sock *sk, struct net_device *gtp_dev)
 
     rt = ip4_find_route_simple(skb, sk, gtp_dev, 0, iph->daddr, &fl4);
     if (IS_ERR(rt)) {
-        // GTP5G_ERR(gtp_dev, "Failed to find route\n");
+        GTP5G_ERR(gtp_dev, "Failed to find route\n");
         return -EBADMSG;
     }
 
@@ -133,7 +134,7 @@ int ip_xmit(struct sk_buff *skb, struct sock *sk, struct net_device *gtp_dev)
     iph->saddr = rt->dst.dev->ip_ptr->ifa_list->ifa_address;
 
     if (ip_local_out(dev_net(gtp_dev), sk, skb) < 0) {
-        // GTP5G_ERR(gtp_dev, "Failed to send skb to ip layer\n");
+        GTP5G_ERR(gtp_dev, "Failed to send skb to ip layer\n");
         return -1;
     }
     return 0;
@@ -162,7 +163,7 @@ void gtp5g_fwd_emark_skb_ipv4(struct sk_buff *skb,
         epkt_info->peer_addr /* Dst Addr*/, 
         &fl4);
     if (IS_ERR(rt)) {
-        // GTP5G_ERR(dev, "Failed to send GTP-U end-marker due to routing\n");
+        GTP5G_ERR(dev, "Failed to send GTP-U end-marker due to routing\n");
         dev_kfree_skb(skb);
         return;
     }
@@ -183,8 +184,8 @@ void gtp5g_fwd_emark_skb_ipv4(struct sk_buff *skb,
 
 void gtp5g_xmit_skb_ipv4(struct sk_buff *skb, struct gtp5g_pktinfo *pktinfo)
 {
-    //GTP5G_ERR(pktinfo->dev, "gtp -> IP src: %pI4 dst: %pI4\n",
-    //           &pktinfo->iph->saddr, &pktinfo->iph->daddr);
+    GTP5G_ERR(pktinfo->dev, "gtp -> IP src: %pI4 dst: %pI4\n",
+              &pktinfo->iph->saddr, &pktinfo->iph->daddr);
     udp_tunnel_xmit_skb(pktinfo->rt, 
         pktinfo->sk,
         skb,
@@ -221,8 +222,8 @@ void gtp5g_push_header(struct sk_buff *skb, struct gtp5g_pktinfo *pktinfo)
     ext_pdu_sess_ctr_t *dl_pdu_sess;
     int ext_flag = 0;
 
-    // GTP5G_TRC(NULL, "SKBLen(%u) GTP-U V1(%zu) Opt(%zu) DL_PDU(%zu)\n", 
-        // payload_len, sizeof(*gtp1), sizeof(*gtp1opt), sizeof(*dl_pdu_sess));
+    GTP5G_TRC(NULL, "SKBLen(%u) GTP-U V1(%zu) Opt(%zu) DL_PDU(%zu)\n", 
+        payload_len, sizeof(*gtp1), sizeof(*gtp1opt), sizeof(*dl_pdu_sess));
 
     pktinfo->gtph_port = pktinfo->hdr_creation->port;
 
@@ -264,6 +265,6 @@ void gtp5g_push_header(struct sk_buff *skb, struct gtp5g_pktinfo *pktinfo)
     gtp1->tid = pktinfo->hdr_creation->teid;
     gtp1->length = htons(payload_len);       /* Excluded the header length of gtpv1 */
 
-    // GTP5G_TRC(NULL, "QER Found GTP-U Flg(%u) GTPU-L(%u) SkbLen(%u)\n", 
-        // gtp1->flags, ntohs(gtp1->length), skb->len);
+    GTP5G_TRC(NULL, "QER Found GTP-U Flg(%u) GTPU-L(%u) SkbLen(%u)\n", 
+        gtp1->flags, ntohs(gtp1->length), skb->len);
 }

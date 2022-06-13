@@ -8,6 +8,8 @@
 #include "net.h"
 #include "encap.h"
 #include "gtp.h"
+#include "log.h"
+#include "proc.h"
 
 const struct nla_policy gtp5g_policy[IFLA_GTP5G_MAX + 1] = {
     [IFLA_GTP5G_FD1]             = { .type = NLA_U32 },
@@ -92,7 +94,7 @@ static int gtp5g_newlink(struct net *src_net, struct net_device *dev,
     printk("<%s: %d> start\n", __func__, __LINE__);
 
     if (!data[IFLA_GTP5G_FD1]) {
-        // GTP5G_ERR(NULL, "Failed to create a new link\n");
+        GTP5G_ERR(NULL, "Failed to create a new link\n");
         return -EINVAL;
     }
     fd1 = nla_get_u32(data[IFLA_GTP5G_FD1]);
@@ -119,26 +121,26 @@ static int gtp5g_newlink(struct net *src_net, struct net_device *dev,
     err = dev_hashtable_new(gtp, hashsize);
     if (err < 0) {
         gtp5g_encap_disable(gtp->sk1u);
-        // GTP5G_ERR(dev, "Failed to create a hash table\n");
+        GTP5G_ERR(dev, "Failed to create a hash table\n");
         goto out_encap;
     }
 
     err = register_netdevice(dev);
 	if (err < 0) {
 		netdev_dbg(dev, "failed to register new netdev %d\n", err);
-        dev_hashtable_free(gtp);
+        gtp5g_hashtable_free(gtp);
 		gtp5g_encap_disable(gtp->sk1u);
 		goto out_hashtable;
 	}
 
     gn = net_generic(dev_net(dev), GTP5G_NET_ID());
     list_add_rcu(&gtp->list, &gn->gtp5g_dev_list);
-    // list_add_rcu(&gtp->proc_list, &proc_gtp5g_dev);
+    list_add_rcu(&gtp->proc_list, get_proc_gtp5g_dev_list_head());
 
-    // GTP5G_LOG(dev, "Registered a new 5G GTP interface\n");
+    GTP5G_LOG(dev, "Registered a new 5G GTP interface\n");
 	return 0;
 out_hashtable:
-    dev_hashtable_free(gtp);
+    gtp5g_hashtable_free(gtp);
 out_encap:
     gtp5g_encap_disable(gtp->sk1u);
     return err;
@@ -150,9 +152,9 @@ static void gtp5g_dellink(struct net_device *dev, struct list_head *head)
 
     printk("<%s: %d> start\n", __func__, __LINE__);
 
-    // gtp5g_hashtable_free(gtp);
+    gtp5g_hashtable_free(gtp);
     list_del_rcu(&gtp->list);
-    // list_del_rcu(&gtp->proc_list);
+    list_del_rcu(&gtp->proc_list);
     unregister_netdevice_queue(dev, head);
 }
 

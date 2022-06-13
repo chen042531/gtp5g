@@ -1,6 +1,7 @@
 #include <linux/udp.h>
 
 #include "gtp.h"
+#include "log.h"
 
 int get_gtpu_header_len(struct gtpv1_hdr *gtpv1,  struct sk_buff *skb)
 {
@@ -30,7 +31,7 @@ int get_gtpu_header_len(struct gtpv1_hdr *gtpv1,  struct sk_buff *skb)
         gtpv1_hdr_opt_t *gtpv1_opt;
         
         if (!pskb_may_pull(skb, pull_len)) {
-            // GTP5G_ERR(NULL, "Failed to pull skb length %#x\n", pull_len);
+            GTP5G_ERR(NULL, "Failed to pull skb length %#x\n", pull_len);
             return -1;
         }
         gtpv1_opt = (gtpv1_hdr_opt_t *) ((u8 *) gtpv1 + sizeof(*gtpv1));
@@ -43,7 +44,7 @@ int get_gtpu_header_len(struct gtpv1_hdr *gtpv1,  struct sk_buff *skb)
                 // pdu_sess_ctr_t *pdu_sess_info = &etype85->pdu_sess_ctr;
 
                 if (!pskb_may_pull(skb, (pull_len + 4))) {
-                    // GTP5G_ERR(NULL, "Failed to pull skb length %#x\n", pull_len);
+                    GTP5G_ERR(NULL, "Failed to pull skb length %#x\n", pull_len);
                     return -1;
                 }
                 etype85 = (ext_pdu_sess_ctr_t *) ((u8 *) gtpv1_opt + sizeof(*gtpv1_opt)); 
@@ -62,8 +63,8 @@ int get_gtpu_header_len(struct gtpv1_hdr *gtpv1,  struct sk_buff *skb)
             }
             default:
                 /* Unknown/Unhandled Extension Header Type */
-                //  GTP5G_ERR(NULL, "%s: Invalid header type(%#x)\n", 
-                //     __func__, next_ehdr_type);
+                 GTP5G_ERR(NULL, "%s: Invalid header type(%#x)\n", 
+                    __func__, next_ehdr_type);
                 return -1;
             }
         }

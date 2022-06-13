@@ -16,6 +16,7 @@
 #include "far.h"
 #include "qer.h"
 #include "genl.h"
+#include "log.h"
 
 /* used to compatible with api with/without seid */
 #define MSG_URR_BAR_IOV_LEN 4
@@ -64,23 +65,23 @@ struct sock *gtp5g_encap_enable(int fd, int type, struct gtp5g_dev *gtp){
     struct sock *sk;
     int err;
 
-    // GTP5G_LOG(NULL, "enable gtp5g for the fd(%d) type(%d)\n", fd, type);
+    GTP5G_LOG(NULL, "enable gtp5g for the fd(%d) type(%d)\n", fd, type);
 
     sock = sockfd_lookup(fd, &err);
     if (!sock) {
-        // GTP5G_ERR(NULL, "Failed to find the socket fd(%d)\n", fd);
+        GTP5G_ERR(NULL, "Failed to find the socket fd(%d)\n", fd);
         return NULL;
     }
 
     if (sock->sk->sk_protocol != IPPROTO_UDP) {
-        // GTP5G_ERR(NULL, "socket fd(%d) is not a UDP\n", fd);
+        GTP5G_ERR(NULL, "socket fd(%d) is not a UDP\n", fd);
         sk = ERR_PTR(-EINVAL);
         goto out_sock;
     }
 
     lock_sock(sock->sk);
     if (sock->sk->sk_user_data) {
-        // GTP5G_ERR(NULL, "Failed to set sk_user_datat of socket fd(%d)\n", fd);
+        GTP5G_ERR(NULL, "Failed to set sk_user_datat of socket fd(%d)\n", fd);
         sk = ERR_PTR(-EBUSY);
         goto out_sock;
     }
@@ -148,12 +149,12 @@ static int gtp5g_encap_recv(struct sock *sk, struct sk_buff *skb)
 
     switch (ret) {
     case 1:
-        // GTP5G_ERR(gtp->dev, "Pass up to the process\n");
+        GTP5G_ERR(gtp->dev, "Pass up to the process\n");
         break;
     case 0:
         break;
     case -1:
-        // GTP5G_ERR(gtp->dev, "GTP packet has been dropped\n");
+        GTP5G_ERR(gtp->dev, "GTP packet has been dropped\n");
         kfree_skb(skb);
         ret = 0;
         break;
@@ -170,40 +171,39 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
     int gtpv1_hdr_len;
 
     if (!pskb_may_pull(skb, hdrlen)) {
-        // GTP5G_ERR(gtp->dev, "Failed to pull skb length %#x\n", hdrlen);
+        GTP5G_ERR(gtp->dev, "Failed to pull skb length %#x\n", hdrlen);
         return -1;
     }
 
     gtpv1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
     if ((gtpv1->flags >> 5) != GTP_V1) {
-        // GTP5G_ERR(gtp->dev, "GTP-U version is not ver1: %#x\n",
-        //     gtpv1->flags);
+        GTP5G_ERR(gtp->dev, "GTP-U version is not ver1: %#x\n",
+            gtpv1->flags);
         return 1;
     }
 
     if (gtpv1->type != GTP_TPDU) {
-        // GTP5G_ERR(gtp->dev, "GTP-U message type is not a TPDU: %#x\n",
-        //     gtpv1->type);
+        GTP5G_ERR(gtp->dev, "GTP-U message type is not a TPDU: %#x\n",
+            gtpv1->type);
         return 1;
     }
 
     gtpv1_hdr_len = get_gtpu_header_len(gtpv1, skb);
     if (gtpv1_hdr_len < 0) {
-        // GTP5G_ERR(gtp->dev, "Invalid extension header length or else\n");
+        GTP5G_ERR(gtp->dev, "Invalid extension header length or else\n");
         return -1;
     }
 
     hdrlen = sizeof(struct udphdr) + gtpv1_hdr_len;
     if (!pskb_may_pull(skb, hdrlen)) {
-        // GTP5G_ERR(gtp->dev, "Failed to pull skb length %#x\n", hdrlen);
+        GTP5G_ERR(gtp->dev, "Failed to pull skb length %#x\n", hdrlen);
         return -1;
     }
 
-    //GTP5G_ERR(gtp->dev, "Total header len(%#x)\n", hdrlen);
-    //gtp1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
+    GTP5G_ERR(gtp->dev, "Total header len(%#x)\n", hdrlen);
     pdr = pdr_find_by_gtp1u(gtp, skb, hdrlen, gtpv1->tid);
     if (!pdr) {
-        // GTP5G_ERR(gtp->dev, "No PDR match this skb : teid[%d]\n", ntohl(gtpv1->tid));
+        GTP5G_ERR(gtp->dev, "No PDR match this skb : teid[%d]\n", ntohl(gtpv1->tid));
         return -1;
     }
 
@@ -223,7 +223,7 @@ static int gtp5g_buf_skb_encap(struct sk_buff *skb, struct net_device *dev,
 {
     printk(">>>>>> gtp5g_buf_skb_encap");
     if (unix_sock_send(pdr, skb->data, skb_headlen(skb)) < 0) {
-        // GTP5G_ERR(dev, "Failed to send skb to unix domain socket PDR(%u)", pdr->id);
+        GTP5G_ERR(dev, "Failed to send skb to unix domain socket PDR(%u)", pdr->id);
         ++pdr->ul_drop_cnt;
     }
 
@@ -248,12 +248,11 @@ static int unix_sock_send(struct pdr *pdr, void *buf, u32 len)
 
     printk(">>>>>>>>>> unix socket send");
     if (!pdr->sock_for_buf) {
-        // GTP5G_ERR(NULL, "Failed Socket buffer is NULL\n");
+        GTP5G_ERR(NULL, "Failed Socket buffer is NULL\n");
         return -EINVAL;
     }
 
     printk(">>>>>>^^^ send seid api_with_seid val:%u", api_with_seid);
-    // api_with_seid = true;
     memset(&msg, 0, sizeof(msg));
     if (get_api_with_seid() && get_api_with_urr_bar()) {    
         printk(">>>>>>>>>> api_with_seid && api_with_urr_bar");
@@ -343,10 +342,10 @@ static int gtp5g_rx(struct pdr *pdr, struct sk_buff *skb,
 {
     int rt = -1;
     struct far *far = pdr->far;
-    //struct gtp5g_qer *qer = pdr->qer;
+    // struct qer *qer = pdr->qer;
 
     if (!far) {
-        // GTP5G_ERR(pdr->dev, "FAR not exists for PDR(%u)\n", pdr->id);
+        GTP5G_ERR(pdr->dev, "FAR not exists for PDR(%u)\n", pdr->id);
         goto out;
     }
 
@@ -374,16 +373,16 @@ static int gtp5g_rx(struct pdr *pdr, struct sk_buff *skb,
             printk(">>>>> FAR_ACTION_BUFF");
             rt = gtp5g_buf_skb_encap(skb, pdr->dev, pdr);
             break;
-        // default:
-            // GTP5G_ERR(pdr->dev, "Unhandled apply action(%u) in FAR(%u) and related to PDR(%u)\n",
-            //     far->action, far->id, pdr->id);
+        default:
+            GTP5G_ERR(pdr->dev, "Unhandled apply action(%u) in FAR(%u) and related to PDR(%u)\n",
+                far->action, far->id, pdr->id);
         }
         goto out;
     } 
 
     // TODO: this action is not supported
-    // GTP5G_ERR(pdr->dev, "Uplink: PDR(%u) didn't has a OHR information "
-    //     "(which routed to the gtp interface and matches a PDR)\n", pdr->id);
+    GTP5G_ERR(pdr->dev, "Uplink: PDR(%u) didn't has a OHR information "
+        "(which routed to the gtp interface and matches a PDR)\n", pdr->id);
 
 out:
     return rt;
@@ -415,8 +414,8 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
             iph = ip_hdr(skb);
 
             if (!pdr->pdi->f_teid) {
-                // GTP5G_ERR(dev, "Failed to hdr removal + creation "
-                //     "due to pdr->pdi->f_teid not exist\n");
+                GTP5G_ERR(dev, "Failed to hdr removal + creation "
+                    "due to pdr->pdi->f_teid not exist\n");
                 return -1;
             }
             
@@ -428,7 +427,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
             uh->check = 0;
 
             if (ip_xmit(skb, pdr->sk, dev) < 0) {
-                // GTP5G_ERR(dev, "Failed to transmit skb through ip_xmit\n");
+                GTP5G_ERR(dev, "Failed to transmit skb through ip_xmit\n");
                 return -1;
             }
 
@@ -442,7 +441,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
             skb->protocol,
             !net_eq(sock_net(pdr->sk), 
             dev_net(dev)))) {
-        // GTP5G_ERR(dev, "Failed to pull GTP-U and UDP headers\n");
+        GTP5G_ERR(dev, "Failed to pull GTP-U and UDP headers\n");
         return -1;
     }
 
@@ -462,11 +461,11 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
 
     pdr->ul_pkt_cnt++;
     pdr->ul_byte_cnt += skb->len; /* length without GTP header */
-    // GTP5G_LOG(NULL, "PDR (%u) UL_PKT_CNT (%llu) UL_BYTE_CNT (%llu)", pdr->id, pdr->ul_pkt_cnt, pdr->ul_byte_cnt);
+    GTP5G_LOG(NULL, "PDR (%u) UL_PKT_CNT (%llu) UL_BYTE_CNT (%llu)", pdr->id, pdr->ul_pkt_cnt, pdr->ul_byte_cnt);
 
     ret = netif_rx(skb);
     if (ret != NET_RX_SUCCESS) {
-        // GTP5G_ERR(dev, "Uplink: Packet got dropped\n");
+        GTP5G_ERR(dev, "Uplink: Packet got dropped\n");
     }
 
     return 0;
@@ -491,7 +490,7 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
 
     if (!(pdr->far && pdr->far->fwd_param &&
         pdr->far->fwd_param->hdr_creation)) {
-        // GTP5G_ERR(dev, "Unknown RAN address\n");
+        GTP5G_ERR(dev, "Unknown RAN address\n");
         goto err;
     }
 
@@ -528,7 +527,7 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
 
     pdr->dl_pkt_cnt++;
     pdr->dl_byte_cnt += skb->len;
-    // GTP5G_LOG(NULL, "PDR (%u) DL_PKT_CNT (%llu) DL_BYTE_CNT (%llu)", pdr->id, pdr->dl_pkt_cnt, pdr->dl_byte_cnt);
+    GTP5G_LOG(NULL, "PDR (%u) DL_PKT_CNT (%llu) DL_BYTE_CNT (%llu)", pdr->id, pdr->dl_pkt_cnt, pdr->dl_byte_cnt);
 
     gtp5g_push_header(skb, pktinfo);
 
@@ -544,7 +543,7 @@ static int gtp5g_buf_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     printk(">>>>>>>>> gtp5g_buf_skb_ipv4");
     if (unix_sock_send(pdr, skb->data, skb_headlen(skb)) < 0) {
         printk(">>>>>>>>> failed to send");
-        // GTP5G_ERR(dev, "Failed to send skb to unix domain socket PDR(%u)", pdr->id);
+        GTP5G_ERR(dev, "Failed to send skb to unix domain socket PDR(%u)", pdr->id);
         ++pdr->dl_drop_cnt;
     }
 
@@ -571,7 +570,7 @@ int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
         pdr = pdr_find_by_ipv4(gtp, skb, 0, iph->saddr);
 
     if (!pdr) {
-        // GTP5G_ERR(dev, "no PDR found for %pI4, skip\n", &iph->daddr);
+        GTP5G_ERR(dev, "no PDR found for %pI4, skip\n", &iph->daddr);
         return -ENOENT;
     }
 
@@ -597,9 +596,9 @@ int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
         case FAR_ACTION_BUFF:
             printk(">>>>>>> dev_buff");
             return gtp5g_buf_skb_ipv4(skb, dev, pdr);
-        // default:
-            // GTP5G_ERR(dev, "Unspec apply action(%u) in FAR(%u) and related to PDR(%u)",
-            //     far->action, far->id, pdr->id);
+        default:
+            GTP5G_ERR(dev, "Unspec apply action(%u) in FAR(%u) and related to PDR(%u)",
+                far->action, far->id, pdr->id);
         }
     }
 

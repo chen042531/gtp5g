@@ -5,6 +5,7 @@
 #include "net.h"
 #include "proc.h"
 #include "hash.h"
+#include "log.h"
 
 #define DRV_VERSION "0.5.4"
 
@@ -12,28 +13,28 @@ static int __init gtp5g_init(void)
 {
     int err;
 
-    // GTP5G_LOG(NULL, "Gtp5g Module initialization Ver: %s\n", DRV_VERSION);
+    GTP5G_LOG(NULL, "Gtp5g Module initialization Ver: %s\n", DRV_VERSION);
 
-    // INIT_LIST_HEAD(&proc_gtp5g_dev);
+    init_proc_gtp5g_dev_list();
 
     // set hash initial value
     get_random_bytes(&gtp5g_h_initval, sizeof(gtp5g_h_initval));
 
     err = rtnl_link_register(&gtp5g_link_ops);
     if (err < 0) {
-        // GTP5G_ERR(NULL, "Failed to register rtnl\n");
+        GTP5G_ERR(NULL, "Failed to register rtnl\n");
         goto error_out;
     }
 
     err = genl_register_family(&gtp5g_genl_family);
     if (err < 0) {
-        // GTP5G_ERR(NULL, "Failed to register generic\n");
+        GTP5G_ERR(NULL, "Failed to register generic\n");
         goto unreg_rtnl_link;
     }
 
     err = register_pernet_subsys(&gtp5g_net_ops);
     if (err < 0) {
-        // GTP5G_ERR(NULL, "Failed to register namespace\n");
+        GTP5G_ERR(NULL, "Failed to register namespace\n");
         goto unreg_genl_family;
     }
 
@@ -41,7 +42,7 @@ static int __init gtp5g_init(void)
     if (err < 0) {
         goto unreg_pernet;
     }
-    // GTP5G_LOG(NULL, "5G GTP module loaded\n");
+    GTP5G_LOG(NULL, "5G GTP module loaded\n");
 
     return 0;
 unreg_pernet:
@@ -63,13 +64,8 @@ static void __exit gtp5g_fini(void)
     unregister_pernet_subsys(&gtp5g_net_ops);
 
     remove_proc();
-    // remove_proc_entry("qer", proc_gtp5g);
-    // remove_proc_entry("far", proc_gtp5g);
-    // remove_proc_entry("pdr", proc_gtp5g);
-    // remove_proc_entry("dbg", proc_gtp5g);
-    // remove_proc_entry("gtp5g", NULL);
 
-    // GTP5G_LOG(NULL, "5G GTP module unloaded\n");
+    GTP5G_LOG(NULL, "5G GTP module unloaded\n");
 }
 
 late_initcall(gtp5g_init);

@@ -183,7 +183,7 @@ err1:
     return -ENOMEM;
 }
 
-void dev_hashtable_free(struct gtp5g_dev *gtp)
+void gtp5g_hashtable_free(struct gtp5g_dev *gtp)
 {
     struct pdr *pdr;
     struct far *far;

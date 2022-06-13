@@ -14,10 +14,16 @@ struct gtp5g_dev {
 	struct hlist_head *pdr_id_hash;
 	struct hlist_head *far_id_hash;
 	struct hlist_head *qer_id_hash;
-	struct hlist_head *i_teid_hash;
-	struct hlist_head *addr_hash;
-	struct hlist_head *related_far_hash;
-	struct hlist_head *related_qer_hash;
+
+	struct hlist_head       *i_teid_hash;      // Used for GTP-U packet detect
+    struct hlist_head       *addr_hash;        // Used for IPv4 packet detect
+	
+	/* IEs list related to PDR */
+    struct hlist_head       *related_far_hash;     // PDR list waiting the FAR to handle
+    struct hlist_head       *related_qer_hash;     // PDR list waiting the QER to handle
+
+	/* Used by proc interface */
+    struct list_head        proc_list;
 };
 
 extern const struct net_device_ops gtp5g_netdev_ops;
@@ -25,6 +31,6 @@ extern const struct net_device_ops gtp5g_netdev_ops;
 extern struct gtp5g_dev *gtp5g_find_dev(struct net *, int, int);
 
 extern int dev_hashtable_new(struct gtp5g_dev *, int);
-extern void dev_hashtable_free(struct gtp5g_dev *);
+extern void gtp5g_hashtable_free(struct gtp5g_dev *);
 
 #endif
