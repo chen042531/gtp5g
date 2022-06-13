@@ -1,4 +1,5 @@
 #include <linux/netdevice.h>
+#include <net/udp_tunnel.h>
 #include <linux/version.h>
 
 #include "dev.h"
