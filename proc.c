@@ -189,7 +189,7 @@ static int gtp5g_qer_read(struct seq_file *s, void *v)
 static ssize_t proc_pdr_write(struct file *filp, const char __user *buffer,
     size_t len, loff_t *dptr) 
 {
-	char buf[128], dev_name[32];
+    char buf[128], dev_name[32];
     u8 found = 0;
     unsigned long buf_len = min(sizeof(buf) - 1, len);
     struct pdr *pdr;
@@ -268,7 +268,7 @@ err:
 static ssize_t proc_far_write(struct file *filp, const char __user *buffer,
     size_t len, loff_t *dptr) 
 {
-	char buf[128], dev_name[32];
+    char buf[128], dev_name[32];
     u8 found = 0;
     unsigned long buf_len = min(sizeof(buf) - 1, len);
     struct far *far;

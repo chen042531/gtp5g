@@ -35,7 +35,7 @@ static int gtp5g_encap_recv(struct sock *, struct sk_buff *);
 static int gtp1u_udp_encap_recv(struct gtp5g_dev *, struct sk_buff *);
 static int gtp5g_rx(struct pdr *, struct sk_buff *, unsigned int, unsigned int);
 static int gtp5g_fwd_skb_encap(struct sk_buff *, struct net_device *,
-		unsigned int, struct pdr *);
+        unsigned int, struct pdr *);
 static int unix_sock_send(struct pdr *, void *, u32);
 static int gtp5g_fwd_skb_ipv4(struct sk_buff *, 
     struct net_device *, struct gtp5g_pktinfo *, 
@@ -87,13 +87,13 @@ out_sock:
 
 void gtp5g_encap_disable(struct sock *sk)
 {
-	struct gtp5g_dev *gtp;
+    struct gtp5g_dev *gtp;
 
-	if (!sk) {
-		return;
-	}
+    if (!sk) {
+        return;
+    }
 
-	lock_sock(sk);
+    lock_sock(sk);
     gtp = sk->sk_user_data;
     if (gtp) {
         gtp->sk1u = NULL;
@@ -106,9 +106,9 @@ void gtp5g_encap_disable(struct sock *sk)
 
 static void gtp5g_encap_disable_locked(struct sock *sk)
 {
-	rtnl_lock();
-	gtp5g_encap_disable(sk);
-	rtnl_unlock();
+    rtnl_lock();
+    gtp5g_encap_disable(sk);
+    rtnl_unlock();
 }
 
 static int gtp5g_encap_recv(struct sock *sk, struct sk_buff *skb)

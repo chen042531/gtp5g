@@ -20,9 +20,9 @@ struct gtp5g_dev *gtp5g_find_dev(struct net *src_net, int ifindex, int netnsfd)
      * we are talking about.
      */
     if (netnsfd == -1)
-		net = get_net(src_net);
-	else
-		net = get_net_ns_by_fd(netnsfd);
+        net = get_net(src_net);
+    else
+        net = get_net_ns_by_fd(netnsfd);
 
     if (IS_ERR(net))
         return NULL;
@@ -32,7 +32,7 @@ struct gtp5g_dev *gtp5g_find_dev(struct net *src_net, int ifindex, int netnsfd)
     if (dev && dev->netdev_ops == &gtp5g_netdev_ops)
         gtp = netdev_priv(dev);
     else
-		gtp = NULL;
+        gtp = NULL;
 
     put_net(net);
 

@@ -15,7 +15,6 @@ enum gtp5g_qer_attrs {
     GTP5G_QER_QFI,
     GTP5G_QER_PPI,
     GTP5G_QER_RCSR,
-	
 
     /* Not IEs in 3GPP Spec, for other purpose */
     GTP5G_QER_RELATED_TO_PDR,

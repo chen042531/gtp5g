@@ -31,18 +31,18 @@ struct gtp5g_emark_pktinfo {
 };
 
 extern struct rtable *ip4_find_route(struct sk_buff *, struct iphdr *,
-		struct sock *, struct net_device *,
-		__be32, __be32, struct flowi4 *);
+        struct sock *, struct net_device *,
+        __be32, __be32, struct flowi4 *);
 extern void gtp5g_fwd_emark_skb_ipv4(struct sk_buff *,
-		struct net_device *, struct gtp5g_emark_pktinfo *);
+        struct net_device *, struct gtp5g_emark_pktinfo *);
 extern int ip_xmit(struct sk_buff *, struct sock *, struct net_device *);
 extern void gtp5g_xmit_skb_ipv4(struct sk_buff *, struct gtp5g_pktinfo *);
 
 extern void gtp5g_set_pktinfo_ipv4(struct gtp5g_pktinfo *,
-		struct sock *, struct iphdr *,
-	       	struct outer_header_creation *,
-		struct qer *, struct rtable *, struct flowi4 *,
-		struct net_device *);
+        struct sock *, struct iphdr *,
+        struct outer_header_creation *,
+        struct qer *, struct rtable *, struct flowi4 *,
+        struct net_device *);
 extern void gtp5g_push_header(struct sk_buff *, struct gtp5g_pktinfo *);
 
 #endif

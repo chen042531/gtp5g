@@ -53,27 +53,27 @@ static int gtp5g_validate(struct nlattr *tb[], struct nlattr *data[],
 {
     int i;
 
-	printk("<%s: %d> start\n", __func__, __LINE__);
-	printk("<%s: %d> tb: %p\n", __func__, __LINE__, tb);
-	printk("<%s: %d> data: %p\n", __func__, __LINE__, data);
+    printk("<%s: %d> start\n", __func__, __LINE__);
+    printk("<%s: %d> tb: %p\n", __func__, __LINE__, tb);
+    printk("<%s: %d> data: %p\n", __func__, __LINE__, data);
 
-	if (!data)
-		return -EINVAL;
+    if (!data)
+        return -EINVAL;
 
-	for (i = 0; tb[i] != NULL; i++) {
-		printk("<%s: %d> tb[%d]: type: %u\n", __func__, __LINE__, 0,
-				tb[i]->nla_type);
-		printk("<%s: %d> tb[%d]: len: %u\n", __func__, __LINE__, 0,
-				tb[i]->nla_len);
-	}
-	for (i = 0; data[i] != NULL; i++) {
-		printk("<%s: %d> data[%d]: type: %u\n", __func__, __LINE__, 0,
-				data[i]->nla_type);
-		printk("<%s: %d> data[%d]: len: %u\n", __func__, __LINE__, 0,
-				data[i]->nla_len);
-	}
+    for (i = 0; tb[i] != NULL; i++) {
+        printk("<%s: %d> tb[%d]: type: %u\n", __func__, __LINE__, 0,
+                tb[i]->nla_type);
+        printk("<%s: %d> tb[%d]: len: %u\n", __func__, __LINE__, 0,
+                tb[i]->nla_len);
+    }
+    for (i = 0; data[i] != NULL; i++) {
+        printk("<%s: %d> data[%d]: type: %u\n", __func__, __LINE__, 0,
+                data[i]->nla_type);
+        printk("<%s: %d> data[%d]: len: %u\n", __func__, __LINE__, 0,
+                data[i]->nla_len);
+    }
 
-	printk("<%s: %d> end\n", __func__, __LINE__);
+    printk("<%s: %d> end\n", __func__, __LINE__);
 
     return 0;
 }
@@ -126,19 +126,19 @@ static int gtp5g_newlink(struct net *src_net, struct net_device *dev,
     }
 
     err = register_netdevice(dev);
-	if (err < 0) {
-		netdev_dbg(dev, "failed to register new netdev %d\n", err);
+    if (err < 0) {
+        netdev_dbg(dev, "failed to register new netdev %d\n", err);
         gtp5g_hashtable_free(gtp);
-		gtp5g_encap_disable(gtp->sk1u);
-		goto out_hashtable;
-	}
+        gtp5g_encap_disable(gtp->sk1u);
+        goto out_hashtable;
+    }
 
     gn = net_generic(dev_net(dev), GTP5G_NET_ID());
     list_add_rcu(&gtp->list, &gn->gtp5g_dev_list);
     list_add_rcu(&gtp->proc_list, get_proc_gtp5g_dev_list_head());
 
     GTP5G_LOG(dev, "Registered a new 5G GTP interface\n");
-	return 0;
+    return 0;
 out_hashtable:
     gtp5g_hashtable_free(gtp);
 out_encap:
@@ -161,9 +161,9 @@ static void gtp5g_dellink(struct net_device *dev, struct list_head *head)
 static size_t gtp5g_get_size(const struct net_device *dev)
 {
     printk("<%s: %d> start\n", __func__, __LINE__);
-	
+    
     /* IFLA_UPF_PDR_HASHSIZE */
-	return nla_total_size(sizeof(__u32));
+    return nla_total_size(sizeof(__u32));
 }
 
 static int gtp5g_fill_info(struct sk_buff *skb, const struct net_device *dev)
@@ -171,7 +171,7 @@ static int gtp5g_fill_info(struct sk_buff *skb, const struct net_device *dev)
     struct gtp5g_dev *gtp = netdev_priv(dev);
 
     printk("<%s: %d> start\n", __func__, __LINE__);
-	
+
     if (nla_put_u32(skb, IFLA_GTP5G_PDR_HASHSIZE, gtp->hash_size))
         goto nla_put_failure;
 

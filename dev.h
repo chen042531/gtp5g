@@ -6,23 +6,23 @@
 #include <linux/socket.h>
 
 struct gtp5g_dev {
-	struct list_head list;
-	struct sock *sk1u;
-	struct net_device *dev;
-	unsigned int role;
-	unsigned int hash_size;
-	struct hlist_head *pdr_id_hash;
-	struct hlist_head *far_id_hash;
-	struct hlist_head *qer_id_hash;
+    struct list_head list;
+    struct sock *sk1u;
+    struct net_device *dev;
+    unsigned int role;
+    unsigned int hash_size;
+    struct hlist_head *pdr_id_hash;
+    struct hlist_head *far_id_hash;
+    struct hlist_head *qer_id_hash;
 
-	struct hlist_head       *i_teid_hash;      // Used for GTP-U packet detect
+    struct hlist_head       *i_teid_hash;      // Used for GTP-U packet detect
     struct hlist_head       *addr_hash;        // Used for IPv4 packet detect
-	
-	/* IEs list related to PDR */
+    
+    /* IEs list related to PDR */
     struct hlist_head       *related_far_hash;     // PDR list waiting the FAR to handle
     struct hlist_head       *related_qer_hash;     // PDR list waiting the QER to handle
 
-	/* Used by proc interface */
+    /* Used by proc interface */
     struct list_head        proc_list;
 };
 
