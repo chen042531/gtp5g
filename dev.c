@@ -42,8 +42,6 @@ struct gtp5g_dev *gtp5g_find_dev(struct net *src_net, int ifindex, int netnsfd)
 static int gtp5g_dev_init(struct net_device *dev)
 {
     struct gtp5g_dev *gtp = netdev_priv(dev);
-    
-    printk("<%s: %d> start\n", __func__, __LINE__);
 
     gtp->dev = dev;
 
@@ -58,7 +56,6 @@ static int gtp5g_dev_init(struct net_device *dev)
 static void gtp5g_dev_uninit(struct net_device *dev)
 {
     struct gtp5g_dev *gtp = netdev_priv(dev);
-    printk("<%s: %d> start\n", __func__, __LINE__);
 
     gtp5g_encap_disable(gtp->sk1u);
     free_percpu(dev->tstats);

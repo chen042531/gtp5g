@@ -21,8 +21,6 @@ static void __net_exit gtp5g_net_exit(struct net *net)
 {
     struct gtp5g_net *gn = net_generic(net, gtp5g_net_id);
 
-    printk("<%s: %d> start\n", __func__, __LINE__);
-
     gtp5g_link_all_del(&gn->gtp5g_dev_list);
 }
 

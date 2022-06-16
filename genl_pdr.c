@@ -39,25 +39,17 @@ int gtp5g_genl_add_pdr(struct sk_buff *skb, struct genl_info *info)
     u16 pdr_id;
     int err;
 
-    printk("<%s:%d> start\n", __func__, __LINE__);
-
-    printk("info.net: %p\n", genl_info_net(info));
-    printk("info.nlhdr: %p\n", info->nlhdr);
-    printk("info.snd_portid: %u\n", info->snd_portid);
-
     if (info->attrs[GTP5G_LINK]) {
         ifindex = nla_get_u32(info->attrs[GTP5G_LINK]);
     } else {
         ifindex = -1;
     }
-    printk("ifindex: %d\n", ifindex);
 
     if (info->attrs[GTP5G_NET_NS_FD]) {
         netnsfd = nla_get_u32(info->attrs[GTP5G_NET_NS_FD]);
     } else {
         netnsfd = -1;
     }
-    printk("netnsfd: %d\n", netnsfd);
 
     rtnl_lock();
     rcu_read_lock();
@@ -72,13 +64,11 @@ int gtp5g_genl_add_pdr(struct sk_buff *skb, struct genl_info *info)
     if (info->attrs[GTP5G_PDR_SEID]) {
         set_api_with_seid(true);
         seid = nla_get_u32(info->attrs[GTP5G_PDR_SEID]);
-        printk("SEID: %llu\n", seid);
     } else {
         set_api_with_seid(false);
         seid = 0;
     }
 
-    printk("**************** api_with_seid:%u", get_api_with_seid());
     /* 
      * For backward compatability: 
      * If information has GTP5G_PDR_URR_ID, 
@@ -92,7 +82,6 @@ int gtp5g_genl_add_pdr(struct sk_buff *skb, struct genl_info *info)
 
     if (info->attrs[GTP5G_PDR_ID]) {
         pdr_id = nla_get_u32(info->attrs[GTP5G_PDR_ID]);
-        printk("PDR ID: %u\n", pdr_id);
     } else {
         rcu_read_unlock();
         rtnl_unlock();
@@ -178,18 +167,14 @@ int gtp5g_genl_del_pdr(struct sk_buff *skb, struct genl_info *info)
     u64 seid;
     u16 pdr_id;
 
-    printk("<%s:%d> start\n", __func__, __LINE__);
-
     if (!info->attrs[GTP5G_LINK])
         return -EINVAL;
     ifindex = nla_get_u32(info->attrs[GTP5G_LINK]);
-    printk("ifindex: %d\n", ifindex);
 
     if (info->attrs[GTP5G_NET_NS_FD])
         netnsfd = nla_get_u32(info->attrs[GTP5G_NET_NS_FD]);
     else
         netnsfd = -1;
-    printk("netnsfd: %d\n", netnsfd);
 
     rcu_read_lock();
 
@@ -201,14 +186,12 @@ int gtp5g_genl_del_pdr(struct sk_buff *skb, struct genl_info *info)
 
     if (info->attrs[GTP5G_PDR_SEID]) {
         seid = nla_get_u64(info->attrs[GTP5G_PDR_SEID]);
-        printk("SEID: %llu\n", seid);
     } else {
         seid = 0;
     }
 
     if (info->attrs[GTP5G_PDR_ID]) {
         pdr_id = nla_get_u16(info->attrs[GTP5G_PDR_ID]);
-        printk("FAR ID: %u\n", pdr_id);
     } else {
         rcu_read_unlock();
         return -ENODEV;
@@ -237,18 +220,14 @@ int gtp5g_genl_get_pdr(struct sk_buff *skb, struct genl_info *info)
     struct sk_buff *skb_ack;
     int err;
 
-    printk("<%s:%d> start\n", __func__, __LINE__);
-
     if (!info->attrs[GTP5G_LINK])
         return -EINVAL;
     ifindex = nla_get_u32(info->attrs[GTP5G_LINK]);
-    printk("ifindex: %d\n", ifindex);
 
     if (info->attrs[GTP5G_NET_NS_FD])
         netnsfd = nla_get_u32(info->attrs[GTP5G_NET_NS_FD]);
     else
         netnsfd = -1;
-    printk("netnsfd: %d\n", netnsfd);
 
     rcu_read_lock();
 
@@ -260,14 +239,12 @@ int gtp5g_genl_get_pdr(struct sk_buff *skb, struct genl_info *info)
 
     if (info->attrs[GTP5G_PDR_SEID]) {
         seid = nla_get_u64(info->attrs[GTP5G_PDR_SEID]);
-        printk("SEID: %llu\n", seid);
     } else {
         seid = 0;
     }
 
     if (info->attrs[GTP5G_PDR_ID]) {
         pdr_id = nla_get_u16(info->attrs[GTP5G_PDR_ID]);
-        printk("FAR ID: %u\n", pdr_id);
     } else {
         rcu_read_unlock();
         return -ENODEV;
@@ -318,8 +295,6 @@ int gtp5g_genl_dump_pdr(struct sk_buff *skb, struct netlink_callback *cb)
     int ret;
     u16 pdr_id = cb->args[2];
     struct pdr *pdr;
-
-    printk("<%s:%d> start\n", __func__, __LINE__);
 
     if (cb->args[5])
         return 0;
@@ -440,8 +415,6 @@ static int parse_pdi(struct pdr *pdr, struct nlattr *a)
     int err;
     char ip_str[40];
 
-    printk("<%s:%d> start\n", __func__, __LINE__);
-
     err = nla_parse_nested(attrs, GTP5G_PDI_ATTR_MAX, a, NULL, NULL);
     if (err)
         return err;
@@ -485,8 +458,6 @@ static int parse_f_teid(struct pdi *pdi, struct nlattr *a)
     struct local_f_teid *f_teid;
     int err;
 
-    printk("<%s:%d> start\n", __func__, __LINE__);
-
     err = nla_parse_nested(attrs, GTP5G_F_TEID_ATTR_MAX, a, NULL, NULL);
     if (err)
         return err;
@@ -505,10 +476,8 @@ static int parse_f_teid(struct pdi *pdi, struct nlattr *a)
     f_teid = pdi->f_teid;
 
     f_teid->teid = htonl(nla_get_u32(attrs[GTP5G_F_TEID_I_TEID]));
-    printk("TEID: %u\n", f_teid->teid);
 
     f_teid->gtpu_addr_ipv4.s_addr = nla_get_be32(attrs[GTP5G_F_TEID_GTPU_ADDR_IPV4]);
-    printk("GTP-U Addr: %08x\n", f_teid->gtpu_addr_ipv4.s_addr);
 
     return 0;
 }
@@ -518,8 +487,6 @@ static int parse_sdf_filter(struct pdi *pdi, struct nlattr *a)
     struct nlattr *attrs[GTP5G_SDF_FILTER_ATTR_MAX + 1];
     struct sdf_filter *sdf;
     int err;
-
-    printk("<%s:%d> start\n", __func__, __LINE__);
 
     err = nla_parse_nested(attrs, GTP5G_SDF_FILTER_ATTR_MAX, a, NULL, NULL);
     if (err)
@@ -584,8 +551,6 @@ static int parse_ip_filter_rule(struct sdf_filter *sdf, struct nlattr *a)
     struct ip_filter_rule *rule;
     int err;
     int i;
-
-    printk("<%s:%d> start\n", __func__, __LINE__);
 
     err = nla_parse_nested(attrs, GTP5G_FLOW_DESCRIPTION_ATTR_MAX, a, NULL, NULL);
     if (err)

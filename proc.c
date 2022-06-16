@@ -93,7 +93,6 @@ static ssize_t proc_dbg_write(struct file *filp, const char __user *buffer,
     unsigned long buf_len = min(len, sizeof(buf) - 1);
     int dbg;
 
-    printk("<%s:%d> start\n", __func__, __LINE__);   
     if (copy_from_user(buf, buffer, buf_len)) {
         GTP5G_ERR(NULL, "Failed to read buffer: %s\n", buffer);
         goto err;
@@ -195,8 +194,6 @@ static ssize_t proc_pdr_write(struct file *filp, const char __user *buffer,
     struct pdr *pdr;
     struct gtp5g_dev *gtp;
 
-    printk("<%s:%d> start\n", __func__, __LINE__);
-
     if (copy_from_user(buf, buffer, buf_len)) {
         GTP5G_ERR(NULL, "Failed to read buffer: %s\n", buf);
         goto err;
@@ -274,8 +271,6 @@ static ssize_t proc_far_write(struct file *filp, const char __user *buffer,
     struct far *far;
     struct gtp5g_dev *gtp;
 
-    printk("<%s:%d> start\n", __func__, __LINE__);
-
     if (copy_from_user(buf, buffer, buf_len)) {
         GTP5G_ERR(NULL, "Failed to read buffer: %s\n", buf);
         goto err;
@@ -331,8 +326,6 @@ static ssize_t proc_qer_write(struct file *filp, const char __user *buffer,
     unsigned long buf_len = min(sizeof(buf) - 1, len);
     struct qer *qer;
     struct gtp5g_dev *gtp;
-    
-    printk("<%s:%d> start\n", __func__, __LINE__);
     
     if (copy_from_user(buf, buffer, buf_len)) {
         GTP5G_ERR(NULL, "Failed to read buffer: %s\n", buf);

@@ -23,18 +23,14 @@ int gtp5g_genl_add_qer(struct sk_buff *skb, struct genl_info *info)
     u32 qer_id;
     int err;
 
-    printk("<%s:%d> start\n", __func__, __LINE__);
-
     if (!info->attrs[GTP5G_LINK])
         return -EINVAL;
     ifindex = nla_get_u32(info->attrs[GTP5G_LINK]);
-    printk("ifindex: %d\n", ifindex);
 
     if (info->attrs[GTP5G_NET_NS_FD])
         netnsfd = nla_get_u32(info->attrs[GTP5G_NET_NS_FD]);
     else
         netnsfd = -1;
-    printk("netnsfd: %d\n", netnsfd);
 
     rtnl_lock();
     rcu_read_lock();
@@ -48,14 +44,12 @@ int gtp5g_genl_add_qer(struct sk_buff *skb, struct genl_info *info)
 
     if (info->attrs[GTP5G_QER_SEID]) {
         seid = nla_get_u64(info->attrs[GTP5G_QER_SEID]);
-        printk("SEID: %llu\n", seid);
     } else {
         seid = 0;
     }
 
     if (info->attrs[GTP5G_QER_ID]) {
         qer_id = nla_get_u32(info->attrs[GTP5G_QER_ID]);
-        printk("QER ID: %u\n", qer_id);
     } else {
         rcu_read_unlock();
         rtnl_unlock();
@@ -127,18 +121,14 @@ int gtp5g_genl_del_qer(struct sk_buff *skb, struct genl_info *info)
     u64 seid;
     u32 qer_id;
 
-    printk("<%s:%d> start\n", __func__, __LINE__);
-
     if (!info->attrs[GTP5G_LINK])
         return -EINVAL;
     ifindex = nla_get_u32(info->attrs[GTP5G_LINK]);
-    printk("ifindex: %d\n", ifindex);
 
     if (info->attrs[GTP5G_NET_NS_FD])
         netnsfd = nla_get_u32(info->attrs[GTP5G_NET_NS_FD]);
     else
         netnsfd = -1;
-    printk("netnsfd: %d\n", netnsfd);
 
     rcu_read_lock();
 
@@ -150,14 +140,12 @@ int gtp5g_genl_del_qer(struct sk_buff *skb, struct genl_info *info)
 
     if (info->attrs[GTP5G_QER_SEID]) {
         seid = nla_get_u64(info->attrs[GTP5G_QER_SEID]);
-        printk("SEID: %llu\n", seid);
     } else {
         seid = 0;
     }
 
     if (info->attrs[GTP5G_QER_ID]) {
         qer_id = nla_get_u32(info->attrs[GTP5G_QER_ID]);
-        printk("QER ID: %u\n", qer_id);
     } else {
         rcu_read_unlock();
         return -ENODEV;
@@ -186,18 +174,14 @@ int gtp5g_genl_get_qer(struct sk_buff *skb, struct genl_info *info)
     struct sk_buff *skb_ack;
     int err;
 
-    printk("<%s:%d> start\n", __func__, __LINE__);
-
     if (!info->attrs[GTP5G_LINK])
         return -EINVAL;
     ifindex = nla_get_u32(info->attrs[GTP5G_LINK]);
-    printk("ifindex: %d\n", ifindex);
 
     if (info->attrs[GTP5G_NET_NS_FD])
         netnsfd = nla_get_u32(info->attrs[GTP5G_NET_NS_FD]);
     else
         netnsfd = -1;
-    printk("netnsfd: %d\n", netnsfd);
 
     rcu_read_lock();
 
@@ -209,14 +193,12 @@ int gtp5g_genl_get_qer(struct sk_buff *skb, struct genl_info *info)
 
     if (info->attrs[GTP5G_QER_SEID]) {
         seid = nla_get_u64(info->attrs[GTP5G_QER_SEID]);
-        printk("SEID: %llu\n", seid);
     } else {
         seid = 0;
     }
 
     if (info->attrs[GTP5G_QER_ID]) {
         qer_id = nla_get_u32(info->attrs[GTP5G_QER_ID]);
-        printk("QER ID: %u\n", qer_id);
     } else {
         rcu_read_unlock();
         return -ENODEV;
@@ -266,8 +248,6 @@ int gtp5g_genl_dump_qer(struct sk_buff *skb, struct netlink_callback *cb)
     int ret;
     u32 qer_id = cb->args[2];
     struct qer *qer;
-
-    printk("<%s:%d> start\n", __func__, __LINE__);
 
     if (cb->args[5])
         return 0;

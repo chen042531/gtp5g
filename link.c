@@ -19,8 +19,6 @@ const struct nla_policy gtp5g_policy[IFLA_GTP5G_MAX + 1] = {
 
 static void gtp5g_link_setup(struct net_device *dev)
 {
-    printk("<%s: %d> start\n", __func__, __LINE__);
-
     dev->netdev_ops = &gtp5g_netdev_ops;
     dev->needs_free_netdev = true;
 
@@ -51,29 +49,8 @@ static void gtp5g_link_setup(struct net_device *dev)
 static int gtp5g_validate(struct nlattr *tb[], struct nlattr *data[],
     struct netlink_ext_ack *extack)
 {
-    int i;
-
-    printk("<%s: %d> start\n", __func__, __LINE__);
-    printk("<%s: %d> tb: %p\n", __func__, __LINE__, tb);
-    printk("<%s: %d> data: %p\n", __func__, __LINE__, data);
-
     if (!data)
         return -EINVAL;
-
-    for (i = 0; tb[i] != NULL; i++) {
-        printk("<%s: %d> tb[%d]: type: %u\n", __func__, __LINE__, 0,
-                tb[i]->nla_type);
-        printk("<%s: %d> tb[%d]: len: %u\n", __func__, __LINE__, 0,
-                tb[i]->nla_len);
-    }
-    for (i = 0; data[i] != NULL; i++) {
-        printk("<%s: %d> data[%d]: type: %u\n", __func__, __LINE__, 0,
-                data[i]->nla_type);
-        printk("<%s: %d> data[%d]: len: %u\n", __func__, __LINE__, 0,
-                data[i]->nla_len);
-    }
-
-    printk("<%s: %d> end\n", __func__, __LINE__);
 
     return 0;
 }
@@ -90,8 +67,6 @@ static int gtp5g_newlink(struct net *src_net, struct net_device *dev,
     int hashsize, err;
 
     gtp = netdev_priv(dev);
-
-    printk("<%s: %d> start\n", __func__, __LINE__);
 
     if (!data[IFLA_GTP5G_FD1]) {
         GTP5G_ERR(NULL, "Failed to create a new link\n");
@@ -150,8 +125,6 @@ static void gtp5g_dellink(struct net_device *dev, struct list_head *head)
 {
     struct gtp5g_dev *gtp = netdev_priv(dev);
 
-    printk("<%s: %d> start\n", __func__, __LINE__);
-
     gtp5g_hashtable_free(gtp);
     list_del_rcu(&gtp->list);
     list_del_rcu(&gtp->proc_list);
@@ -160,8 +133,6 @@ static void gtp5g_dellink(struct net_device *dev, struct list_head *head)
 
 static size_t gtp5g_get_size(const struct net_device *dev)
 {
-    printk("<%s: %d> start\n", __func__, __LINE__);
-    
     /* IFLA_UPF_PDR_HASHSIZE */
     return nla_total_size(sizeof(__u32));
 }
@@ -169,8 +140,6 @@ static size_t gtp5g_get_size(const struct net_device *dev)
 static int gtp5g_fill_info(struct sk_buff *skb, const struct net_device *dev)
 {
     struct gtp5g_dev *gtp = netdev_priv(dev);
-
-    printk("<%s: %d> start\n", __func__, __LINE__);
 
     if (nla_put_u32(skb, IFLA_GTP5G_PDR_HASHSIZE, gtp->hash_size))
         goto nla_put_failure;
