@@ -5,55 +5,8 @@
 #include "genl_pdr.h"
 #include "genl_far.h"
 #include "genl_qer.h"
-
-
-int gtp5g_genl_add_urr(struct sk_buff *skb, struct genl_info *info)
-{
-    /* Not implemented yet */
-    return -1; 
-}
-
-int gtp5g_genl_del_urr(struct sk_buff *skb, struct genl_info *info)
-{
-    /* Not implemented yet */
-    return -1; 
-}
-
-int gtp5g_genl_get_urr(struct sk_buff *skb, struct genl_info *info)
-{
-    /* Not implemented yet */
-    return -1; 
-}
-
-int gtp5g_genl_dump_urr(struct sk_buff *skb, struct netlink_callback *cb)
-{
-    /* Not implemented yet */
-    return -1; 
-}
-
-int gtp5g_genl_add_bar(struct sk_buff *skb, struct genl_info *info)
-{
-    /* Not implemented yet */
-    return -1; 
-}
-
-int gtp5g_genl_del_bar(struct sk_buff *skb, struct genl_info *info)
-{
-    /* Not implemented yet */
-    return -1; 
-}
-
-int gtp5g_genl_get_bar(struct sk_buff *skb, struct genl_info *info)
-{
-    /* Not implemented yet */
-    return -1; 
-}
-
-int gtp5g_genl_dump_bar(struct sk_buff *skb, struct netlink_callback *cb)
-{
-    /* Not implemented yet */
-    return -1; 
-}
+#include "genl_bar.h"
+#include "genl_urr.h"
 
 static const struct nla_policy gtp5g_genl_pdr_policy[GTP5G_PDR_ATTR_MAX + 1] = {
     [GTP5G_PDR_ID]                              = { .type = NLA_U32, },

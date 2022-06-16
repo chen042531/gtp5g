@@ -92,7 +92,6 @@ void pdr_context_delete(struct pdr *pdr)
 // Delete the AF_UNIX client
 void unix_sock_client_delete(struct pdr *pdr)
 {
-	printk(">>> unix_sock_client_delete");
 	if (pdr->sock_for_buf)
 		sock_release(pdr->sock_for_buf);
 

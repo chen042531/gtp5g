@@ -43,53 +43,6 @@ enum gtp5g_device_attrs {
     GTP5G_NET_NS_FD,
 };
 
-/* ------------------------------------------------------------------
- *                              URR
- * ------------------------------------------------------------------
- * */
-enum gtp5g_urr_attrs {
-    GTP5G_URR_ID = 3,
-    GTP5G_URR_MEASUREMENT_METHOD,
-    GTP5G_URR_REPORTING_TRIGGER,
-    GTP5G_URR_MEASUREMENT_PERIOD,
-    GTP5G_URR_MEASUREMENT_INFO,
-    GTP5G_URR_SEQ, // 3GPP TS 29.244 table 7.5.8.3-1 UR-SEQN
-    GTP5G_URR_SEID,
-
-    __GTP5G_URR_ATTR_MAX,
-};
-#define GTP5G_URR_ATTR_MAX (__GTP5G_URR_ATTR_MAX - 1)
-
-struct user_report {
-    u32 flag;
-    u64 totalVolume;
-    u64 uplinkVolume;
-    u64 downlinkVolume;
-    u64 totalPktNum;
-    u64 uplinkPktNum;
-    u64 downlinkPktNum;
-} __attribute__((packed));
-
-/* ------------------------------------------------------------------
- *	                            BAR
- * ------------------------------------------------------------------
- * */
-enum gtp5g_bar_attrs {
-    GTP5G_BAR_ID = 3,
-    GTP5G_DOWNLINK_DATA_NOTIFICATION_DELAY,
-    GTP5G_BUFFERING_PACKETS_COUNT,
-    GTP5G_BAR_SEID,
-
-    __GTP5G_BAR_ATTR_MAX,
-};
-#define GTP5G_BAR_ATTR_MAX (__GTP5G_BAR_ATTR_MAX - 1)
-
-struct buffer_action {
-    u64 seid;
-    u16 notification_delay;
-    u32 buffer_packet_count;
-} __attribute__((packed));
-
 extern struct genl_family gtp5g_genl_family;
 
 #endif

@@ -10,7 +10,7 @@
 #include "genl.h"
 #include "genl_pdr.h"
 #include "pdr.h"
-#include "encap.h"
+#include "api_version.h"
 
 #include <linux/rculist.h>
 #include <net/netns/generic.h>
@@ -460,14 +460,8 @@ static int parse_pdi(struct pdr *pdr, struct nlattr *a)
 				return -ENOMEM;
 		}
 		pdi->ue_addr_ipv4->s_addr = nla_get_be32(attrs[GTP5G_PDI_UE_ADDR_IPV4]);
-		// printk("UE Addr: %i.%i.%i.%i",
-        //   (pdi->ue_addr_ipv4->s_addr) & 0xFF,
-        //   (pdi->ue_addr_ipv4->s_addr >> 8) & 0xFF,
-        //   (pdi->ue_addr_ipv4->s_addr >> 16) & 0xFF,
-        //   (pdi->ue_addr_ipv4->s_addr >> 24) & 0xFF);
-		
+
 		ip_string(ip_str, pdi->ue_addr_ipv4->s_addr);
-		printk(">>>> UE Addr:%s", ip_str);
 	}
 
 	if (attrs[GTP5G_PDI_F_TEID]) {
