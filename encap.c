@@ -182,7 +182,6 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
         return -1;
     }
 
-    GTP5G_ERR(gtp->dev, "Total header len(%#x)\n", hdrlen);
     pdr = pdr_find_by_gtp1u(gtp, skb, hdrlen, gtpv1->tid);
     if (!pdr) {
         GTP5G_ERR(gtp->dev, "No PDR match this skb : teid[%d]\n", ntohl(gtpv1->tid));

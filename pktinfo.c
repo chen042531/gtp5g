@@ -184,8 +184,6 @@ void gtp5g_fwd_emark_skb_ipv4(struct sk_buff *skb,
 
 void gtp5g_xmit_skb_ipv4(struct sk_buff *skb, struct gtp5g_pktinfo *pktinfo)
 {
-    GTP5G_ERR(pktinfo->dev, "gtp -> IP src: %pI4 dst: %pI4\n",
-              &pktinfo->iph->saddr, &pktinfo->iph->daddr);
     udp_tunnel_xmit_skb(pktinfo->rt, 
         pktinfo->sk,
         skb,
