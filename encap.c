@@ -106,9 +106,11 @@ void gtp5g_encap_disable(struct sock *sk)
 
 static void gtp5g_encap_disable_locked(struct sock *sk)
 {
+    printk("gtp5g_encap_disable_locked start");
     rtnl_lock();
     gtp5g_encap_disable(sk);
     rtnl_unlock();
+    printk("gtp5g_encap_disable_locked end");
 }
 
 static int gtp5g_encap_recv(struct sock *sk, struct sk_buff *skb)

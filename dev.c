@@ -9,6 +9,7 @@
 #include "far.h"
 #include "qer.h"
 #include "pktinfo.h"
+#include "log.h"
 
 struct gtp5g_dev *gtp5g_find_dev(struct net *src_net, int ifindex, int netnsfd)
 {
@@ -16,6 +17,7 @@ struct gtp5g_dev *gtp5g_find_dev(struct net *src_net, int ifindex, int netnsfd)
     struct net_device *dev;
     struct net *net;
 
+    GTP5G_TRC(NULL, "<%s>\n", __func__);
     /* Examine the link attributes and figure out which network namespace
      * we are talking about.
      */
@@ -26,7 +28,7 @@ struct gtp5g_dev *gtp5g_find_dev(struct net *src_net, int ifindex, int netnsfd)
 
     if (IS_ERR(net))
         return NULL;
-
+    
     /* Check if there's an existing gtp5g device to configure */
     dev = dev_get_by_index_rcu(net, ifindex);
     if (dev && dev->netdev_ops == &gtp5g_netdev_ops)

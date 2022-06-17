@@ -81,8 +81,12 @@ static int gtp5g_newlink(struct net *src_net, struct net_device *dev,
     if (data[IFLA_GTP5G_ROLE]) {
         role = nla_get_u32(data[IFLA_GTP5G_ROLE]);
         if (role > GTP5G_ROLE_RAN) {
-            if (sk)
+            if (sk){
+                printk("data[IFLA_GTP5G_ROLE] \n");
                 gtp5g_encap_disable(sk);
+
+            }
+                
             return -EINVAL;
         }
     }
@@ -104,6 +108,7 @@ static int gtp5g_newlink(struct net *src_net, struct net_device *dev,
     if (err < 0) {
         netdev_dbg(dev, "failed to register new netdev %d\n", err);
         gtp5g_hashtable_free(gtp);
+        printk("failed to register new netdev\n");
         gtp5g_encap_disable(gtp->sk1u);
         goto out_hashtable;
     }
@@ -117,6 +122,7 @@ static int gtp5g_newlink(struct net *src_net, struct net_device *dev,
 out_hashtable:
     gtp5g_hashtable_free(gtp);
 out_encap:
+    printk("out_encap\n");
     gtp5g_encap_disable(gtp->sk1u);
     return err;
 }
