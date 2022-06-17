@@ -55,9 +55,9 @@ static int gtp5g_dev_init(struct net_device *dev)
 
 static void gtp5g_dev_uninit(struct net_device *dev)
 {
-    struct gtp5g_dev *gtp = netdev_priv(dev);
+    // struct gtp5g_dev *gtp = netdev_priv(dev);
 
-    gtp5g_encap_disable(gtp->sk1u);
+    // gtp5g_encap_disable(gtp->sk1u);
     free_percpu(dev->tstats);
 }
 
