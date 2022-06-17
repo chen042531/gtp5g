@@ -88,7 +88,7 @@ out_sock:
 void gtp5g_encap_disable(struct sock *sk)
 {
     struct gtp5g_dev *gtp;
-
+    printk(">>>>  gtp5g_encap_disable");
     if (!sk) {
         return;
     }

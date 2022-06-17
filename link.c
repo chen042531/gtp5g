@@ -125,6 +125,7 @@ static void gtp5g_dellink(struct net_device *dev, struct list_head *head)
 {
     struct gtp5g_dev *gtp = netdev_priv(dev);
 
+    gtp5g_encap_disable(gtp->sk1u);
     gtp5g_hashtable_free(gtp);
     list_del_rcu(&gtp->list);
     list_del_rcu(&gtp->proc_list);
