@@ -88,6 +88,7 @@ out_sock:
 void gtp5g_encap_disable(struct sock *sk)
 {
     struct gtp5g_dev *gtp;
+    GTP5G_TRC(NULL, "<%s>\n", __func__);
     printk(">>>>  gtp5g_encap_disable");
     if (!sk) {
         return;
@@ -118,6 +119,7 @@ static int gtp5g_encap_recv(struct sock *sk, struct sk_buff *skb)
     struct gtp5g_dev *gtp;
     int ret = 0;
 
+    GTP5G_TRC(NULL, "<%s>\n", __func__);
     gtp = rcu_dereference_sk_user_data(sk);
     if (!gtp) {
         return 1;
@@ -154,6 +156,7 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
     struct pdr *pdr;
     int gtpv1_hdr_len;
 
+    GTP5G_TRC(NULL, "<%s>\n", __func__);
     if (!pskb_may_pull(skb, hdrlen)) {
         GTP5G_ERR(gtp->dev, "Failed to pull skb length %#x\n", hdrlen);
         return -1;
@@ -196,6 +199,7 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
 static int gtp5g_drop_skb_encap(struct sk_buff *skb, struct net_device *dev, 
     struct pdr *pdr)
 {
+    GTP5G_TRC(NULL, "<%s>\n", __func__);
     pdr->ul_drop_cnt++;
     dev_kfree_skb(skb);
     return 0;
@@ -204,6 +208,7 @@ static int gtp5g_drop_skb_encap(struct sk_buff *skb, struct net_device *dev,
 static int gtp5g_buf_skb_encap(struct sk_buff *skb, struct net_device *dev, 
     struct pdr *pdr)
 {
+    GTP5G_TRC(NULL, "<%s>\n", __func__);
     if (unix_sock_send(pdr, skb->data, skb_headlen(skb)) < 0) {
         GTP5G_ERR(dev, "Failed to send skb to unix domain socket PDR(%u)", pdr->id);
         ++pdr->ul_drop_cnt;
@@ -323,6 +328,8 @@ static int gtp5g_rx(struct pdr *pdr, struct sk_buff *skb,
     int rt = -1;
     struct far *far = pdr->far;
     // struct qer *qer = pdr->qer;
+    
+    GTP5G_TRC(NULL, "<%s>\n", __func__);
 
     if (!far) {
         GTP5G_ERR(pdr->dev, "FAR not exists for PDR(%u)\n", pdr->id);
@@ -378,6 +385,8 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     struct udphdr *uh;
     struct pcpu_sw_netstats *stats;
     int ret;
+
+    GTP5G_TRC(NULL, "<%s>\n", __func__);
 
     if (fwd_param) {
         if ((fwd_policy = fwd_param->fwd_policy))
@@ -452,6 +461,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
 static int gtp5g_drop_skb_ipv4(struct sk_buff *skb, struct net_device *dev, 
     struct pdr *pdr)
 {
+    GTP5G_TRC(NULL, "<%s>\n", __func__);
     ++pdr->dl_drop_cnt;
     dev_kfree_skb(skb);
     return FAR_ACTION_DROP;
@@ -466,6 +476,8 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     struct iphdr *iph = ip_hdr(skb);
     struct outer_header_creation *hdr_creation;
 
+    GTP5G_TRC(NULL, "<%s>\n", __func__);
+    
     if (!(pdr->far && pdr->far->fwd_param &&
         pdr->far->fwd_param->hdr_creation)) {
         GTP5G_ERR(dev, "Unknown RAN address\n");
@@ -517,6 +529,7 @@ err:
 static int gtp5g_buf_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     struct pdr *pdr)
 {
+    GTP5G_TRC(NULL, "<%s>\n", __func__);
     // TODO: handle nonlinear part
     if (unix_sock_send(pdr, skb->data, skb_headlen(skb)) < 0) {
         GTP5G_ERR(dev, "Failed to send skb to unix domain socket PDR(%u)", pdr->id);
@@ -536,6 +549,7 @@ int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     //struct gtp5g_qer *qer;
     struct iphdr *iph;
 
+    GTP5G_TRC(NULL, "<%s>\n", __func__);
     /* Read the IP destination address and resolve the PDR.
      * Prepend PDR header with TEI/TID from PDR.
      */

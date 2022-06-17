@@ -45,6 +45,7 @@ static int gtp5g_dev_init(struct net_device *dev)
 {
     struct gtp5g_dev *gtp = netdev_priv(dev);
 
+    GTP5G_TRC(NULL, "<%s>\n", __func__);
     gtp->dev = dev;
 
     dev->tstats = netdev_alloc_pcpu_stats(struct pcpu_sw_netstats);
@@ -60,6 +61,7 @@ static void gtp5g_dev_uninit(struct net_device *dev)
     // struct gtp5g_dev *gtp = netdev_priv(dev);
 
     // gtp5g_encap_disable(gtp->sk1u);
+    GTP5G_TRC(NULL, "<%s>\n", __func__);
     free_percpu(dev->tstats);
 }
 
@@ -72,6 +74,7 @@ static netdev_tx_t gtp5g_dev_xmit(struct sk_buff *skb, struct net_device *dev)
     struct gtp5g_pktinfo pktinfo;
     int ret = 0;
 
+    GTP5G_TRC(NULL, "<%s>\n", __func__);
     /* Ensure there is sufficient headroom */
     if (skb_cow_head(skb, dev->needed_headroom)) {
         goto tx_err;
@@ -120,6 +123,7 @@ int dev_hashtable_new(struct gtp5g_dev *gtp, int hsize)
 {
     int i;
 
+    GTP5G_TRC(NULL, "<%s>\n", __func__);
     gtp->addr_hash = kmalloc_array(hsize, sizeof(struct hlist_head),
         GFP_KERNEL);
     if (gtp->addr_hash == NULL)
@@ -190,6 +194,7 @@ void gtp5g_hashtable_free(struct gtp5g_dev *gtp)
     struct qer *qer;
     int i;
 
+    GTP5G_TRC(NULL, "<%s>\n", __func__);
     for (i = 0; i < gtp->hash_size; i++) {
         hlist_for_each_entry_rcu(far, &gtp->far_id_hash[i], hlist_id)
             far_context_delete(far);
