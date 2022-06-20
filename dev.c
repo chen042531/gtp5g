@@ -30,7 +30,8 @@ struct gtp5g_dev *gtp5g_find_dev(struct net *src_net, int ifindex, int netnsfd)
         return NULL;
     
     /* Check if there's an existing gtp5g device to configure */
-    dev = dev_get_by_index_rcu(net, ifindex);
+    dev = dev_get_by_index(net, ifindex);
+    dev_put(dev);
     if (dev && dev->netdev_ops == &gtp5g_netdev_ops)
         gtp = netdev_priv(dev);
     else
