@@ -9,6 +9,7 @@
 #include <linux/rculist.h>
 #include <net/netns/generic.h>
 #include "net.h"
+#include "log.h"
 
 static int qer_fill(struct qer *, struct gtp5g_dev *, struct genl_info *);
 static int gtp5g_genl_fill_qer(struct sk_buff *, u32, u32, u32, struct qer *);
@@ -296,7 +297,7 @@ int gtp5g_genl_dump_qer(struct sk_buff *skb, struct netlink_callback *cb)
     cb->args[5] = 1;
 
     GTP5G_TRC(NULL, "<%s:%d> end\n", __func__, __LINE__);
-    
+
 out:
     return skb->len;
 }

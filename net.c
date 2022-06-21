@@ -6,6 +6,7 @@
 #include "dev.h"
 #include "net.h"
 #include "link.h"
+#include "log.h"
 
 static unsigned int gtp5g_net_id __read_mostly;
 

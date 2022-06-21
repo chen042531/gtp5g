@@ -8,6 +8,7 @@
 #include "seid.h"
 #include "hash.h"
 #include "genl.h"
+#include "log.h"
 
 static void seid_pdr_id_to_hex_str(u64 seid_int, u16 pdr_id, char *buff)
 {
@@ -173,7 +174,7 @@ struct pdr *find_pdr_by_id(struct gtp5g_dev *gtp, u64 seid, u16 pdr_id)
     }
 
     GTP5G_TRC(NULL, "<%s:%d> end\n", __func__, __LINE__);
-    
+
     return NULL;
 }
 

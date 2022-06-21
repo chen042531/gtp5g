@@ -16,6 +16,7 @@
 #include <net/netns/generic.h>
 #include "net.h"
 #include "util.h"
+#include "log.h"
 
 static int pdr_fill(struct pdr *, struct gtp5g_dev *, struct genl_info *);
 static int parse_pdi(struct pdr *, struct nlattr *);
@@ -878,7 +879,7 @@ static int gtp5g_genl_fill_pdr(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
     genlmsg_end(skb, genlh);
 
     GTP5G_TRC(NULL, "<%s:%d> end\n", __func__, __LINE__);
-    
+
     return 0;
 genlmsg_fail:
     genlmsg_cancel(skb, genlh);

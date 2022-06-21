@@ -10,6 +10,7 @@
 #include <linux/rculist.h>
 #include <net/netns/generic.h>
 #include "net.h"
+#include "log.h"
 
 static int header_creation_fill(struct forwarding_parameter *,
                 struct nlattr **, u8 *,
@@ -511,7 +512,7 @@ static int far_fill(struct far *far, struct gtp5g_dev *gtp, struct genl_info *in
     far_update(far, gtp, flag, epkt_info);
 
     GTP5G_TRC(NULL, "<%s:%d> end\n", __func__, __LINE__);
-    
+
     return 0;
 }
 

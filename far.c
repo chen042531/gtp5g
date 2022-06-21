@@ -3,6 +3,7 @@
 #include "pdr.h"
 #include "seid.h"
 #include "hash.h"
+#include "log.h"
 
 static void seid_far_id_to_hex_str(u64 seid_int, u32 far_id, char *buff)
 {

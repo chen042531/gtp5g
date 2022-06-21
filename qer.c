@@ -5,6 +5,7 @@
 #include "pdr.h"
 #include "seid.h"
 #include "hash.h"
+#include "log.h"
 
 static void seid_qer_id_to_hex_str(u64 seid_int, u32 qer_id, char *buff)
 {
