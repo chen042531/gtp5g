@@ -21,6 +21,8 @@ struct rtable *ip4_find_route(struct sk_buff *skb, struct iphdr *iph,
     __be16 df;
     int mtu;
 
+    GTP5G_TRC(NULL, "<%s:%d> start\n", __func__, __LINE__);
+
     memset(fl4, 0, sizeof(*fl4));
     fl4->flowi4_oif = sk->sk_bound_dev_if;
     fl4->daddr = daddr;
@@ -70,6 +72,8 @@ struct rtable *ip4_find_route(struct sk_buff *skb, struct iphdr *iph,
         goto err_rt;
     }
 
+    GTP5G_TRC(NULL, "<%s:%d> end\n", __func__, __LINE__);
+
     return rt;
 err_rt:
     ip_rt_put(rt);
@@ -82,6 +86,8 @@ struct rtable *ip4_find_route_simple(struct sk_buff *skb,
     __be32 saddr, __be32 daddr, struct flowi4 *fl4)
 {
     struct rtable *rt;
+
+    GTP5G_TRC(NULL, "<%s:%d> start\n", __func__, __LINE__);
 
     memset(fl4, 0, sizeof(*fl4));
     fl4->flowi4_oif = sk->sk_bound_dev_if;
@@ -106,6 +112,8 @@ struct rtable *ip4_find_route_simple(struct sk_buff *skb,
 
     skb_dst_drop(skb);
 
+    GTP5G_TRC(NULL, "<%s:%d> end\n", __func__, __LINE__);
+
     return rt;
 
 err_rt:
@@ -119,6 +127,8 @@ int ip_xmit(struct sk_buff *skb, struct sock *sk, struct net_device *gtp_dev)
     struct iphdr *iph = ip_hdr(skb);
     struct flowi4 fl4;
     struct rtable *rt;
+
+    GTP5G_TRC(NULL, "<%s:%d> start\n", __func__, __LINE__);
 
     rt = ip4_find_route_simple(skb, sk, gtp_dev, 0, iph->daddr, &fl4);
     if (IS_ERR(rt)) {
@@ -137,6 +147,9 @@ int ip_xmit(struct sk_buff *skb, struct sock *sk, struct net_device *gtp_dev)
         GTP5G_ERR(gtp_dev, "Failed to send skb to ip layer\n");
         return -1;
     }
+
+    GTP5G_TRC(NULL, "<%s:%d> end\n", __func__, __LINE__);
+
     return 0;
 }
 
@@ -146,6 +159,8 @@ void gtp5g_fwd_emark_skb_ipv4(struct sk_buff *skb,
     struct rtable *rt;
     struct flowi4 fl4;
     struct gtpv1_hdr *gtp1;
+
+    GTP5G_TRC(NULL, "<%s:%d> start\n", __func__, __LINE__);
 
     /* Reset all headers */
     skb_reset_transport_header(skb);
@@ -180,10 +195,15 @@ void gtp5g_fwd_emark_skb_ipv4(struct sk_buff *skb,
         epkt_info->gtph_port,
         true, 
         true);
+    
+    GTP5G_TRC(NULL, "<%s:%d> end\n", __func__, __LINE__);
+
 }
 
 void gtp5g_xmit_skb_ipv4(struct sk_buff *skb, struct gtp5g_pktinfo *pktinfo)
 {
+    GTP5G_TRC(NULL, "<%s:%d> start\n", __func__, __LINE__);
+
     udp_tunnel_xmit_skb(pktinfo->rt, 
         pktinfo->sk,
         skb,
@@ -196,6 +216,8 @@ void gtp5g_xmit_skb_ipv4(struct sk_buff *skb, struct gtp5g_pktinfo *pktinfo)
         pktinfo->gtph_port,
         true, 
         true);
+    
+    GTP5G_TRC(NULL, "<%s:%d> end\n", __func__, __LINE__);
 }
 
 inline void gtp5g_set_pktinfo_ipv4(struct gtp5g_pktinfo *pktinfo,
@@ -203,6 +225,8 @@ inline void gtp5g_set_pktinfo_ipv4(struct gtp5g_pktinfo *pktinfo,
     struct qer *qer, struct rtable *rt, struct flowi4 *fl4,
     struct net_device *dev)
 {
+    GTP5G_TRC(NULL, "<%s:%d> start\n", __func__, __LINE__);
+
     pktinfo->sk = sk;
     pktinfo->iph = iph;
     pktinfo->hdr_creation = hdr_creation;
@@ -210,6 +234,8 @@ inline void gtp5g_set_pktinfo_ipv4(struct gtp5g_pktinfo *pktinfo,
     pktinfo->rt = rt;
     pktinfo->fl4 = *fl4;
     pktinfo->dev = dev;
+
+    GTP5G_TRC(NULL, "<%s:%d> end\n", __func__, __LINE__);
 }
 
 void gtp5g_push_header(struct sk_buff *skb, struct gtp5g_pktinfo *pktinfo)
@@ -219,6 +245,7 @@ void gtp5g_push_header(struct sk_buff *skb, struct gtp5g_pktinfo *pktinfo)
     gtpv1_hdr_opt_t *gtp1opt;
     ext_pdu_sess_ctr_t *dl_pdu_sess;
     int ext_flag = 0;
+    GTP5G_TRC(NULL, "<%s:%d> start\n", __func__, __LINE__);
 
     GTP5G_TRC(NULL, "SKBLen(%u) GTP-U V1(%zu) Opt(%zu) DL_PDU(%zu)\n", 
         payload_len, sizeof(*gtp1), sizeof(*gtp1opt), sizeof(*dl_pdu_sess));
@@ -263,6 +290,7 @@ void gtp5g_push_header(struct sk_buff *skb, struct gtp5g_pktinfo *pktinfo)
     gtp1->tid = pktinfo->hdr_creation->teid;
     gtp1->length = htons(payload_len);       /* Excluded the header length of gtpv1 */
 
+    GTP5G_TRC(NULL, "<%s:%d> end\n", __func__, __LINE__);
     GTP5G_TRC(NULL, "QER Found GTP-U Flg(%u) GTPU-L(%u) SkbLen(%u)\n", 
         gtp1->flags, ntohs(gtp1->length), skb->len);
 }

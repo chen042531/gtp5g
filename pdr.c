@@ -20,6 +20,8 @@ static void pdr_context_free(struct rcu_head *head)
     struct pdi *pdi;
     struct sdf_filter *sdf;
 
+    GTP5G_TRC(NULL, "<%s:%d> start\n", __func__, __LINE__);
+
     if (!pdr)
         return;
 
@@ -64,10 +66,14 @@ static void pdr_context_free(struct rcu_head *head)
 
     unix_sock_client_delete(pdr);
     kfree(pdr);
+
+    GTP5G_TRC(NULL, "<%s:%d> end\n", __func__, __LINE__);
 }
 
 void pdr_context_delete(struct pdr *pdr)
 {
+    GTP5G_TRC(NULL, "<%s:%d> start\n", __func__, __LINE__);
+
     if (!pdr)
         return;
 
@@ -87,15 +93,21 @@ void pdr_context_delete(struct pdr *pdr)
         hlist_del_rcu(&pdr->hlist_related_qer);
 
     call_rcu(&pdr->rcu_head, pdr_context_free);
+
+    GTP5G_TRC(NULL, "<%s:%d> end\n", __func__, __LINE__);
 }
 
 // Delete the AF_UNIX client
 void unix_sock_client_delete(struct pdr *pdr)
 {
+    GTP5G_TRC(NULL, "<%s:%d> start\n", __func__, __LINE__);
+
     if (pdr->sock_for_buf)
         sock_release(pdr->sock_for_buf);
 
     pdr->sock_for_buf = NULL;
+
+    GTP5G_TRC(NULL, "<%s:%d> end\n", __func__, __LINE__);
 }
 
 // Create a AF_UNIX client by specific name sent from user space
@@ -104,6 +116,8 @@ int unix_sock_client_new(struct pdr *pdr)
     struct socket **psock = &pdr->sock_for_buf;
     struct sockaddr_un *addr = &pdr->addr_unix;
     int err;
+
+    GTP5G_TRC(NULL, "<%s:%d> start\n", __func__, __LINE__);
 
     if (strlen(addr->sun_path) == 0){
         return -EINVAL;
@@ -121,19 +135,24 @@ int unix_sock_client_new(struct pdr *pdr)
         return err;
     }
 
+    GTP5G_TRC(NULL, "<%s:%d> end\n", __func__, __LINE__);
+
     return 0;
 }
 
 // Handle PDR/FAR changed and affect buffering
 int unix_sock_client_update(struct pdr *pdr)
-{
-    
+{    
     struct far *far = pdr->far;
+
+    GTP5G_TRC(NULL, "<%s:%d> start\n", __func__, __LINE__);
 
     unix_sock_client_delete(pdr);
 
     if (far && (far->action & FAR_ACTION_BUFF))
         return unix_sock_client_new(pdr);
+
+    GTP5G_TRC(NULL, "<%s:%d> end\n", __func__, __LINE__);
 
     return 0;
 }
@@ -144,6 +163,8 @@ struct pdr *find_pdr_by_id(struct gtp5g_dev *gtp, u64 seid, u16 pdr_id)
     struct pdr *pdr;
     char seid_pdr_id[SEID_U32ID_HEX_STR_LEN] = {0};
 
+    GTP5G_TRC(NULL, "<%s:%d> start\n", __func__, __LINE__);
+    
     seid_pdr_id_to_hex_str(seid, pdr_id, seid_pdr_id);
     head = &gtp->pdr_id_hash[str_hashfn(seid_pdr_id) % gtp->hash_size];
     hlist_for_each_entry_rcu(pdr, head, hlist_id) {
@@ -151,6 +172,8 @@ struct pdr *find_pdr_by_id(struct gtp5g_dev *gtp, u64 seid, u16 pdr_id)
             return pdr;
     }
 
+    GTP5G_TRC(NULL, "<%s:%d> end\n", __func__, __LINE__);
+    
     return NULL;
 }
 

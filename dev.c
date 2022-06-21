@@ -17,7 +17,7 @@ struct gtp5g_dev *gtp5g_find_dev(struct net *src_net, int ifindex, int netnsfd)
     struct net_device *dev;
     struct net *net;
 
-    GTP5G_TRC(NULL, "<%s>\n", __func__);
+    GTP5G_TRC(NULL, "<%s:%d> start\n", __func__, __LINE__);
     /* Examine the link attributes and figure out which network namespace
      * we are talking about.
      */
@@ -39,6 +39,7 @@ struct gtp5g_dev *gtp5g_find_dev(struct net *src_net, int ifindex, int netnsfd)
 
     put_net(net);
 
+    GTP5G_TRC(NULL, "<%s:%d> end\n", __func__, __LINE__);
     return gtp;
 }
 
@@ -46,7 +47,7 @@ static int gtp5g_dev_init(struct net_device *dev)
 {
     struct gtp5g_dev *gtp = netdev_priv(dev);
 
-    GTP5G_TRC(NULL, "<%s>\n", __func__);
+    GTP5G_TRC(NULL, "<%s:%d> start\n", __func__, __LINE__);
     gtp->dev = dev;
 
     dev->tstats = netdev_alloc_pcpu_stats(struct pcpu_sw_netstats);
@@ -54,6 +55,7 @@ static int gtp5g_dev_init(struct net_device *dev)
         return -ENOMEM;
     }
 
+    GTP5G_TRC(NULL, "<%s:%d> end\n", __func__, __LINE__);
     return 0;
 }
 
@@ -62,8 +64,9 @@ static void gtp5g_dev_uninit(struct net_device *dev)
     // struct gtp5g_dev *gtp = netdev_priv(dev);
 
     // gtp5g_encap_disable(gtp->sk1u);
-    GTP5G_TRC(NULL, "<%s>\n", __func__);
+    GTP5G_TRC(NULL, "<%s:%d> start\n", __func__, __LINE__);
     free_percpu(dev->tstats);
+    GTP5G_TRC(NULL, "<%s:%d> end\n", __func__, __LINE__);
 }
 
 /**
@@ -75,7 +78,7 @@ static netdev_tx_t gtp5g_dev_xmit(struct sk_buff *skb, struct net_device *dev)
     struct gtp5g_pktinfo pktinfo;
     int ret = 0;
 
-    GTP5G_TRC(NULL, "<%s>\n", __func__);
+    GTP5G_TRC(NULL, "<%s:%d> start\n", __func__, __LINE__);
     /* Ensure there is sufficient headroom */
     if (skb_cow_head(skb, dev->needed_headroom)) {
         goto tx_err;
@@ -101,6 +104,8 @@ static netdev_tx_t gtp5g_dev_xmit(struct sk_buff *skb, struct net_device *dev)
     if (ret == FAR_ACTION_FORW)
         gtp5g_xmit_skb_ipv4(skb, &pktinfo);
 
+    GTP5G_TRC(NULL, "<%s:%d> end\n", __func__, __LINE__);
+
     return NETDEV_TX_OK;
 
 tx_err:
@@ -124,7 +129,7 @@ int dev_hashtable_new(struct gtp5g_dev *gtp, int hsize)
 {
     int i;
 
-    GTP5G_TRC(NULL, "<%s>\n", __func__);
+    GTP5G_TRC(NULL, "<%s:%d> start\n", __func__, __LINE__);
     gtp->addr_hash = kmalloc_array(hsize, sizeof(struct hlist_head),
         GFP_KERNEL);
     if (gtp->addr_hash == NULL)
@@ -172,6 +177,8 @@ int dev_hashtable_new(struct gtp5g_dev *gtp, int hsize)
         INIT_HLIST_HEAD(&gtp->related_qer_hash[i]);
     }
 
+    GTP5G_TRC(NULL, "<%s:%d> end\n", __func__, __LINE__);
+
     return 0;
 err6:
     kfree(gtp->related_far_hash);
@@ -195,7 +202,7 @@ void gtp5g_hashtable_free(struct gtp5g_dev *gtp)
     struct qer *qer;
     int i;
 
-    GTP5G_TRC(NULL, "<%s>\n", __func__);
+    GTP5G_TRC(NULL, "<%s:%d> start\n", __func__, __LINE__);
     for (i = 0; i < gtp->hash_size; i++) {
         hlist_for_each_entry_rcu(far, &gtp->far_id_hash[i], hlist_id)
             far_context_delete(far);
@@ -213,4 +220,6 @@ void gtp5g_hashtable_free(struct gtp5g_dev *gtp)
     kfree(gtp->qer_id_hash);
     kfree(gtp->related_far_hash);
     kfree(gtp->related_qer_hash);
+    
+    GTP5G_TRC(NULL, "<%s:%d> end\n", __func__, __LINE__);
 }

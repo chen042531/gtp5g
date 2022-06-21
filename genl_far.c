@@ -34,6 +34,8 @@ int gtp5g_genl_add_far(struct sk_buff *skb, struct genl_info *info)
     u8 flag;
     struct gtp5g_emark_pktinfo epkt_info;
 
+    GTP5G_TRC(NULL, "<%s:%d> start\n", __func__, __LINE__);
+
     if (!info->attrs[GTP5G_LINK])
         return -EINVAL;
     ifindex = nla_get_u32(info->attrs[GTP5G_LINK]);
@@ -148,6 +150,9 @@ int gtp5g_genl_add_far(struct sk_buff *skb, struct genl_info *info)
  
     rcu_read_unlock();
     rtnl_unlock();
+
+    GTP5G_TRC(NULL, "<%s:%d> end\n", __func__, __LINE__);
+
     return 0;
 }  
 
@@ -160,6 +165,7 @@ int gtp5g_genl_del_far(struct sk_buff *skb, struct genl_info *info)
     u64 seid;
     u32 far_id;
 
+    GTP5G_TRC(NULL, "<%s:%d> start\n", __func__, __LINE__);
 
     if (!info->attrs[GTP5G_LINK])
         return -EINVAL;
@@ -200,6 +206,8 @@ int gtp5g_genl_del_far(struct sk_buff *skb, struct genl_info *info)
     far_context_delete(far);
     rcu_read_unlock();
 
+    GTP5G_TRC(NULL, "<%s:%d> end\n", __func__, __LINE__);
+
     return 0;
 }   
 
@@ -213,6 +221,8 @@ int gtp5g_genl_get_far(struct sk_buff *skb, struct genl_info *info)
     u32 far_id;
     struct sk_buff *skb_ack;
     int err;
+
+    GTP5G_TRC(NULL, "<%s:%d> start\n", __func__, __LINE__);
 
     if (!info->attrs[GTP5G_LINK])
         return -EINVAL;
@@ -269,6 +279,8 @@ int gtp5g_genl_get_far(struct sk_buff *skb, struct genl_info *info)
 
     rcu_read_unlock();
 
+    GTP5G_TRC(NULL, "<%s:%d> end\n", __func__, __LINE__);
+
     return genlmsg_unicast(genl_info_net(info), skb_ack, info->snd_portid);
 }
 
@@ -289,6 +301,8 @@ int gtp5g_genl_dump_far(struct sk_buff *skb, struct netlink_callback *cb)
     int ret;
     u32 far_id = cb->args[2];
     struct far *far;
+
+    GTP5G_TRC(NULL, "<%s:%d> start\n", __func__, __LINE__);
 
     if (cb->args[5])
         return 0;
@@ -321,6 +335,8 @@ int gtp5g_genl_dump_far(struct sk_buff *skb, struct netlink_callback *cb)
         }
     }
     cb->args[5] = 1;
+
+    GTP5G_TRC(NULL, "<%s:%d> end\n", __func__, __LINE__);
 out:
     return skb->len;
 }
@@ -331,6 +347,8 @@ static int header_creation_fill(struct forwarding_parameter *param,
                struct gtp5g_emark_pktinfo *epkt_info)
 {
     struct outer_header_creation *hdr_creation;
+
+    GTP5G_TRC(NULL, "<%s:%d> start\n", __func__, __LINE__);
 
     if (!attrs[GTP5G_OUTER_HEADER_CREATION_DESCRIPTION] ||
             !attrs[GTP5G_OUTER_HEADER_CREATION_O_TEID] ||
@@ -397,6 +415,8 @@ static int header_creation_fill(struct forwarding_parameter *param,
         }
     }
 
+    GTP5G_TRC(NULL, "<%s:%d> end\n", __func__, __LINE__);
+
     return 0;
 }
 
@@ -407,6 +427,8 @@ static int forwarding_parameter_fill(struct forwarding_parameter *param,
     struct nlattr *hdr_creation_attrs[GTP5G_OUTER_HEADER_CREATION_ATTR_MAX + 1];
     struct forwarding_policy *fwd_policy;
     int err;
+
+    GTP5G_TRC(NULL, "<%s:%d> start\n", __func__, __LINE__);
 
     if (attrs[GTP5G_FORWARDING_PARAMETER_OUTER_HEADER_CREATION]) {
         err = nla_parse_nested(hdr_creation_attrs,
@@ -440,6 +462,8 @@ static int forwarding_parameter_fill(struct forwarding_parameter *param,
         }
     }
 
+    GTP5G_TRC(NULL, "<%s:%d> end\n", __func__, __LINE__);
+
     return 0;
 }
 
@@ -449,6 +473,8 @@ static int far_fill(struct far *far, struct gtp5g_dev *gtp, struct genl_info *in
 {
     struct nlattr *attrs[GTP5G_FORWARDING_PARAMETER_ATTR_MAX + 1];
     int err;
+
+    GTP5G_TRC(NULL, "<%s:%d> start\n", __func__, __LINE__);
 
     if (!far)
         return -EINVAL;
@@ -484,6 +510,8 @@ static int far_fill(struct far *far, struct gtp5g_dev *gtp, struct genl_info *in
     /* Update PDRs which has not linked to this FAR */
     far_update(far, gtp, flag, epkt_info);
 
+    GTP5G_TRC(NULL, "<%s:%d> end\n", __func__, __LINE__);
+    
     return 0;
 }
 
@@ -500,6 +528,8 @@ static int gtp5g_genl_fill_far(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
     struct forwarding_policy *fwd_policy;
     u16 *ids;
     int n;
+
+    GTP5G_TRC(NULL, "<%s:%d> start\n", __func__, __LINE__);
 
     genlh = genlmsg_put(skb, snd_portid, snd_seq, &gtp5g_genl_family, 0, type);
     if (!genlh)
@@ -559,6 +589,9 @@ static int gtp5g_genl_fill_far(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
     kfree(ids);
 
     genlmsg_end(skb, genlh);
+    
+    GTP5G_TRC(NULL, "<%s:%d> end\n", __func__, __LINE__);
+
     return 0;
 genlmsg_fail:
     genlmsg_cancel(skb, genlh);

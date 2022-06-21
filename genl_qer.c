@@ -23,6 +23,8 @@ int gtp5g_genl_add_qer(struct sk_buff *skb, struct genl_info *info)
     u32 qer_id;
     int err;
 
+    GTP5G_TRC(NULL, "<%s:%d> start\n", __func__, __LINE__);
+
     if (!info->attrs[GTP5G_LINK])
         return -EINVAL;
     ifindex = nla_get_u32(info->attrs[GTP5G_LINK]);
@@ -109,6 +111,9 @@ int gtp5g_genl_add_qer(struct sk_buff *skb, struct genl_info *info)
 
     rcu_read_unlock();
     rtnl_unlock();
+
+    GTP5G_TRC(NULL, "<%s:%d> end\n", __func__, __LINE__);
+
     return 0;
 }
 
@@ -120,6 +125,8 @@ int gtp5g_genl_del_qer(struct sk_buff *skb, struct genl_info *info)
     int netnsfd;
     u64 seid;
     u32 qer_id;
+
+    GTP5G_TRC(NULL, "<%s:%d> start\n", __func__, __LINE__);
 
     if (!info->attrs[GTP5G_LINK])
         return -EINVAL;
@@ -160,6 +167,8 @@ int gtp5g_genl_del_qer(struct sk_buff *skb, struct genl_info *info)
     qer_context_delete(qer);
     rcu_read_unlock();
 
+    GTP5G_TRC(NULL, "<%s:%d> end\n", __func__, __LINE__);
+
     return 0;
 }
 
@@ -173,6 +182,8 @@ int gtp5g_genl_get_qer(struct sk_buff *skb, struct genl_info *info)
     u32 qer_id;
     struct sk_buff *skb_ack;
     int err;
+
+    GTP5G_TRC(NULL, "<%s:%d> start\n", __func__, __LINE__);
 
     if (!info->attrs[GTP5G_LINK])
         return -EINVAL;
@@ -228,6 +239,8 @@ int gtp5g_genl_get_qer(struct sk_buff *skb, struct genl_info *info)
     }
     rcu_read_unlock();
 
+    GTP5G_TRC(NULL, "<%s:%d> end\n", __func__, __LINE__);
+
     return genlmsg_unicast(genl_info_net(info), skb_ack, info->snd_portid);
 }
 
@@ -248,6 +261,8 @@ int gtp5g_genl_dump_qer(struct sk_buff *skb, struct netlink_callback *cb)
     int ret;
     u32 qer_id = cb->args[2];
     struct qer *qer;
+
+    GTP5G_TRC(NULL, "<%s:%d> start\n", __func__, __LINE__);
 
     if (cb->args[5])
         return 0;
@@ -279,6 +294,9 @@ int gtp5g_genl_dump_qer(struct sk_buff *skb, struct netlink_callback *cb)
     }
 
     cb->args[5] = 1;
+
+    GTP5G_TRC(NULL, "<%s:%d> end\n", __func__, __LINE__);
+    
 out:
     return skb->len;
 }
@@ -288,6 +306,8 @@ static int qer_fill(struct qer *qer, struct gtp5g_dev *gtp, struct genl_info *in
 {
     struct nlattr *mbr_param_attrs[GTP5G_QER_MBR_ATTR_MAX + 1];
     struct nlattr *gbr_param_attrs[GTP5G_QER_GBR_ATTR_MAX + 1];
+
+    GTP5G_TRC(NULL, "<%s:%d> start\n", __func__, __LINE__);
 
     qer->id = nla_get_u32(info->attrs[GTP5G_QER_ID]);
 
@@ -347,6 +367,8 @@ static int gtp5g_genl_fill_qer(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
     struct nlattr *nest_gbr_param;
     u16 *ids;
     int n;
+
+    GTP5G_TRC(NULL, "<%s:%d> start\n", __func__, __LINE__);
 
     genlh = genlmsg_put(skb, snd_portid, snd_seq,
             &gtp5g_genl_family, 0, type);

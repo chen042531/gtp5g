@@ -13,7 +13,12 @@ static int __net_init gtp5g_net_init(struct net *net)
 {
     struct gtp5g_net *gn = net_generic(net, gtp5g_net_id);
 
+    GTP5G_TRC(NULL, "<%s:%d> start\n", __func__, __LINE__);
+
     INIT_LIST_HEAD(&gn->gtp5g_dev_list);
+
+    GTP5G_TRC(NULL, "<%s:%d> end\n", __func__, __LINE__);
+
     return 0;
 }
 
@@ -21,7 +26,11 @@ static void __net_exit gtp5g_net_exit(struct net *net)
 {
     struct gtp5g_net *gn = net_generic(net, gtp5g_net_id);
 
+    GTP5G_TRC(NULL, "<%s:%d> start\n", __func__, __LINE__);
+
     gtp5g_link_all_del(&gn->gtp5g_dev_list);
+
+    GTP5G_TRC(NULL, "<%s:%d> end\n", __func__, __LINE__);
 }
 
 struct pernet_operations gtp5g_net_ops = {

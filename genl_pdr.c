@@ -39,6 +39,8 @@ int gtp5g_genl_add_pdr(struct sk_buff *skb, struct genl_info *info)
     u16 pdr_id;
     int err;
 
+    GTP5G_TRC(NULL, "<%s:%d> start\n", __func__, __LINE__);
+
     if (info->attrs[GTP5G_LINK]) {
         ifindex = nla_get_u32(info->attrs[GTP5G_LINK]);
     } else {
@@ -155,6 +157,8 @@ int gtp5g_genl_add_pdr(struct sk_buff *skb, struct genl_info *info)
     rcu_read_unlock();
     rtnl_unlock();
 
+    GTP5G_TRC(NULL, "<%s:%d> end\n", __func__, __LINE__);
+
     return 0;
 }
 
@@ -166,6 +170,8 @@ int gtp5g_genl_del_pdr(struct sk_buff *skb, struct genl_info *info)
     int netnsfd;
     u64 seid;
     u16 pdr_id;
+
+    GTP5G_TRC(NULL, "<%s:%d> start\n", __func__, __LINE__);
 
     if (!info->attrs[GTP5G_LINK])
         return -EINVAL;
@@ -206,6 +212,8 @@ int gtp5g_genl_del_pdr(struct sk_buff *skb, struct genl_info *info)
     pdr_context_delete(pdr);
     rcu_read_unlock();
 
+    GTP5G_TRC(NULL, "<%s:%d> end\n", __func__, __LINE__);
+
     return 0;
 }  
 
@@ -219,6 +227,8 @@ int gtp5g_genl_get_pdr(struct sk_buff *skb, struct genl_info *info)
     u16 pdr_id;
     struct sk_buff *skb_ack;
     int err;
+
+    GTP5G_TRC(NULL, "<%s:%d> start\n", __func__, __LINE__);
 
     if (!info->attrs[GTP5G_LINK])
         return -EINVAL;
@@ -275,6 +285,8 @@ int gtp5g_genl_get_pdr(struct sk_buff *skb, struct genl_info *info)
 
     rcu_read_unlock();
 
+    GTP5G_TRC(NULL, "<%s:%d> end\n", __func__, __LINE__);
+
     return genlmsg_unicast(genl_info_net(info), skb_ack, info->snd_portid);
 }  
 
@@ -295,6 +307,8 @@ int gtp5g_genl_dump_pdr(struct sk_buff *skb, struct netlink_callback *cb)
     int ret;
     u16 pdr_id = cb->args[2];
     struct pdr *pdr;
+
+    GTP5G_TRC(NULL, "<%s:%d> start\n", __func__, __LINE__);
 
     if (cb->args[5])
         return 0;
@@ -327,6 +341,9 @@ int gtp5g_genl_dump_pdr(struct sk_buff *skb, struct netlink_callback *cb)
         }
     }
     cb->args[5] = 1;
+
+    GTP5G_TRC(NULL, "<%s:%d> end\n", __func__, __LINE__);
+
 out:
     return skb->len;
 }  
@@ -336,6 +353,8 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
 {
     char *str;
     int err;
+
+    GTP5G_TRC(NULL, "<%s:%d> start\n", __func__, __LINE__);
 
     if (!pdr)
         return -EINVAL;
@@ -405,6 +424,8 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
     // Update hlist table
     pdr_update_hlist_table(pdr, gtp);
 
+    GTP5G_TRC(NULL, "<%s:%d> end\n", __func__, __LINE__);
+
     return 0;
 }
 
@@ -414,6 +435,8 @@ static int parse_pdi(struct pdr *pdr, struct nlattr *a)
     struct pdi *pdi;
     int err;
     char ip_str[40];
+
+    GTP5G_TRC(NULL, "<%s:%d> start\n", __func__, __LINE__);
 
     err = nla_parse_nested(attrs, GTP5G_PDI_ATTR_MAX, a, NULL, NULL);
     if (err)
@@ -449,6 +472,8 @@ static int parse_pdi(struct pdr *pdr, struct nlattr *a)
             return err;
     }
 
+    GTP5G_TRC(NULL, "<%s:%d> end\n", __func__, __LINE__);
+
     return 0;
 }
 
@@ -457,6 +482,8 @@ static int parse_f_teid(struct pdi *pdi, struct nlattr *a)
     struct nlattr *attrs[GTP5G_F_TEID_ATTR_MAX + 1];
     struct local_f_teid *f_teid;
     int err;
+
+    GTP5G_TRC(NULL, "<%s:%d> start\n", __func__, __LINE__);
 
     err = nla_parse_nested(attrs, GTP5G_F_TEID_ATTR_MAX, a, NULL, NULL);
     if (err)
@@ -479,6 +506,8 @@ static int parse_f_teid(struct pdi *pdi, struct nlattr *a)
 
     f_teid->gtpu_addr_ipv4.s_addr = nla_get_be32(attrs[GTP5G_F_TEID_GTPU_ADDR_IPV4]);
 
+    GTP5G_TRC(NULL, "<%s:%d> end\n", __func__, __LINE__);
+
     return 0;
 }
 
@@ -487,6 +516,8 @@ static int parse_sdf_filter(struct pdi *pdi, struct nlattr *a)
     struct nlattr *attrs[GTP5G_SDF_FILTER_ATTR_MAX + 1];
     struct sdf_filter *sdf;
     int err;
+
+    GTP5G_TRC(NULL, "<%s:%d> start\n", __func__, __LINE__);
 
     err = nla_parse_nested(attrs, GTP5G_SDF_FILTER_ATTR_MAX, a, NULL, NULL);
     if (err)
@@ -542,6 +573,8 @@ static int parse_sdf_filter(struct pdi *pdi, struct nlattr *a)
         *sdf->bi_id = nla_get_u32(attrs[GTP5G_SDF_FILTER_SDF_FILTER_ID]);
     }
 
+    GTP5G_TRC(NULL, "<%s:%d> end\n", __func__, __LINE__);
+
     return 0;
 }
 
@@ -551,6 +584,8 @@ static int parse_ip_filter_rule(struct sdf_filter *sdf, struct nlattr *a)
     struct ip_filter_rule *rule;
     int err;
     int i;
+
+    GTP5G_TRC(NULL, "<%s:%d> start\n", __func__, __LINE__);
 
     err = nla_parse_nested(attrs, GTP5G_FLOW_DESCRIPTION_ATTR_MAX, a, NULL, NULL);
     if (err)
@@ -631,6 +666,8 @@ static int parse_ip_filter_rule(struct sdf_filter *sdf, struct nlattr *a)
         }
     }
 
+    GTP5G_TRC(NULL, "<%s:%d> end\n", __func__, __LINE__);
+
     return 0;
 }
 
@@ -639,6 +676,8 @@ static int gtp5g_genl_fill_rule(struct sk_buff *skb, struct ip_filter_rule *rule
     struct nlattr *nest_rule;
     u32 *u32_buf;
     int i;
+
+    GTP5G_TRC(NULL, "<%s:%d> start\n", __func__, __LINE__);
 
     u32_buf = kzalloc(0xff * sizeof(u32), GFP_KERNEL);
     if (!u32_buf)
@@ -685,6 +724,9 @@ static int gtp5g_genl_fill_rule(struct sk_buff *skb, struct ip_filter_rule *rule
 
     nla_nest_end(skb, nest_rule);
     kfree(u32_buf);
+
+    GTP5G_TRC(NULL, "<%s:%d> end\n", __func__, __LINE__);
+
     return 0;
 genlmsg_fail:
     kfree(u32_buf);
@@ -695,6 +737,8 @@ genlmsg_fail:
 static int gtp5g_genl_fill_sdf(struct sk_buff *skb, struct sdf_filter *sdf)
 {
     struct nlattr *nest_sdf;
+
+    GTP5G_TRC(NULL, "<%s:%d> start\n", __func__, __LINE__);
 
     nest_sdf = nla_nest_start(skb, GTP5G_PDI_SDF_FILTER);
     if (!nest_sdf)
@@ -722,6 +766,9 @@ static int gtp5g_genl_fill_sdf(struct sk_buff *skb, struct sdf_filter *sdf)
             return -EMSGSIZE;
 
     nla_nest_end(skb, nest_sdf);
+
+    GTP5G_TRC(NULL, "<%s:%d> end\n", __func__, __LINE__);
+
     return 0;
 }
 
@@ -729,6 +776,8 @@ static int gtp5g_genl_fill_sdf(struct sk_buff *skb, struct sdf_filter *sdf)
 static int gtp5g_genl_fill_f_teid(struct sk_buff *skb, struct local_f_teid *f_teid)
 {
     struct nlattr *nest_f_teid;
+
+    GTP5G_TRC(NULL, "<%s:%d> start\n", __func__, __LINE__);
 
     nest_f_teid = nla_nest_start(skb, GTP5G_PDI_F_TEID);
     if (!nest_f_teid)
@@ -740,12 +789,17 @@ static int gtp5g_genl_fill_f_teid(struct sk_buff *skb, struct local_f_teid *f_te
         return -EMSGSIZE;
 
     nla_nest_end(skb, nest_f_teid);
+
+    GTP5G_TRC(NULL, "<%s:%d> end\n", __func__, __LINE__);
+
     return 0;
 }
 
 static int gtp5g_genl_fill_pdi(struct sk_buff *skb, struct pdi *pdi)
 {
     struct nlattr *nest_pdi;
+
+    GTP5G_TRC(NULL, "<%s:%d> start\n", __func__, __LINE__);
 
     nest_pdi = nla_nest_start(skb, GTP5G_PDR_PDI);
     if (!nest_pdi)
@@ -767,6 +821,9 @@ static int gtp5g_genl_fill_pdi(struct sk_buff *skb, struct pdi *pdi)
     }
 
     nla_nest_end(skb, nest_pdi);
+
+    GTP5G_TRC(NULL, "<%s:%d> end\n", __func__, __LINE__);
+
     return 0;
 }
 
@@ -775,6 +832,8 @@ static int gtp5g_genl_fill_pdr(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
         u32 type, struct pdr *pdr)
 {
     void *genlh;
+
+    GTP5G_TRC(NULL, "<%s:%d> start\n", __func__, __LINE__);
 
     genlh = genlmsg_put(skb, snd_portid, snd_seq, &gtp5g_genl_family, 0, type);
     if (!genlh)
@@ -817,6 +876,9 @@ static int gtp5g_genl_fill_pdr(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
     }
 
     genlmsg_end(skb, genlh);
+
+    GTP5G_TRC(NULL, "<%s:%d> end\n", __func__, __LINE__);
+    
     return 0;
 genlmsg_fail:
     genlmsg_cancel(skb, genlh);

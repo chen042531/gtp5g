@@ -8,6 +8,8 @@ int get_gtpu_header_len(struct gtpv1_hdr *gtpv1,  struct sk_buff *skb)
     u16 len = sizeof(*gtpv1);
     u16 pull_len = sizeof(struct udphdr);
 
+    GTP5G_TRC(NULL, "<%s:%d> start\n", __func__, __LINE__);
+
     /** TS 29.281 Chapter 5.1 and Figure 5.1-1
      * GTP-U header at least 8 byte
      *
@@ -70,5 +72,7 @@ int get_gtpu_header_len(struct gtpv1_hdr *gtpv1,  struct sk_buff *skb)
         }
     }
 
+    GTP5G_TRC(NULL, "<%s:%d> end\n", __func__, __LINE__);
+    
     return len;
 }
