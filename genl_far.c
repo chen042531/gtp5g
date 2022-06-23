@@ -414,6 +414,7 @@ static int forwarding_parameter_fill(struct forwarding_parameter *param,
     bool sendEndmarker = false;
     int err;
 
+    printk(">>>>> forwarding_parameter_fill");
     if (attrs[GTP5G_FORWARDING_PARAMETER_OUTER_HEADER_CREATION]) {
         err = nla_parse_nested(hdr_creation_attrs,
                 GTP5G_OUTER_HEADER_CREATION_ATTR_MAX,
@@ -423,11 +424,19 @@ static int forwarding_parameter_fill(struct forwarding_parameter *param,
         if (err)
             return err;
 
-        #define SNDEM   0x02
+        #define SNDEM 0x02
         if (attrs[GTP5G_ORWARDING_PARAMETER_PFCPSM_REQ_FLAGS]) {
             printk(">>>>>attrs[GTP5G_ORWARDING_PARAMETER_PFCPSM_REQ_FLAGS] exist");
+            printk(">>>>>  flags:%u, sendEndmarker:%u", 
+                    nla_get_u8(attrs[GTP5G_ORWARDING_PARAMETER_PFCPSM_REQ_FLAGS]),
+                    sendEndmarker);
+            printk(">>>>>  SNDEM :%u",SNDEM);
+            printk(">>>>>  flag & SNDEM :%u", (nla_get_u8(attrs[GTP5G_ORWARDING_PARAMETER_PFCPSM_REQ_FLAGS]) & SNDEM));
+            printk(">>>>>  @@true/false: %u",
+                    (nla_get_u8(attrs[GTP5G_ORWARDING_PARAMETER_PFCPSM_REQ_FLAGS]) & SNDEM) == SNDEM);
             if ((nla_get_u8(attrs[GTP5G_ORWARDING_PARAMETER_PFCPSM_REQ_FLAGS]) & SNDEM) == SNDEM){
                 sendEndmarker = true;
+                printk(">>>> haha");
                 printk(">>>>>  flags:%u, sendEndmarker:%u", 
                     nla_get_u8(attrs[GTP5G_ORWARDING_PARAMETER_PFCPSM_REQ_FLAGS]),
                     sendEndmarker);
