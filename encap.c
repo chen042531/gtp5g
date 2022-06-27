@@ -18,6 +18,7 @@
 #include "genl.h"
 #include "log.h"
 #include "api_version.h"
+#include "pktinfo.h"
 
 /* used to compatible with api with/without seid */
 #define MSG_URR_BAR_KOV_LEN 4
@@ -145,6 +146,240 @@ static int gtp5g_encap_recv(struct sock *sk, struct sk_buff *skb)
     return ret;
 }
 
+// static void gtp5g_handle_echo_req(struct sk_buff *skb, struct gtp5g_dev *gtp)
+// {
+//     #define GTPV1 0x30
+//     #define SEQ_NPDU_PRESENT 0x03
+//     #define GTPV1_ECHO_RESPONSE 0x02
+//     #define SEQ_NUM_PRESENT 0x02
+//     #define NPDU_NUM_PRESENT 0x01
+//     #define RECOVERY 14
+
+//     struct rtable *rt;
+//     struct flowi4 fl4;
+
+//     struct gtpv1_hdr *gtp1, *req_gtp1;
+//     struct gtp1_hdr_opt *gtp1_hdr_opt, *req_gtpOptHdr;
+//     struct recovery *recov;
+
+//     struct iphdr *req_iph;
+//     unsigned int req_src_ip;
+//     unsigned int req_dst_ip;
+
+//     struct udphdr *req_uh;
+//     unsigned int req_src_port;
+//     unsigned int req_dst_port;
+
+//     /* Reset all headers */
+//     // skb_reset_transport_header(skb);
+//     // skb_reset_network_header(skb);
+//     // skb_reset_mac_header(skb);
+
+//     //ipHdr
+//     req_iph = (struct iphdr *)skb_network_header(skb);
+//     req_src_ip = (unsigned int)req_iph->saddr;
+//     req_dst_ip = (unsigned int)req_iph->daddr;
+//     printk(">>>>>> src_ip:%pI4 dst_ip:%pI4", &req_src_ip, &req_dst_ip);
+
+//     //udpHdr
+//     req_uh = (struct udphdr *)skb_transport_header(skb);
+//     req_src_port = (unsigned int)ntohs(req_uh->source);
+//     req_dst_port = (unsigned int)ntohs(req_uh->dest);
+//     printk(">>>>>> src_port:%u dst_port:%u", req_src_port, req_dst_port);
+
+//     //gtpHdr
+//     req_gtp1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
+//     gtp1 = skb_put(skb, sizeof(*gtp1));
+//     gtp1->flags = GTPV1 + (req_gtp1->flags & SEQ_NPDU_PRESENT);
+//     gtp1->type = GTPV1_ECHO_RESPONSE;
+//     gtp1->tid = req_gtp1->tid;
+
+//      printk(">>>>>> gtpHdr success");
+//     //gtpOptHdr
+//     req_gtpOptHdr = (struct gtp1_hdr_opt *)(req_gtp1 + sizeof(struct gtpv1_hdr));
+//     req_gtp1 = skb_put(skb, sizeof(*req_gtp1));
+//     if (req_gtp1->flags & SEQ_NUM_PRESENT)
+//         gtp1_hdr_opt->seq_number = req_gtpOptHdr->seq_number+ 1;
+//     if (req_gtp1->flags & NPDU_NUM_PRESENT)
+//         gtp1_hdr_opt->NPDU = req_gtpOptHdr->NPDU;
+
+//     printk(">>>>>> req_gtpOptHdr success");
+//     //recovery
+//     recov = skb_put(skb, sizeof(*recov));
+//     recov->typeNum = RECOVERY;
+//     recov->cnt = 0;
+
+//     printk(">>>>>> recovery success");
+//     // //switch request Src Addr & Dst Addr
+//     rt = ip4_find_route(skb, req_iph, gtp->sk1u, gtp->dev, 
+//         req_dst_ip /* Response Src Addr */ ,
+//         req_src_ip /* Response Dst Addr*/, 
+//         &fl4);
+//     if (IS_ERR(rt)) {
+//         GTP5G_ERR(gtp->dev, "Failed to send GTP-U echo response due to routing\n");
+//         dev_kfree_skb(skb);
+//         return;
+//     }
+
+//     printk(">>>>>>@@ ip4_find_route success");
+
+//     udp_tunnel_xmit_skb(rt, 
+//                 gtp->sk1u, 
+//                 skb,
+// 			    fl4.saddr, 
+//                 fl4.daddr,
+// 			    iph->tos,
+// 			    ip4_dst_hoplimit(&rt->dst),
+// 			    0,
+// 			    htons(GTP1U_PORT), 
+//                 htons(GTP1U_PORT),
+// 			    !net_eq(sock_net(gtp->sk1u),
+// 				    dev_net(gtp->dev)),
+// 			    false);
+//     // udp_tunnel_xmit_skb(rt, 
+//     //     gtp->sk1u, 
+//     //     skb,
+//     //     fl4.saddr, 
+//     //     fl4.daddr,
+//     //     0,
+//     //     ip4_dst_hoplimit(&rt->dst),
+//     //     0,
+//     //     req_src_port, 
+//     //     req_dst_port,
+//     //     true, 
+//     //     true);
+
+//     return;
+// }
+
+#define GTP1U_PORT	2152
+
+#define GTP_ECHO_REQ	1
+#define GTP_ECHO_RSP	2
+#define GTPIE_RECOVERY	14
+
+#define GTP1_F_NPDU	0x01
+#define GTP1_F_SEQ	0x02
+#define GTP1_F_EXTHDR	0x04
+static struct rtable *ip4_route_output_gtp(struct flowi4 *fl4,
+					   const struct sock *sk,
+					   __be32 daddr, __be32 saddr)
+{
+	memset(fl4, 0, sizeof(*fl4));
+	fl4->flowi4_oif		= sk->sk_bound_dev_if;
+	fl4->daddr		= daddr;
+	fl4->saddr		= saddr;
+	fl4->flowi4_tos		= RT_CONN_FLAGS(sk);
+	fl4->flowi4_proto	= sk->sk_protocol;
+
+	return ip_route_output_key(sock_net(sk), fl4);
+}
+
+struct gtp1_header {	/* According to 3GPP TS 29.060. */
+	__u8	flags;
+	__u8	type;
+	__be16	length;
+	__be32	tid;
+} __attribute__ ((packed));
+
+struct gtp1_header_long {	/* According to 3GPP TS 29.060. */
+	__u8	flags;
+	__u8	type;
+	__be16	length;
+	__be32	tid;
+	__be16	seq;
+	__u8	npdu;
+	__u8	next;
+} __packed;
+
+/* GTP Information Element */
+struct gtp_ie {
+	__u8	tag;
+	__u8	val;
+} __packed;
+
+struct gtp1u_packet {
+	struct gtp1_header_long gtp1u_h;
+	struct gtp_ie ie;
+} __packed;
+
+static int gtp1u_send_echo_resp(struct gtp5g_dev *gtp, struct sk_buff *skb)
+{
+	struct gtp1_header_long *gtp1u;
+	struct gtp1u_packet *gtp_pkt;
+	struct rtable *rt;
+	struct flowi4 fl4;
+	struct iphdr *iph;
+
+	gtp1u = (struct gtp1_header_long *)(skb->data + sizeof(struct udphdr));
+
+	/* 3GPP TS 29.281 5.1 - For the Echo Request, Echo Response,
+	 * Error Indication and Supported Extension Headers Notification
+	 * messages, the S flag shall be set to 1 and TEID shall be set to 0.
+	 */
+	if (!(gtp1u->flags & GTP1_F_SEQ) || gtp1u->tid)
+		return -1;
+
+	/* pull GTP and UDP headers */
+	pskb_pull(skb,
+		      sizeof(struct gtp1_header_long) + sizeof(struct udphdr));
+
+	gtp_pkt = skb_push(skb, sizeof(struct gtp1u_packet));
+	memset(gtp_pkt, 0, sizeof(struct gtp1u_packet));
+
+	/* S flag must be set to 1 */
+	gtp_pkt->gtp1u_h.flags = 0x32;
+	gtp_pkt->gtp1u_h.type = GTP_ECHO_RSP;
+	/* seq, npdu and next should be counted to the length of the GTP packet
+	 * that's why szie of gtp1_header should be subtracted,
+	 * not why szie of gtp1_header_long.
+	 */
+	gtp_pkt->gtp1u_h.length =
+		htons(sizeof(struct gtp1u_packet) - sizeof(struct gtp1_header));
+	/* 3GPP TS 29.281 5.1 - TEID has to be set to 0 */
+	gtp_pkt->gtp1u_h.tid = 0;
+
+	/* 3GPP TS 29.281 7.7.2 - The Restart Counter value in the
+	 * Recovery information element shall not be used, i.e. it shall
+	 * be set to zero by the sender and shall be ignored by the receiver.
+	 * The Recovery information element is mandatory due to backwards
+	 * compatibility reasons.
+	 */
+	gtp_pkt->ie.tag = GTPIE_RECOVERY;
+	gtp_pkt->ie.val = 0;
+
+	iph = ip_hdr(skb);
+
+    printk(">>>>> 111");
+	/* find route to the sender,
+	 * src address becomes dst address and vice versa.
+	 */
+	rt = ip4_route_output_gtp(&fl4, gtp->sk1u, iph->saddr, iph->daddr);
+    // rt = ip4_find_route(skb, iph, gtp->sk1u, gtp->dev, 
+    //     iph->saddr /* Response Src Addr */ ,
+    //     iph->daddr /* Response Dst Addr*/, 
+    //     &fl4);
+	if (IS_ERR(rt)) {
+		netdev_dbg(gtp->dev, "no route for echo response from %pI4\n",
+			   &iph->saddr);
+		return -1;
+	}
+
+    printk(">>>>> 22");
+
+	udp_tunnel_xmit_skb(rt, gtp->sk1u, skb,
+			    fl4.saddr, fl4.daddr,
+			    iph->tos,
+			    ip4_dst_hoplimit(&rt->dst),
+			    0,
+			    htons(GTP1U_PORT), htons(GTP1U_PORT),
+			    !net_eq(sock_net(gtp->sk1u),
+				    dev_net(gtp->dev)),
+			    false);
+    printk(">>>>> 3");
+	return 0;
+}
+
 static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
 {
     unsigned int hdrlen = sizeof(struct udphdr) + sizeof(struct gtpv1_hdr);
@@ -164,10 +399,18 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
         return 1;
     }
 
-    if (gtpv1->type != GTP_TPDU) {
-        GTP5G_ERR(gtp->dev, "GTP-U message type is not a TPDU: %#x\n",
+    if (gtpv1->type != GTP_TPDU && gtpv1->type != GTP_ECHO_REQUEST) {
+        GTP5G_ERR(gtp->dev, "GTP-U message type is not a TPDU or GTP echo request: %#x\n",
             gtpv1->type);
         return 1;
+    }
+
+    if (gtpv1->type == GTP_ECHO_REQUEST) {
+        GTP5G_ERR(gtp->dev, "GTP-U message type is GTP echo request: %#x\n",
+            gtpv1->type);
+        // gtp5g_handle_echo_req(skb, gtp);
+        gtp1u_send_echo_resp(gtp, skb);
+        return 0;
     }
 
     gtpv1_hdr_len = get_gtpu_header_len(gtpv1, skb);
