@@ -23,6 +23,17 @@ typedef struct gtp1_hdr_opt {
     __u8    next_ehdr_type;
 } __attribute__((packed)) gtpv1_hdr_opt_t;
 
+struct recovery {
+    __u8	type_num;
+	__u8	cnt;
+}__attribute__((packed));
+
+struct gtpv1_echo_resp {
+    struct  gtpv1_hdr    gtpv1_h;
+    struct  gtp1_hdr_opt gtpv1_opt_h;
+    struct  recovery     recov;
+} __attribute__((packed));
+
 /** 3GPP TS 29.281
  * From Figure 5.2.1-2 Definition of Extension Header Type
  */
@@ -41,6 +52,7 @@ typedef struct gtp1_hdr_opt {
 
 #define GTP_EMARK   254
 #define GTP_TPDU    255
+#define GTP_ECHO_REQUEST 1
 
 typedef struct ul_pdu_sess_info {
         __u8    spare_qfi;                      /* Spare(2b) + qfi(6b)*/

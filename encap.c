@@ -18,6 +18,7 @@
 #include "genl.h"
 #include "log.h"
 #include "api_version.h"
+#include "pktinfo.h"
 
 /* used to compatible with api with/without seid */
 #define MSG_URR_BAR_KOV_LEN 4
@@ -145,6 +146,77 @@ static int gtp5g_encap_recv(struct sock *sk, struct sk_buff *skb)
     return ret;
 }
 
+static int gtp5g_handle_echo_req(struct sk_buff *skb, struct gtp5g_dev *gtp)
+{
+    #define GTPV1 0x30
+    #define SEQ_NPDU_PRESENT 0x03
+    #define GTPV1_ECHO_RESPONSE 0x02
+    #define SEQ_NUM_PRESENT 0x02
+    #define NPDU_NUM_PRESENT 0x01
+    #define RECOVERY 14
+
+    struct gtpv1_hdr *req_gtp1;
+    struct gtp1_hdr_opt *req_gtpOptHdr;
+
+    struct gtpv1_echo_resp *gtp_pkt;
+
+    struct rtable *rt;
+    struct flowi4 fl4;
+    struct iphdr *iph;
+
+    req_gtp1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
+    req_gtpOptHdr = (struct gtp1_hdr_opt *)(req_gtp1 + sizeof(struct gtpv1_hdr));
+
+    pskb_pull(skb,
+              sizeof(struct gtp1_hdr_opt)
+		      + sizeof(struct gtpv1_hdr)
+              + sizeof(struct udphdr));
+
+    gtp_pkt = skb_push(skb, sizeof(struct gtpv1_echo_resp));
+    memset(gtp_pkt, 0, sizeof(struct gtpv1_echo_resp));
+
+    /* gtp header*/
+    gtp_pkt->gtpv1_h.flags = GTPV1 + (req_gtp1->flags & SEQ_NPDU_PRESENT);
+    gtp_pkt->gtpv1_h.type = GTPV1_ECHO_RESPONSE;
+    gtp_pkt->gtpv1_h.length =
+        htons(sizeof(struct gtpv1_echo_resp) - sizeof(struct gtpv1_hdr));
+    gtp_pkt->gtpv1_h.tid = 0;
+
+    /* gtp opt header*/
+    if (req_gtp1->flags & SEQ_NUM_PRESENT)
+        gtp_pkt->gtpv1_opt_h.seq_number = req_gtpOptHdr->seq_number+ 1;
+    if (req_gtp1->flags & NPDU_NUM_PRESENT)
+        gtp_pkt->gtpv1_opt_h.NPDU = req_gtpOptHdr->NPDU;
+
+    /* gtp recovery*/
+    gtp_pkt->recov.type_num = RECOVERY;
+    gtp_pkt->recov.cnt = 0;
+
+    iph = ip_hdr(skb);
+  
+    rt = ip4_find_route(skb, iph, gtp->sk1u, gtp->dev, 
+        iph->daddr ,
+        iph->saddr, 
+        &fl4);
+    if (IS_ERR(rt)) {
+        netdev_dbg(gtp->dev, "no route for echo response from %pI4\n", 
+        &iph->saddr);
+        return -1;
+    }
+
+    udp_tunnel_xmit_skb(rt, gtp->sk1u, skb,
+                    fl4.saddr, fl4.daddr,
+                    iph->tos,
+                    ip4_dst_hoplimit(&rt->dst),
+                    0,
+                    htons(GTP1U_PORT), htons(GTP1U_PORT),
+                    !net_eq(sock_net(gtp->sk1u),
+                        dev_net(gtp->dev)),
+                    false);
+
+    return 0;
+}
+
 static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
 {
     unsigned int hdrlen = sizeof(struct udphdr) + sizeof(struct gtpv1_hdr);
@@ -164,10 +236,18 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
         return 1;
     }
 
-    if (gtpv1->type != GTP_TPDU) {
-        GTP5G_ERR(gtp->dev, "GTP-U message type is not a TPDU: %#x\n",
+    if (gtpv1->type != GTP_TPDU && gtpv1->type != GTP_ECHO_REQUEST) {
+        GTP5G_ERR(gtp->dev, "GTP-U message type is not a TPDU or GTP echo request: %#x\n",
             gtpv1->type);
         return 1;
+    }
+
+    if (gtpv1->type == GTP_ECHO_REQUEST) {
+        GTP5G_INF(gtp->dev, "GTP-U message type is GTP echo request: %#x\n",
+            gtpv1->type);
+        gtp5g_handle_echo_req(skb, gtp);
+
+        return 0;
     }
 
     gtpv1_hdr_len = get_gtpu_header_len(gtpv1, skb);
