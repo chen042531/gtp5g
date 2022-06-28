@@ -166,28 +166,34 @@ static int gtp5g_handle_echo_req(struct sk_buff *skb, struct gtp5g_dev *gtp)
     req_gtp1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
     flags = req_gtp1->flags;
     printk(">>>> ori:%x", flags);
-    req_seq = (struct gtpv1_hdr_opt_seq *)(req_gtp1 + sizeof(struct gtpv1_hdr));
-    seq_number = req_seq->seq_number;
-    printk(">>>> ori seq:%x", seq_number);
-    req_npdu = (struct gtpv1_hdr_opt_npdu *)(req_seq + sizeof(struct gtpv1_hdr_opt_seq));
-    npdu_val = req_npdu->NPDU;
-    req_ehdr = (struct gtpv1_hdr_opt_next_ehdr_type *)(req_npdu + sizeof(struct gtpv1_hdr_opt_npdu));
-    ehdr_type = req_ehdr->next_ehdr_type;
+
+    
+    
     // pskb_pull(skb, sizeof(struct gtpv1_hdr) + sizeof(struct udphdr));
-    pskb_pull(skb, 12+ sizeof(struct udphdr));
+    // pskb_pull(skb, sizeof(struct gtpv1_hdr) + sizeof(struct udphdr));
     printk(">>>>>> 1 @@skb_len %u", skb->len);
-    if (flags & GTPV1_HDR_FLG_EXTHDR){
-        printk(">>>>>> GTPV1_HDR_FLG_EXTHDR");
-        pskb_pull(skb, sizeof(struct gtpv1_hdr_opt_next_ehdr_type));
+    
+    if (flags & GTPV1_HDR_FLG_SEQ){
+         printk(">>>>>> GTPV1_HDR_FLG_SEQ");
+         req_seq = (struct gtpv1_hdr_opt_seq *)(req_gtp1 + sizeof(struct gtpv1_hdr));
+         seq_number = req_seq->seq_number;
+         printk(">>>> ori seq:%x", seq_number);
+        // pskb_pull(skb, sizeof(struct gtpv1_hdr_opt_seq));
     }
     if (flags & GTPV1_HDR_FLG_NPDU){
         printk(">>>>>> GTPV1_HDR_FLG_NPDU");
-        pskb_pull(skb, sizeof(struct gtpv1_hdr_opt_npdu));
+        req_npdu = (struct gtpv1_hdr_opt_npdu *)(req_seq + sizeof(struct gtpv1_hdr_opt_seq));
+        npdu_val = req_npdu->NPDU;
+        // pskb_pull(skb, sizeof(struct gtpv1_hdr_opt_npdu));
     }
-    if (flags & GTPV1_HDR_FLG_SEQ){
-         printk(">>>>>> GTPV1_HDR_FLG_SEQ");
-        pskb_pull(skb, sizeof(struct gtpv1_hdr_opt_seq));
+    if (flags & GTPV1_HDR_FLG_EXTHDR){
+        printk(">>>>>> GTPV1_HDR_FLG_EXTHDR");
+        req_ehdr = (struct gtpv1_hdr_opt_next_ehdr_type *)(req_npdu + sizeof(struct gtpv1_hdr_opt_npdu));
+        ehdr_type = req_ehdr->next_ehdr_type;
+        // pskb_pull(skb, sizeof(struct gtpv1_hdr_opt_next_ehdr_type));
     }
+
+    pskb_pull(skb, skb->len);
 
     printk(">>>>>> 2 @@skb_len %u", skb->len);
     /* gtp recovery*/
