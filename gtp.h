@@ -23,10 +23,17 @@ typedef struct gtp1_hdr_opt {
     __u8    next_ehdr_type;
 } __attribute__((packed)) gtpv1_hdr_opt_t;
 
-typedef struct recovery {
-    __u8    typeNum;
-    __u8    cnt;
-} __attribute__((packed)) gtpv1_echo_resp_recovery;
+struct recovery {
+    __u8	type_num;
+	__u8	cnt;
+}__attribute__((packed));
+
+struct gtpv1_echo_resp {
+    struct  gtpv1_hdr    gtpv1_h;
+    struct  gtp1_hdr_opt gtpv1_opt_h;
+    struct  recovery     recov;
+} __attribute__((packed));
+
 /** 3GPP TS 29.281
  * From Figure 5.2.1-2 Definition of Extension Header Type
  */
