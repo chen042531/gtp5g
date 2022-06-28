@@ -148,49 +148,74 @@ static int gtp5g_encap_recv(struct sock *sk, struct sk_buff *skb)
 
 static int gtp5g_handle_echo_req(struct sk_buff *skb, struct gtp5g_dev *gtp)
 {
-    #define GTPV1 0x30
-    #define SEQ_NPDU_PRESENT 0x03
-    #define GTPV1_ECHO_RESPONSE 0x02
-    #define SEQ_NUM_PRESENT 0x02
-    #define NPDU_NUM_PRESENT 0x01
-    #define RECOVERY 14
-
-    struct gtpv1_hdr *req_gtp1;
-    struct gtp1_hdr_opt *req_gtpOptHdr;
-
-    struct gtpv1_echo_resp *gtp_pkt;
+    struct gtpv1_hdr *req_gtp1, *gtpv1_h;
+    struct gtpv1_hdr_opt_seq *req_seq, *seq ;
+    struct gtpv1_hdr_opt_npdu *req_npdu, *npdu;
+    struct gtpv1_hdr_opt_next_ehdr_type *req_ehdr, *ehdr;
+    struct gtpv1_ie_recovery *recov;
 
     struct rtable *rt;
     struct flowi4 fl4;
     struct iphdr *iph;
 
+    __u8    flags;
+    __be16  seq_number;
+    __u8    npdu_val;
+    __u8    ehdr_type;
+
     req_gtp1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
-    req_gtpOptHdr = (struct gtp1_hdr_opt *)(req_gtp1 + sizeof(struct gtpv1_hdr));
-
-    pskb_pull(skb,
-              sizeof(struct gtp1_hdr_opt)
-		      + sizeof(struct gtpv1_hdr)
-              + sizeof(struct udphdr));
-
-    gtp_pkt = skb_push(skb, sizeof(struct gtpv1_echo_resp));
-    memset(gtp_pkt, 0, sizeof(struct gtpv1_echo_resp));
-
-    /* gtp header*/
-    gtp_pkt->gtpv1_h.flags = GTPV1 + (req_gtp1->flags & SEQ_NPDU_PRESENT);
-    gtp_pkt->gtpv1_h.type = GTPV1_ECHO_RESPONSE;
-    gtp_pkt->gtpv1_h.length =
-        htons(sizeof(struct gtpv1_echo_resp) - sizeof(struct gtpv1_hdr));
-    gtp_pkt->gtpv1_h.tid = 0;
-
-    /* gtp opt header*/
-    if (req_gtp1->flags & SEQ_NUM_PRESENT)
-        gtp_pkt->gtpv1_opt_h.seq_number = req_gtpOptHdr->seq_number+ 1;
-    if (req_gtp1->flags & NPDU_NUM_PRESENT)
-        gtp_pkt->gtpv1_opt_h.NPDU = req_gtpOptHdr->NPDU;
+    flags = req_gtp1->flags;
+    printk(">>>> ori:%x", flags);
+    req_seq = (struct gtpv1_hdr_opt_seq *)(req_gtp1 + sizeof(struct gtpv1_hdr));
+    seq_number = req_seq->seq_number;
+    printk(">>>> ori seq:%x", seq_number);
+    req_npdu = (struct gtpv1_hdr_opt_npdu *)(req_seq + sizeof(struct gtpv1_hdr_opt_seq));
+    npdu_val = req_npdu->NPDU;
+    req_ehdr = (struct gtpv1_hdr_opt_next_ehdr_type *)(req_npdu + sizeof(struct gtpv1_hdr_opt_npdu));
+    ehdr_type = req_ehdr->next_ehdr_type;
+    pskb_pull(skb, sizeof(struct gtpv1_hdr) + sizeof(struct udphdr));
+    if (flags & GTPV1_HDR_FLG_EXTHDR)
+        pskb_pull(skb, sizeof(struct gtpv1_hdr_opt_next_ehdr_type));
+    if (flags & GTPV1_HDR_FLG_NPDU)
+        pskb_pull(skb, sizeof(struct gtpv1_hdr_opt_npdu));
+    if (flags & GTPV1_HDR_FLG_SEQ)
+        pskb_pull(skb, sizeof(struct gtpv1_hdr_opt_seq));
 
     /* gtp recovery*/
-    gtp_pkt->recov.type_num = RECOVERY;
-    gtp_pkt->recov.cnt = 0;
+    recov = skb_push(skb, sizeof(struct gtpv1_ie_recovery));
+    memset(recov, 0, sizeof(struct gtpv1_ie_recovery));
+    recov->type_num = GTPV1_IE_RECOVERY;
+    recov->cnt = 0;
+
+    /* gtp opt header*/
+    if (flags & GTPV1_HDR_FLG_EXTHDR)
+        printk(">>> in GTPV1_HDR_FLG_EXTHDR");
+        ehdr = skb_push(skb, sizeof(struct gtpv1_hdr_opt_next_ehdr_type));
+        memset(ehdr, 0, sizeof(struct gtpv1_hdr_opt_next_ehdr_type));
+        ehdr->next_ehdr_type = ehdr_type;
+    if (flags & GTPV1_HDR_FLG_NPDU)
+        printk(">>> in GTPV1_HDR_FLG_NPDU");
+        npdu = skb_push(skb, sizeof(struct gtpv1_hdr_opt_npdu));
+        memset(npdu, 0, sizeof(struct gtpv1_hdr_opt_npdu));
+        npdu->NPDU = npdu_val;
+    if (flags & GTPV1_HDR_FLG_SEQ)
+        printk(">>> in GTPV1_HDR_FLG_SEQ");
+        seq = skb_push(skb, sizeof(struct gtpv1_hdr_opt_seq));
+        memset(seq, 0, sizeof(struct gtpv1_hdr_opt_seq));
+        seq->seq_number = seq_number;
+    
+    printk(">>> seq->seq_number %x", seq->seq_number);
+    /* gtp header*/
+    gtpv1_h = skb_push(skb, sizeof(struct gtpv1_hdr));
+    memset(gtpv1_h, 0, sizeof(struct gtpv1_hdr));
+    gtpv1_h->flags = GTPV1 + (flags & 
+                                GTPV1_HDR_FLG_SEQ);
+    printk(">>>> %x", req_gtp1->flags);
+    printk(">>>> %x", gtpv1_h->flags);
+    gtpv1_h->type = GTP_TYPE_ECHO_RSP;
+    gtpv1_h->length =
+        htons(skb->data_len - sizeof(struct gtpv1_hdr));
+    gtpv1_h->tid = 0;
 
     iph = ip_hdr(skb);
   
@@ -236,13 +261,13 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
         return 1;
     }
 
-    if (gtpv1->type != GTP_TPDU && gtpv1->type != GTP_ECHO_REQUEST) {
+    if (gtpv1->type != GTP_TYPE_TPDU && gtpv1->type != GTP_TYPE_ECHO_REQ) {
         GTP5G_ERR(gtp->dev, "GTP-U message type is not a TPDU or GTP echo request: %#x\n",
             gtpv1->type);
         return 1;
     }
 
-    if (gtpv1->type == GTP_ECHO_REQUEST) {
+    if (gtpv1->type == GTP_TYPE_ECHO_REQ) {
         GTP5G_INF(gtp->dev, "GTP-U message type is GTP echo request: %#x\n",
             gtpv1->type);
         gtp5g_handle_echo_req(skb, gtp);
