@@ -220,6 +220,85 @@ static int gtp1c_handle_echo_req(struct sk_buff *skb, struct gtp5g_dev *gtp)
     return 0;
 }
 
+// static int gtp1u_handle_end_marker(struct sk_buff *skb, struct gtp5g_dev *gtp)
+// {
+//     unsigned int hdrlen = sizeof(struct udphdr) + sizeof(struct gtpv1_hdr);
+//     struct gtpv1_hdr *gtpv1;
+//     struct pdr *pdr;
+//     int gtpv1_hdr_len;
+
+//     int rt = -1;
+//     struct far *far;
+
+//     struct forwarding_parameter *fwd_param = far->fwd_param;
+//     struct outer_header_creation *hdr_creation;
+//     struct forwarding_policy *fwd_policy;
+//     struct gtpv1_hdr *gtp1;
+//     struct iphdr *iph;
+//     struct udphdr *uh;
+//     struct pcpu_sw_netstats *stats;
+//     int ret;
+
+//     gtpv1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
+//     pdr = pdr_find_by_gtp1u(gtp, skb, hdrlen, gtpv1->tid);
+//     // pskb_may_pull() is called in pdr_find_by_gtp1u(), so gtpv1 may be invalidated here.
+//     // recalculation gtpv1
+//     gtpv1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
+//     if (!pdr) {
+//         GTP5G_ERR(gtp->dev, "No PDR match this skb : teid[%d]\n", ntohl(gtpv1->tid));
+//         return -1;
+//     }
+
+//     rt = -1;
+//     far *far = pdr->far;
+//     if (!far) {
+//         GTP5G_ERR(pdr->dev, "FAR not exists for PDR(%u)\n", pdr->id);
+//         goto out;
+//     }
+
+//     if (pdr->outer_header_removal) {
+//         switch(far->action & FAR_ACTION_MASK) {
+//         case FAR_ACTION_FORW:
+//             if (fwd_param) {
+//                 if ((fwd_policy = fwd_param->fwd_policy))
+//                     skb->mark = fwd_policy->mark;
+
+//                 if ((hdr_creation = fwd_param->hdr_creation)) {
+//                     // Just modify the teid and packet dest ip
+//                     gtp1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
+//                     gtp1->tid = hdr_creation->teid;
+
+//                     skb_push(skb, 20); // L3 Header Length
+//                     iph = ip_hdr(skb);
+
+//                     if (!pdr->pdi->f_teid) {
+//                         GTP5G_ERR(dev, "Failed to hdr removal + creation "
+//                             "due to pdr->pdi->f_teid not exist\n");
+//                         return -1;
+//                     }
+                    
+//                     iph->saddr = pdr->pdi->f_teid->gtpu_addr_ipv4.s_addr;
+//                     iph->daddr = hdr_creation->peer_addr_ipv4.s_addr;
+//                     iph->check = 0;
+
+//                     uh = udp_hdr(skb);
+//                     uh->check = 0;
+
+//                     if (ip_xmit(skb, pdr->sk, dev) < 0) {
+//                         GTP5G_ERR(dev, "Failed to transmit skb through ip_xmit\n");
+//                         return -1;
+//                     }
+
+//                 }
+//             }
+//             break;
+//         default:
+//             GTP5G_ERR(pdr->dev, "Unhandled apply action(%u) in FAR(%u) and related to PDR(%u)\n",
+//                 far->action, far->id, pdr->id);
+//         }
+//     }
+// }
+
 static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
 {
     unsigned int hdrlen = sizeof(struct udphdr) + sizeof(struct gtpv1_hdr);
@@ -246,7 +325,15 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
         return gtp1c_handle_echo_req(skb, gtp);
     }
 
-    if (gtpv1->type != GTPV1_MSG_TYPE_TPDU) {
+    // if (gtpv1->type != GTPV1_MSG_TYPE_EMARK) {
+    //     GTP5G_INF(gtp->dev, "GTP-U message type is End Marker: %#x\n",
+    //         gtpv1->type);
+
+    //     return gtp1u_handle_end_marker(skb, gtp);
+    // }
+
+    printk(">>>>>> gtpv1->type:%x", gtpv1->type);
+    if (gtpv1->type != GTPV1_MSG_TYPE_TPDU && gtpv1->type != GTPV1_MSG_TYPE_EMARK) {
         GTP5G_ERR(gtp->dev, "GTP-U message type is not a TPDU: %#x\n",
             gtpv1->type);
         return 1;
@@ -422,6 +509,7 @@ static int gtp5g_rx(struct pdr *pdr, struct sk_buff *skb,
             rt = gtp5g_drop_skb_encap(skb, pdr->dev, pdr);
             break;
         case FAR_ACTION_FORW:
+            printk(">>>>>> forward");
             rt = gtp5g_fwd_skb_encap(skb, pdr->dev, hdrlen, pdr);
             break;
         case FAR_ACTION_BUFF:
