@@ -246,17 +246,23 @@ struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff *skb,
     struct pdr *pdr;
     struct pdi *pdi;
 
+    // int cnt = 0;
+    // struct gtpv1_hdr *gtpv1;
+    // gtpv1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
+
+    // printk(">>>pdr_find_by_gtp1u start ");
     if (!gtp)
         return NULL;
-
+    // printk(">>>1 ");
     if (ntohs(skb->protocol) != ETH_P_IP)
         return NULL;
-
-    if (!pskb_may_pull(skb, hdrlen + sizeof(struct iphdr)))
-        return NULL;
-
+    // printk(">>>2 ");
+    // if (!pskb_may_pull(skb, hdrlen + sizeof(struct iphdr)))
+    //     return NULL;
+    // printk(">>>3 ");
     iph = (struct iphdr *)(skb->data + hdrlen);
     target_addr = (gtp->role == GTP5G_ROLE_UPF ? &iph->saddr : &iph->daddr);
+    // printk(">>>>>> %pI4", &target_addr);
 
     head = &gtp->i_teid_hash[u32_hashfn(teid) % gtp->hash_size];
     hlist_for_each_entry_rcu(pdr, head, hlist_i_teid) {
@@ -286,7 +292,6 @@ struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff *skb,
         if (pdi->sdf)
             if (!sdf_filter_match(pdi->sdf, skb, hdrlen, GTP5G_SDF_FILTER_OUT))
                 continue;
-
         return pdr;
     }
 

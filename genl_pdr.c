@@ -88,6 +88,7 @@ int gtp5g_genl_add_pdr(struct sk_buff *skb, struct genl_info *info)
         return -ENODEV;
     }
 
+    // printk(">>>>>>>>>>>> seid:%llu pdrId:%u", seid, pdr_id);
     pdr = find_pdr_by_id(gtp, seid, pdr_id);
     if (pdr) {
         if (info->nlhdr->nlmsg_flags & NLM_F_EXCL) {
