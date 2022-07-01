@@ -257,6 +257,7 @@ struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff *skb,
     if (ntohs(skb->protocol) != ETH_P_IP)
         return NULL;
     // printk(">>>2 ");
+    printk(">>>> iphdr_len:%u, skb->len:%u", sizeof(struct iphdr), hdrlen);
     // if (!pskb_may_pull(skb, hdrlen + sizeof(struct iphdr)))
     //     return NULL;
     // printk(">>>3 ");

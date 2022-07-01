@@ -18,8 +18,10 @@ int get_gtpu_header_len(struct gtpv1_hdr *gtpv1,  struct sk_buff *skb)
      */
     if (gtpv1->flags & GTPV1_HDR_FLG_MASK) 
         len += 4;
-    else
+    else{
+        printk(len);
         return len;
+    }
     pull_len += len;
 
     /** TS 29.281 Chapter 5.2 and Figure 5.2.1-1
