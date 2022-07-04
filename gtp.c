@@ -18,10 +18,8 @@ int get_gtpu_header_len(struct gtpv1_hdr *gtpv1,  struct sk_buff *skb)
      */
     if (gtpv1->flags & GTPV1_HDR_FLG_MASK) 
         len += 4;
-    else{
-        printk(len);
+    else
         return len;
-    }
     pull_len += len;
 
     /** TS 29.281 Chapter 5.2 and Figure 5.2.1-1
@@ -31,6 +29,8 @@ int get_gtpu_header_len(struct gtpv1_hdr *gtpv1,  struct sk_buff *skb)
     if (gtpv1->flags & GTPV1_HDR_FLG_EXTHDR) {
         __u8 next_ehdr_type = 0;
         gtpv1_hdr_opt_t *gtpv1_opt;
+        
+        printk(">>>>>> gtpv1->flags:%x", gtpv1->flags);
         
         if (!pskb_may_pull(skb, pull_len)) {
             GTP5G_ERR(NULL, "Failed to pull skb length %#x\n", pull_len);

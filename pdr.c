@@ -246,6 +246,7 @@ struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff *skb,
     struct pdr *pdr;
     struct pdi *pdi;
 
+    struct iphdr *outer_iph;
     // int cnt = 0;
     // struct gtpv1_hdr *gtpv1;
     // gtpv1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
@@ -257,10 +258,15 @@ struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff *skb,
     if (ntohs(skb->protocol) != ETH_P_IP)
         return NULL;
     // printk(">>>2 ");
-    printk(">>>> iphdr_len:%u, skb->len:%u", sizeof(struct iphdr), hdrlen);
+    printk(">>>>>>in in  skb->len:%u", skb->len);
+    printk(">>>>>>in in  hdrlen:%u, pskb_may_pull:%lu",
+        hdrlen,
+        hdrlen + sizeof(struct iphdr));
     // if (!pskb_may_pull(skb, hdrlen + sizeof(struct iphdr)))
     //     return NULL;
     // printk(">>>3 ");
+    outer_iph = (struct iphdr *)(skb->head + skb->network_header);
+    printk(">>>> src:%pI4, dst:%pI4", &outer_iph->saddr, &outer_iph->daddr);
     iph = (struct iphdr *)(skb->data + hdrlen);
     target_addr = (gtp->role == GTP5G_ROLE_UPF ? &iph->saddr : &iph->daddr);
     // printk(">>>>>> %pI4", &target_addr);

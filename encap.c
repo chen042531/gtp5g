@@ -306,6 +306,8 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
     struct pdr *pdr;
     int gtpv1_hdr_len;
 
+    printk(">>>>>> skblen:%u, datalen:%u, hdrlen:%u", 
+        skb->len, skb->data_len, hdrlen);
     if (!pskb_may_pull(skb, hdrlen)) {
         GTP5G_ERR(gtp->dev, "Failed to pull skb length %#x\n", hdrlen);
         return -1;
@@ -352,7 +354,16 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
         return -1;
     }
 
+    if (gtpv1->type == 0xfe){
+        printk(">>>>>> gtpv1_hdr_len:%u\n", gtpv1_hdr_len);
+        printk(">>>>>> udphdr:%lu", sizeof(struct udphdr));
+        printk(">>>>>> skb->len:%u", skb->len);
+    }
     hdrlen = sizeof(struct udphdr) + gtpv1_hdr_len;
+    if (gtpv1->type == 0xfe){
+        printk(">>>>>> sizeof(struct udphdr) + gtpv1_hdr_len:%lu\n", 
+            sizeof(struct udphdr) + gtpv1_hdr_len);
+    }
     if (!pskb_may_pull(skb, hdrlen)) {
         GTP5G_ERR(gtp->dev, "Failed to pull skb length %#x\n", hdrlen);
         return -1;
@@ -371,7 +382,9 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
         GTP5G_ERR(gtp->dev, "No PDR match this skb : teid[%d]\n", ntohl(gtpv1->tid));
         return -1;
     }
-
+    if (gtpv1->type == 0xfe){
+        printk(">>>>>> \n");
+    }
     return gtp5g_rx(pdr, skb, hdrlen, gtp->role);
 }
 
