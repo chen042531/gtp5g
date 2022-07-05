@@ -337,6 +337,12 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
     char *str;
     int err;
 
+
+    struct nlattr *hdr = nlmsg_attrdata(info->nlhdr, 0);
+    int remaining = nlmsg_attrlen(info->nlhdr, 0);
+
+    // printk(">>> remaining:%u\n", remaining);
+    printk(">>>>> ======\n");
     if (!pdr)
         return -EINVAL;
 
@@ -346,7 +352,79 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
         pdr->seid = nla_get_u64(info->attrs[GTP5G_PDR_SEID]);
     else
         pdr->seid = 0;
+    
+    printk(">>> remaining:%u\n", remaining);
+    hdr = nla_next(hdr, &remaining);
+    if (hdr)
+        printk(">>> type:%u\n, len:%u\n", nla_type(hdr), nla_len(hdr));
+    
+    printk(">>> remaining:%u\n", remaining);
+    hdr = nla_next(hdr, &remaining);
+    if (hdr)
+        printk(">>> type:%u\n, len:%u\n", nla_type(hdr), nla_len(hdr));
 
+    printk(">>> remaining:%u\n", remaining);
+    hdr = nla_next(hdr, &remaining);
+    if (hdr)
+        printk(">>> type:%u\n, len:%u\n", nla_type(hdr), nla_len(hdr));
+
+    printk(">>> remaining:%u\n", remaining);
+    hdr = nla_next(hdr, &remaining);
+    if (hdr)
+        printk(">>> type:%u\n, len:%u\n", nla_type(hdr), nla_len(hdr));
+
+    printk(">>> remaining:%u\n", remaining);
+    hdr = nla_next(hdr, &remaining);
+    if (hdr)
+        printk(">>> type:%u\n, len:%u\n", nla_type(hdr), nla_len(hdr));
+
+    printk(">>> remaining:%u\n", remaining);
+    hdr = nla_next(hdr, &remaining);
+    if (hdr)
+        printk(">>> type:%u\n, len:%u\n", nla_type(hdr), nla_len(hdr));
+   
+    printk(">>> remaining:%u\n", remaining);
+    hdr = nla_next(hdr, &remaining);
+    if (hdr)
+        printk(">>> type:%u\n, len:%u\n", nla_type(hdr), nla_len(hdr));
+
+    printk(">>> remaining:%u\n", remaining);
+    hdr = nla_next(hdr, &remaining);
+    if (hdr)
+        printk(">>> type:%u\n, len:%u\n", nla_type(hdr), nla_len(hdr));
+
+    printk(">>> remaining:%u\n", remaining);
+    hdr = nla_next(hdr, &remaining);
+    if (hdr)
+        printk(">>> type:%u\n, len:%u\n", nla_type(hdr), nla_len(hdr));
+    
+    printk(">>> remaining:%u\n", remaining);
+    hdr = nla_next(hdr, &remaining);
+    if (hdr)
+        printk(">>> type:%u\n, len:%u\n", nla_type(hdr), nla_len(hdr));
+    
+    printk(">>> remaining:%u\n", remaining);
+    hdr = nla_next(hdr, &remaining);
+    if (hdr)
+        printk(">>> type:%u\n, len:%u\n", nla_type(hdr), nla_len(hdr));
+    
+    printk(">>> remaining:%u\n", remaining);
+    hdr = nla_next(hdr, &remaining);
+    if (hdr)
+        printk(">>> type:%u\n, len:%u\n", nla_type(hdr), nla_len(hdr));
+
+    printk(">>> remaining:%u\n", remaining);
+    hdr = nla_next(hdr, &remaining);
+    if (hdr)
+        printk(">>> type:%u\n, len:%u\n", nla_type(hdr), nla_len(hdr));
+    // while (hdr){
+    //     printk(">>> remaining:%u\n", remaining);
+    //     printk(">>> type:%u\n, len:%u\n", nla_type(hdr), nla_len(hdr));
+    //     hdr = nla_next(hdr, &remaining);
+    // }
+
+
+    printk(">>>>> ======\n");
     if (info->attrs[GTP5G_PDR_PRECEDENCE])
         pdr->precedence = nla_get_u32(info->attrs[GTP5G_PDR_PRECEDENCE]);
 
@@ -388,6 +466,9 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
             if (!pdr->qer_id)
                 return -ENOMEM;
         }
+        printk("PDRid:%u QERid:%u", 
+            nla_get_u16(info->attrs[GTP5G_PDR_ID]),
+            nla_get_u32(info->attrs[GTP5G_PDR_QER_ID]));
         *pdr->qer_id = nla_get_u32(info->attrs[GTP5G_PDR_QER_ID]);
         pdr->qer = find_qer_by_id(gtp, pdr->seid, *pdr->qer_id);
         qer_set_pdr(pdr->seid, *pdr->qer_id, &pdr->hlist_related_qer, gtp);
