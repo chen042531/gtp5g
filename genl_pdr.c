@@ -352,76 +352,13 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
         pdr->seid = nla_get_u64(info->attrs[GTP5G_PDR_SEID]);
     else
         pdr->seid = 0;
-    
-    printk(">>> remaining:%u\n", remaining);
+        
     hdr = nla_next(hdr, &remaining);
-    if (hdr)
+    while (nla_ok(hdr, remaining)){
+        printk(">>> remaining:%u\n", remaining);
         printk(">>> type:%u\n, len:%u\n", nla_type(hdr), nla_len(hdr));
-    
-    printk(">>> remaining:%u\n", remaining);
-    hdr = nla_next(hdr, &remaining);
-    if (hdr)
-        printk(">>> type:%u\n, len:%u\n", nla_type(hdr), nla_len(hdr));
-
-    printk(">>> remaining:%u\n", remaining);
-    hdr = nla_next(hdr, &remaining);
-    if (hdr)
-        printk(">>> type:%u\n, len:%u\n", nla_type(hdr), nla_len(hdr));
-
-    printk(">>> remaining:%u\n", remaining);
-    hdr = nla_next(hdr, &remaining);
-    if (hdr)
-        printk(">>> type:%u\n, len:%u\n", nla_type(hdr), nla_len(hdr));
-
-    printk(">>> remaining:%u\n", remaining);
-    hdr = nla_next(hdr, &remaining);
-    if (hdr)
-        printk(">>> type:%u\n, len:%u\n", nla_type(hdr), nla_len(hdr));
-
-    printk(">>> remaining:%u\n", remaining);
-    hdr = nla_next(hdr, &remaining);
-    if (hdr)
-        printk(">>> type:%u\n, len:%u\n", nla_type(hdr), nla_len(hdr));
-   
-    printk(">>> remaining:%u\n", remaining);
-    hdr = nla_next(hdr, &remaining);
-    if (hdr)
-        printk(">>> type:%u\n, len:%u\n", nla_type(hdr), nla_len(hdr));
-
-    printk(">>> remaining:%u\n", remaining);
-    hdr = nla_next(hdr, &remaining);
-    if (hdr)
-        printk(">>> type:%u\n, len:%u\n", nla_type(hdr), nla_len(hdr));
-
-    printk(">>> remaining:%u\n", remaining);
-    hdr = nla_next(hdr, &remaining);
-    if (hdr)
-        printk(">>> type:%u\n, len:%u\n", nla_type(hdr), nla_len(hdr));
-    
-    printk(">>> remaining:%u\n", remaining);
-    hdr = nla_next(hdr, &remaining);
-    if (hdr)
-        printk(">>> type:%u\n, len:%u\n", nla_type(hdr), nla_len(hdr));
-    
-    printk(">>> remaining:%u\n", remaining);
-    hdr = nla_next(hdr, &remaining);
-    if (hdr)
-        printk(">>> type:%u\n, len:%u\n", nla_type(hdr), nla_len(hdr));
-    
-    printk(">>> remaining:%u\n", remaining);
-    hdr = nla_next(hdr, &remaining);
-    if (hdr)
-        printk(">>> type:%u\n, len:%u\n", nla_type(hdr), nla_len(hdr));
-
-    printk(">>> remaining:%u\n", remaining);
-    hdr = nla_next(hdr, &remaining);
-    if (hdr)
-        printk(">>> type:%u\n, len:%u\n", nla_type(hdr), nla_len(hdr));
-    // while (hdr){
-    //     printk(">>> remaining:%u\n", remaining);
-    //     printk(">>> type:%u\n, len:%u\n", nla_type(hdr), nla_len(hdr));
-    //     hdr = nla_next(hdr, &remaining);
-    // }
+        hdr = nla_next(hdr, &remaining);
+    }
 
 
     printk(">>>>> ======\n");
