@@ -89,6 +89,51 @@ struct pdr {
     u64                     dl_byte_cnt;
 };
 
+struct rel_qer_node {
+    u32 id;
+    struct hlist_node qer_id_list;
+}
+
+typedef struct list_entry {
+    int value;
+    struct list_entry *next;
+} list_entry_t;
+
+void append(int value, list_entry_t **head)
+{
+    list_entry_t *direct = *head;
+    list_entry_t *prev = NULL;
+
+    list_entry_t *new = malloc(1 * sizeof(list_entry_t));
+    new->value = value, new->next = NULL;
+
+    while (direct) {
+        prev = direct;           
+        direct = direct->next;
+    }
+
+    if (prev)
+        prev->next = new;
+    else
+        *head = new;
+}
+
+void remove_list_node(List *list, Node *target)
+{
+    Node *prev = NULL;
+    Node *current = list->head;
+    // Walk the list
+    while (current != target) {
+        prev = current;
+        current = current->next;
+    }
+    // Remove the target by updating the head or the previous node.
+    if (!prev)
+        list->head = target->next;
+    else
+        prev->next = target->next;
+}
+
 extern void pdr_context_delete(struct pdr *);
 extern struct pdr *find_pdr_by_id(struct gtp5g_dev *, u64, u16);
 extern struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *, struct sk_buff *,

@@ -331,12 +331,17 @@ out:
     return skb->len;
 }  
 
-
+#define MAX_REL_QER_TAB 256
 static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *info)
 {
     char *str;
     int err;
+    // struct hlist_head
+    struct rel_qer_node *rqnode = NULL;
+    struct hlist_head htable[MAX_REL_QER_TAB];
+    struct hlist_node *hlist = NULL;
 
+    INIT_HLIST_NODE(&rqnode->qer_id_list)
 
     struct nlattr *hdr = nlmsg_attrdata(info->nlhdr, 0);
     int remaining = nlmsg_attrlen(info->nlhdr, 0);
@@ -350,9 +355,8 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
     pdr->seid = 0;
         
     hdr = nla_next(hdr, &remaining);
-    while (nla_ok(hdr, remaining)){
-        switch (nla_type(hdr))
-        {
+    while (nla_ok(hdr, remaining)) {
+        switch (nla_type(hdr)) {
             case GTP5G_PDR_SEID:
                 pdr->seid = nla_get_u64(hdr);
                 printk(">>>>> pdr->seid:%llu\n", pdr->seid);
