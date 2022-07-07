@@ -65,6 +65,7 @@ struct pdr {
     struct far *far;
     u32 *qer_id;
     struct qer *qer;
+    struct list_head *rel_qer_list; 
     u32 *urr_id;
     struct urr *urr;
     
@@ -87,6 +88,11 @@ struct pdr {
     u64                     dl_pkt_cnt;
     u64                     ul_byte_cnt;
     u64                     dl_byte_cnt;
+};
+
+struct rel_qer {
+    u32 id;
+    struct list_head list;
 };
 
 extern void pdr_context_delete(struct pdr *);

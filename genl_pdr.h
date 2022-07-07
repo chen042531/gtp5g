@@ -42,23 +42,6 @@ enum gtp5g_pdr_attrs {
 };
 #define GTP5G_PDR_ATTR_MAX (__GTP5G_PDR_ATTR_MAX - 1)
 
-struct pdr_genl_attrs {
-    u16 id;
-    u32 precedence;
-    u8 outer_header_removal;
-    u32 far_id;
-
-    u32 role_addr_ipv4;
-
-    char * unix_socket_path;
-
-    u32 qer_id;
-
-    u64 seid;
-    struct nlattr *pdi;
-   
-};
-
 /* Nest in GTP5G_PDR_PDI */
 enum gtp5g_pdi_attrs {
     GTP5G_PDI_UNSPEC,

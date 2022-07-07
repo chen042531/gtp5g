@@ -542,6 +542,9 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     struct iphdr *iph = ip_hdr(skb);
     struct outer_header_creation *hdr_creation;
 
+    struct rel_qer *rq;
+    int count;
+
     if (!(pdr->far && pdr->far->fwd_param &&
         pdr->far->fwd_param->hdr_creation)) {
         GTP5G_ERR(dev, "Unknown RAN address\n");
@@ -559,7 +562,19 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     if (IS_ERR(rt))
         goto err;
 
+
+    
+        // list_for_each_entry(rq, pdr->rel_qer_list, list) {
+        //     // printk(KERN_INFO "Node %d data = %d\n", count++, rq->id);
+        //     // if (rq) {
+        //         printk("-------------->");
+        //     // }
+        // }
+    
+    // printk(KERN_INFO "Total Nodes = %d\n", count);
+
     if (!pdr->qer) {
+        printk("=====> nono");
         gtp5g_set_pktinfo_ipv4(pktinfo,
             pdr->sk, 
             iph, 
