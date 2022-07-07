@@ -399,25 +399,9 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
                 printk(">>>>> far_id:%u\n", *pdr->far_id);
                 break;
             case GTP5G_PDR_QER_ID:
-                // if n++ > size(arr) {
-                //     if size(arr) ==0 {
-                //         allocsize = 8
-                //     } else {
-                //         allocsize *=2
-                //     }
-                //     malloc(allocsize)
-                // }
-
-                // if (!pdr->rel_qer_list) {
-                //     pdr->num_rel_qer = 1;
-                //     pdr->rel_qer_list = kzalloc(pdr->num_rel_qer*QER_ID_SIZE, GFP_ATOMIC);
-                //     pdr->rel_qer_list[0] = nla_get_u32(hdr);
-                //      printk("-----------=====->!pdr->rel_qer_list ");
-                //      printk("-----------++++:%u", pdr->rel_qer_list[0]);
-                //     break;
-                // }
-                // printk("-----------=====-> %u, n:%u", pdr->rel_qer_list[0], pdr->num_rel_qer);
-                // pdr->num_rel_qer++;
+                printk("PDRid:%u QERid:%u", 
+                        nla_get_u16(info->attrs[GTP5G_PDR_ID]),
+                        nla_get_u32(hdr));
                 tmp = kzalloc((++pdr->num_rel_qer) * QER_ID_SIZE, GFP_ATOMIC);
                 if (!tmp)
                     return -ENOMEM;
@@ -429,23 +413,7 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
                 
                 tmp[pdr->num_rel_qer-1] = nla_get_u32(hdr);
                 printk("-----------:%u---> %u", nla_get_u32(hdr), tmp[pdr->num_rel_qer-1]);
-                pdr->rel_qer_list = tmp;
-                break;
-
-                
-                // qer = find_qer_by_id(gtp, pdr->seid, nla_get_u32(hdr));
-                // if (qer->qfi){
-                //     *pdr->qer_id = qer->id;
-                //     pdr->qer = qer;
-                // }
-                // *pdr->qer_id = nla_get_u32(hdr);
-           
-           
-                
-
-                printk("PDRid:%u QERid:%u", 
-                    nla_get_u16(info->attrs[GTP5G_PDR_ID]),
-                    nla_get_u32(hdr));
+                pdr->rel_qer_list = tmp;                
                 break;
             case GTP5G_PDR_PDI:
                 err = parse_pdi(pdr, hdr);
@@ -455,29 +423,25 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
                 break;
         }
         // printk(">>> remaining:%u\n", remaining);
-        printk(">>> type:%u\n, len:%u\n", nla_type(hdr), nla_len(hdr));
+        // printk(">>> type:%u\n, len:%u\n", nla_type(hdr), nla_len(hdr));
         hdr = nla_next(hdr, &remaining);
     }
-    printk(">>>>>>>>>>>>>>>>>>>>>>&&& %u", pdr->num_rel_qer);
+    // printk(">>>>>>>>>>>>>>>>>>>>>>&&& %u", pdr->num_rel_qer);
     for (i = 0; i < pdr->num_rel_qer; i++ )
-    {
-        printk("===+++++== %u", pdr->rel_qer_list[i]);
+    {   
+        // printk("=====++++==-----> %llu", pdr->seid,pdr->rel_qer_list[i] );
+        pdr->qer = find_qer_by_id(gtp, pdr->seid, pdr->rel_qer_list[i]);
+        if ( pdr->qer->qfi){
+            printk(">>>>>>>>>>>====== exit%u",pdr->qer->qfi);
+             break;
+        }else{
+            printk(">>>>>>>>>>>====== not exit%u", pdr->qer->qfi);
+        }
+        // if (pdr->qer->qfi)
+        //     break;
+        printk("===+++++==seid:%llu, qerId:%u", pdr->seid,pdr->rel_qer_list[i]);
     }
-    // list_for_each_entry(rq, pdr->rel_qer_list, list) {
-    //     printk(KERN_INFO "Node %d data = %d\n", count++, rq->id);
-    //     tmp_q = find_qer_by_id(gtp, pdr->seid, rq->id);
-    //     if (tmp_q->qfi){
-    //         printk(">>>>>>>> %u ", tmp_q->qfi);
-    //         printk(">>>>>>>> -----%llu", pdr->seid);
-    //         pdr->qer = tmp_q;
-    //         if (pdr->qer){
-    //             printk("exist");
-    //         }
-    //         qer_set_pdr(pdr->seid, *pdr->qer_id, &pdr->hlist_related_qer, gtp);
-    //     }
-    // }
-    // printk(KERN_INFO "Total Nodes = %d\n", count);
-
+    
     if (!pdr)
         return -EINVAL;
 
