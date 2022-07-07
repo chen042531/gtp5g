@@ -1,6 +1,17 @@
 #ifndef __GENL_PDR_H__
 #define __GENL_PDR_H__
 
+
+#include <linux/rculist.h>
+#include <net/netns/generic.h>
+#include <linux/module.h>
+#include <linux/socket.h>
+#include <linux/net.h>
+
+#include <net/ip.h>
+#include <net/genetlink.h>
+#include <net/rtnetlink.h>
+
 #include "genl.h"
 
 enum gtp5g_pdr_attrs {
@@ -30,6 +41,23 @@ enum gtp5g_pdr_attrs {
     __GTP5G_PDR_ATTR_MAX,
 };
 #define GTP5G_PDR_ATTR_MAX (__GTP5G_PDR_ATTR_MAX - 1)
+
+struct pdr_genl_attrs {
+    u16 id;
+    u32 precedence;
+    u8 outer_header_removal;
+    u32 far_id;
+
+    u32 role_addr_ipv4;
+
+    char * unix_socket_path;
+
+    u32 qer_id;
+
+    u64 seid;
+    struct nlattr *pdi;
+   
+};
 
 /* Nest in GTP5G_PDR_PDI */
 enum gtp5g_pdi_attrs {

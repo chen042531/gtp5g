@@ -337,26 +337,85 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
     char *str;
     int err;
 
+    struct pdr_genl_attrs pdr_attr;
+
+    struct nlattr *hdr = nlmsg_attrdata(info->nlhdr, 0);
+    int remaining = nlmsg_attrlen(info->nlhdr, 0);
+
+    // struct qer *qer;
+
+    pdr_attr.unix_socket_path = kzalloc(UNIX_PATH_MAX, GFP_ATOMIC);
+    hdr = nla_next(hdr, &remaining);
+    while (nla_ok(hdr, remaining)) {
+        switch (nla_type(hdr)) {
+            case GTP5G_PDR_SEID:
+                pdr_attr.seid = nla_get_u64(hdr);
+                 printk(">>>>> ----------- pdr->seid:%llu\n", pdr->seid);
+                break;
+            case GTP5G_PDR_ID:
+                pdr_attr.id = nla_get_u16(hdr);
+                 printk(">>>>> pdr_id:%u\n", pdr->id);
+                break;
+            case GTP5G_PDR_PRECEDENCE:
+                pdr_attr.precedence = nla_get_u32(hdr);
+                printk(">>>>> pdr->precedence:%u\n", pdr->precedence);
+                break;
+            case GTP5G_OUTER_HEADER_REMOVAL:
+                pdr_attr.outer_header_removal = nla_get_u8(hdr);
+                //  printk(">>>>> outer_header_removal\n");
+                break;
+            case GTP5G_PDR_ROLE_ADDR_IPV4:
+                /* Not in 3GPP spec, just used for routing */
+                pdr_attr.role_addr_ipv4 = nla_get_u32(hdr);
+                // printk(">>>>> pdr->role_addr_ipv4:%pI4\n", 
+                //     &pdr->role_addr_ipv4.s_addr);
+                break;
+            case GTP5G_PDR_UNIX_SOCKET_PATH:
+                /* Not in 3GPP spec, just used for buffering */
+                str = nla_data(hdr);
+                strncpy(pdr_attr.unix_socket_path, str, nla_len(hdr));
+                //  printk(">>>>> SOCKET_PATH:%s\n", 
+                //     pdr->addr_unix.sun_path);
+                break;
+            case GTP5G_PDR_FAR_ID:
+                pdr_attr.far_id = nla_get_u32(hdr);
+                break;
+            case GTP5G_PDR_QER_ID:
+                pdr_attr.qer_id = nla_get_u32(hdr);
+                break;
+            case GTP5G_PDR_PDI:
+                // pdr_attr.pdi = hdr;
+                err = parse_pdi(pdr, hdr);
+                if (err)
+                    return err;
+                // printk(">>>>> parse_pdi\n");
+                break;
+        }
+        // printk(">>> remaining:%u\n", remaining);
+        // printk(">>> type:%u\n, len:%u\n", nla_type(hdr), nla_len(hdr));
+        hdr = nla_next(hdr, &remaining);
+    }
+
     if (!pdr)
         return -EINVAL;
 
     pdr->af = AF_INET;
-    pdr->id = nla_get_u16(info->attrs[GTP5G_PDR_ID]);
-    if (info->attrs[GTP5G_PDR_SEID])
-        pdr->seid = nla_get_u64(info->attrs[GTP5G_PDR_SEID]);
+    pdr->id = pdr_attr.id;
+    if (pdr_attr.seid)
+        pdr->seid = pdr_attr.seid ;
     else
         pdr->seid = 0;
 
-    if (info->attrs[GTP5G_PDR_PRECEDENCE])
-        pdr->precedence = nla_get_u32(info->attrs[GTP5G_PDR_PRECEDENCE]);
+    if (pdr_attr.precedence)
+        pdr->precedence = pdr_attr.precedence;
 
-    if (info->attrs[GTP5G_OUTER_HEADER_REMOVAL]) {
+    if (pdr_attr.outer_header_removal) {
         if (!pdr->outer_header_removal) {
             pdr->outer_header_removal = kzalloc(sizeof(*pdr->outer_header_removal), GFP_ATOMIC);
             if (!pdr->outer_header_removal)
                 return -ENOMEM;
         }
-        *pdr->outer_header_removal = nla_get_u8(info->attrs[GTP5G_OUTER_HEADER_REMOVAL]);
+        *pdr->outer_header_removal = pdr_attr.outer_header_removal;
     }
 
     /* Not in 3GPP spec, just used for routing */
