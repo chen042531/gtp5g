@@ -408,22 +408,25 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
                 //     malloc(allocsize)
                 // }
 
-                if (!pdr->rel_qer_list) {
-                    pdr->num_rel_qer = 1;
-                    pdr->rel_qer_list = kzalloc(pdr->num_rel_qer*QER_ID_SIZE, GFP_ATOMIC);
-                    pdr->rel_qer_list[0] = nla_get_u32(hdr);
-                     printk("-----------=====->!pdr->rel_qer_list ");
-                     printk("-----------++++:%u", pdr->rel_qer_list[0]);
-                    break;
-                }
-                printk("-----------=====-> %u, n:%u", pdr->rel_qer_list[0], pdr->num_rel_qer);
-                pdr->num_rel_qer++;
-                tmp = kzalloc(pdr->num_rel_qer*QER_ID_SIZE, GFP_ATOMIC);
+                // if (!pdr->rel_qer_list) {
+                //     pdr->num_rel_qer = 1;
+                //     pdr->rel_qer_list = kzalloc(pdr->num_rel_qer*QER_ID_SIZE, GFP_ATOMIC);
+                //     pdr->rel_qer_list[0] = nla_get_u32(hdr);
+                //      printk("-----------=====->!pdr->rel_qer_list ");
+                //      printk("-----------++++:%u", pdr->rel_qer_list[0]);
+                //     break;
+                // }
+                // printk("-----------=====-> %u, n:%u", pdr->rel_qer_list[0], pdr->num_rel_qer);
+                // pdr->num_rel_qer++;
+                tmp = kzalloc((++pdr->num_rel_qer) * QER_ID_SIZE, GFP_ATOMIC);
                 if (!tmp)
                     return -ENOMEM;
                 
-                memcpy(tmp, pdr->rel_qer_list, pdr->num_rel_qer*QER_ID_SIZE);
-                kfree(pdr->rel_qer_list);
+                if (pdr->rel_qer_list) {
+                    memcpy(tmp, pdr->rel_qer_list, pdr->num_rel_qer*QER_ID_SIZE);
+                    kfree(pdr->rel_qer_list);
+                }
+                
                 tmp[pdr->num_rel_qer-1] = nla_get_u32(hdr);
                 printk("-----------:%u---> %u", nla_get_u32(hdr), tmp[pdr->num_rel_qer-1]);
                 pdr->rel_qer_list = tmp;
