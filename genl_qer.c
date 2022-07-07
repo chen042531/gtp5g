@@ -23,6 +23,7 @@ int gtp5g_genl_add_qer(struct sk_buff *skb, struct genl_info *info)
     u32 qer_id;
     int err;
 
+    printk(">>>>>>> add qer\n");
     if (!info->attrs[GTP5G_LINK])
         return -EINVAL;
     ifindex = nla_get_u32(info->attrs[GTP5G_LINK]);
@@ -109,6 +110,8 @@ int gtp5g_genl_add_qer(struct sk_buff *skb, struct genl_info *info)
 
     rcu_read_unlock();
     rtnl_unlock();
+
+    printk("======  add qer end\n");
     return 0;
 }
 

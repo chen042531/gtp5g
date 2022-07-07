@@ -35,6 +35,7 @@ int gtp5g_genl_add_far(struct sk_buff *skb, struct genl_info *info)
     u8 flag;
     struct gtp5g_emark_pktinfo epkt_info;
 
+    printk(">>>>>>> add far\n");
     if (!info->attrs[GTP5G_LINK])
         return -EINVAL;
     ifindex = nla_get_u32(info->attrs[GTP5G_LINK]);
@@ -146,9 +147,11 @@ int gtp5g_genl_add_far(struct sk_buff *skb, struct genl_info *info)
     }
 
     far_append(seid, far_id, far, gtp);
- 
+   
     rcu_read_unlock();
     rtnl_unlock();
+
+     printk("======  add far end\n");
     return 0;
 }  
 

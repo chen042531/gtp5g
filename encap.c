@@ -276,7 +276,7 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
         GTP5G_ERR(gtp->dev, "No PDR match this skb : teid[%d]\n", ntohl(gtpv1->tid));
         return -1;
     }
-
+    pdr->far = find_far_by_id(gtp, pdr->seid, *pdr->far_id);
     return gtp5g_rx(pdr, skb, hdrlen, gtp->role);
 }
 
