@@ -430,24 +430,24 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
         strncpy(pdr->addr_unix.sun_path, str, nla_len(info->attrs[GTP5G_PDR_UNIX_SOCKET_PATH]));
     }
 
-    if (info->attrs[GTP5G_PDR_FAR_ID]) {
+    if (pdr_attr.far_id) {
         if (!pdr->far_id) {
             pdr->far_id = kzalloc(sizeof(*pdr->far_id), GFP_ATOMIC);
             if (!pdr->far_id)
                 return -ENOMEM;
         }
-        *pdr->far_id = nla_get_u32(info->attrs[GTP5G_PDR_FAR_ID]);
+        *pdr->far_id = pdr_attr.far_id;
         pdr->far = find_far_by_id(gtp, pdr->seid, *pdr->far_id);
         far_set_pdr(pdr->seid, *pdr->far_id, &pdr->hlist_related_far, gtp);
     }
 
-    if (info->attrs[GTP5G_PDR_QER_ID]) {
+    if (pdr_attr.qer_id) {
         if (!pdr->qer_id) {
             pdr->qer_id = kzalloc(sizeof(*pdr->qer_id), GFP_ATOMIC);
             if (!pdr->qer_id)
                 return -ENOMEM;
         }
-        *pdr->qer_id = nla_get_u32(info->attrs[GTP5G_PDR_QER_ID]);
+        *pdr->qer_id = pdr_attr.qer_id;
         pdr->qer = find_qer_by_id(gtp, pdr->seid, *pdr->qer_id);
         qer_set_pdr(pdr->seid, *pdr->qer_id, &pdr->hlist_related_qer, gtp);
     }
