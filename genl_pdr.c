@@ -350,7 +350,7 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
         switch (nla_type(hdr)) {
             case GTP5G_PDR_SEID:
                 pdr_attr.seid = nla_get_u64(hdr);
-                 printk(">>>>> ----------- pdr->seid:%llu\n", pdr->seid);
+                 printk(">>>>> ----------+++- pdr->seid:%llu\n", pdr->seid);
                 break;
             case GTP5G_PDR_ID:
                 pdr_attr.id = nla_get_u16(hdr);
@@ -367,15 +367,18 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
             case GTP5G_PDR_ROLE_ADDR_IPV4:
                 /* Not in 3GPP spec, just used for routing */
                 pdr_attr.role_addr_ipv4 = nla_get_u32(hdr);
-                // printk(">>>>> pdr->role_addr_ipv4:%pI4\n", 
-                //     &pdr->role_addr_ipv4.s_addr);
+                printk("===>>>>>>>>>");
+                //  printk(">>>>> role_addr_ipv4_ori_get:%pI4\n", 
+                //     nla_get_u32(hdr));
+                printk(">>>>> pdr->role_addr_ipv4:%pI4\n", 
+                    &pdr->role_addr_ipv4.s_addr);
                 break;
             case GTP5G_PDR_UNIX_SOCKET_PATH:
                 /* Not in 3GPP spec, just used for buffering */
                 str = nla_data(hdr);
                 strncpy(pdr_attr.unix_socket_path, str, nla_len(hdr));
-                //  printk(">>>>> SOCKET_PATH:%s\n", 
-                //     pdr->addr_unix.sun_path);
+                 printk(">>>>> SOCKET_PATH:%s\n", 
+                    pdr->addr_unix.sun_path);
                 break;
             case GTP5G_PDR_FAR_ID:
                 pdr_attr.far_id = nla_get_u32(hdr);
@@ -388,11 +391,11 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
                 err = parse_pdi(pdr, hdr);
                 if (err)
                     return err;
-                // printk(">>>>> parse_pdi\n");
+                printk(">>>>> parse_pdi\n");
                 break;
         }
         // printk(">>> remaining:%u\n", remaining);
-        // printk(">>> type:%u\n, len:%u\n", nla_type(hdr), nla_len(hdr));
+        printk(">>> type:%u\n, len:%u\n", nla_type(hdr), nla_len(hdr));
         hdr = nla_next(hdr, &remaining);
     }
 
@@ -418,16 +421,24 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
         *pdr->outer_header_removal = pdr_attr.outer_header_removal;
     }
 
-    /* Not in 3GPP spec, just used for routing */
     if (info->attrs[GTP5G_PDR_ROLE_ADDR_IPV4]) {
-        pdr->role_addr_ipv4.s_addr = nla_get_u32(info->attrs[GTP5G_PDR_ROLE_ADDR_IPV4]);
+        pdr->role_addr_ipv4.s_addr = pdr_attr.role_addr_ipv4;
+        printk(">>>>> role_addr_ipv4_ori:%u\n", 
+                    pdr_attr.role_addr_ipv4);
+        printk(">>>>> role_addr_ipv4:%u\n", 
+                    pdr->role_addr_ipv4.s_addr);
     }
 
     /* Not in 3GPP spec, just used for buffering */
     if (info->attrs[GTP5G_PDR_UNIX_SOCKET_PATH]) {
-        str = nla_data(info->attrs[GTP5G_PDR_UNIX_SOCKET_PATH]);
         pdr->addr_unix.sun_family = AF_UNIX;
-        strncpy(pdr->addr_unix.sun_path, str, nla_len(info->attrs[GTP5G_PDR_UNIX_SOCKET_PATH]));
+        // pdr->addr_unix.sun_path = pdr_attr.unix_socket_path;
+        strncpy(pdr->addr_unix.sun_path, pdr_attr.unix_socket_path, 
+            sizeof(*pdr_attr.unix_socket_path));
+        printk(">>>>> SOCKET_PATH_ori:%s\n", 
+                    pdr_attr.unix_socket_path);
+         printk(">>>>> SOCKET_PATH:%s\n", 
+                    pdr->addr_unix.sun_path);
     }
 
     if (pdr_attr.far_id) {
