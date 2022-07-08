@@ -23,7 +23,7 @@ struct proc_gtp5g_pdr {
     u32     pdi_gtpu_addr4;
     
     u32     far_id;
-    u32     qer_id;
+    char    *qer_id_list; 
 
     u64     ul_drop_cnt;
     u64     dl_drop_cnt;
@@ -144,7 +144,7 @@ static int gtp5g_pdr_read(struct seq_file *s, void *v)
     ip_string(pdu_gtpu_addr, proc_pdr.pdi_gtpu_addr4);
     seq_printf(s, "\t PDU GTPU Addr4: %s(%#08x)\n", pdu_gtpu_addr, ntohl(proc_pdr.pdi_gtpu_addr4));
     seq_printf(s, "\t FAR ID: %u\n", proc_pdr.far_id);
-    seq_printf(s, "\t QER ID: %u\n", proc_pdr.qer_id);
+    seq_printf(s, "\t QER ID: %s\n", proc_pdr.qer_id_list);
     seq_printf(s, "\t UL Drop Count: %#llx\n", proc_pdr.ul_drop_cnt);
     seq_printf(s, "\t DL Drop Count: %#llx\n", proc_pdr.dl_drop_cnt);
     seq_printf(s, "\t UL Packet Count: %llu\n", proc_pdr.ul_pkt_cnt);
@@ -185,6 +185,7 @@ static int gtp5g_qer_read(struct seq_file *s, void *v)
     return 0;
 }
 
+#define QER_ID_STR_LEN 4
 static ssize_t proc_pdr_write(struct file *filp, const char __user *buffer,
     size_t len, loff_t *dptr) 
 {
@@ -193,6 +194,9 @@ static ssize_t proc_pdr_write(struct file *filp, const char __user *buffer,
     unsigned long buf_len = min(sizeof(buf) - 1, len);
     struct pdr *pdr;
     struct gtp5g_dev *gtp;
+
+    int cur_qer_idx = 0;
+    int index = 0;
 
     if (copy_from_user(buf, buffer, buf_len)) {
         GTP5G_ERR(NULL, "Failed to read buffer: %s\n", buf);
@@ -245,8 +249,17 @@ static ssize_t proc_pdr_write(struct file *filp, const char __user *buffer,
     if (pdr->far_id)
         proc_pdr.far_id = *pdr->far_id;
     
-    if (pdr->qer_id)
-        proc_pdr.qer_id = *pdr->qer_id;
+    // handle multiple QER IDs
+    cur_qer_idx = 0;
+    if (proc_pdr.qer_id_list)
+        kfree(proc_pdr.qer_id_list);
+    proc_pdr.qer_id_list = kzalloc((pdr->num_rel_qer) * QER_ID_STR_LEN, GFP_ATOMIC);
+    if (!proc_pdr.qer_id_list)
+        return -ENOMEM;
+    while (pdr->rel_qer_list && cur_qer_idx < (pdr->num_rel_qer)){
+        index += sprintf(&proc_pdr.qer_id_list[index], "%d, ", pdr->rel_qer_list[cur_qer_idx]);
+        cur_qer_idx++;
+    }
 
     proc_pdr.ul_drop_cnt = pdr->ul_drop_cnt;
     proc_pdr.dl_drop_cnt = pdr->dl_drop_cnt;

@@ -48,6 +48,7 @@ struct pdi {
     struct sdf_filter *sdf;
 };
 
+#define QER_ID_SIZE 4
 struct pdr {
     struct hlist_node hlist_id;
     struct hlist_node hlist_i_teid;
@@ -65,6 +66,8 @@ struct pdr {
     struct far *far;
     u32 *qer_id;
     struct qer *qer;
+    u32 *rel_qer_list; 
+    u32 num_rel_qer;
     u32 *urr_id;
     struct urr *urr;
     
@@ -87,6 +90,11 @@ struct pdr {
     u64                     dl_pkt_cnt;
     u64                     ul_byte_cnt;
     u64                     dl_byte_cnt;
+};
+
+struct rel_qer {
+    u32 id;
+    struct list_head list;
 };
 
 extern void pdr_context_delete(struct pdr *);

@@ -542,6 +542,9 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     struct iphdr *iph = ip_hdr(skb);
     struct outer_header_creation *hdr_creation;
 
+    int cur_qer_idx = 0;
+    struct qer *chosed_qer;
+
     if (!(pdr->far && pdr->far->fwd_param &&
         pdr->far->fwd_param->hdr_creation)) {
         GTP5G_ERR(dev, "Unknown RAN address\n");
@@ -559,7 +562,15 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     if (IS_ERR(rt))
         goto err;
 
-    if (!pdr->qer) {
+
+    for (cur_qer_idx = 0; cur_qer_idx < pdr->num_rel_qer; cur_qer_idx++){   
+        chosed_qer = find_qer_by_id(netdev_priv(dev), pdr->seid, pdr->rel_qer_list[cur_qer_idx]);
+        if (chosed_qer->qfi){
+            break;
+        }
+    }
+
+    if (!chosed_qer) {
         gtp5g_set_pktinfo_ipv4(pktinfo,
             pdr->sk, 
             iph, 
@@ -573,7 +584,7 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
             pdr->sk, 
             iph, 
             hdr_creation, 
-            pdr->qer, 
+            chosed_qer, 
             rt, 
             &fl4, 
             dev);
