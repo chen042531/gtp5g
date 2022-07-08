@@ -542,8 +542,8 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     struct iphdr *iph = ip_hdr(skb);
     struct outer_header_creation *hdr_creation;
 
-    struct rel_qer *rq;
-    int count;
+    int cur_qer_idx = 0;
+    struct qer *chosed_qer;
 
     if (!(pdr->far && pdr->far->fwd_param &&
         pdr->far->fwd_param->hdr_creation)) {
@@ -564,16 +564,23 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
 
 
     
-        // list_for_each_entry(rq, pdr->rel_qer_list, list) {
-        //     // printk(KERN_INFO "Node %d data = %d\n", count++, rq->id);
-        //     // if (rq) {
-        //         printk("-------------->");
-        //     // }
-        // }
+    for (cur_qer_idx = 0; cur_qer_idx < pdr->num_rel_qer; cur_qer_idx++){   
+        // printk("=====++++==-----> %llu", pdr->seid,pdr->rel_qer_list[i] );
+        chosed_qer = find_qer_by_id(netdev_priv(dev), pdr->seid, pdr->rel_qer_list[cur_qer_idx]);
+        if (chosed_qer->qfi){
+            printk(">>>>>>>>>>>=====^^= exit%u",chosed_qer->qfi);
+            break;
+        }else{
+            printk(">>>>>>>>>>>====== not exit%u", chosed_qer->qfi);
+        }
+        // if (pdr->qer->qfi)
+        //     break;
+        printk("===+++++==seid:%llu, qerId:%u", pdr->seid,pdr->rel_qer_list[cur_qer_idx]);
+    }
     
     // printk(KERN_INFO "Total Nodes = %d\n", count);
 
-    if (!pdr->qer) {
+    if (!chosed_qer) {
         printk("=====> nono");
         gtp5g_set_pktinfo_ipv4(pktinfo,
             pdr->sk, 
@@ -588,7 +595,7 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
             pdr->sk, 
             iph, 
             hdr_creation, 
-            pdr->qer, 
+            chosed_qer, 
             rt, 
             &fl4, 
             dev);

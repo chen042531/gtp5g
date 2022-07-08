@@ -340,10 +340,10 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
     struct nlattr *hdr = nlmsg_attrdata(info->nlhdr, 0);
     int remaining = nlmsg_attrlen(info->nlhdr, 0);
 
-    struct qer *tmp_q;
-    struct rel_qer *rq;
-    int i = 0;
-    int n = 0;
+    // struct qer *tmp_q;
+    // struct rel_qer *rq;
+    // int i = 0;
+    // int n = 0;
     u32 *tmp;
     // LIST_HEAD(Head_Node);
     // pdr->rel_qer_list = &Head_Node;
@@ -427,20 +427,20 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
         hdr = nla_next(hdr, &remaining);
     }
     // printk(">>>>>>>>>>>>>>>>>>>>>>&&& %u", pdr->num_rel_qer);
-    for (i = 0; i < pdr->num_rel_qer; i++ )
-    {   
-        // printk("=====++++==-----> %llu", pdr->seid,pdr->rel_qer_list[i] );
-        pdr->qer = find_qer_by_id(gtp, pdr->seid, pdr->rel_qer_list[i]);
-        if ( pdr->qer->qfi){
-            printk(">>>>>>>>>>>====== exit%u",pdr->qer->qfi);
-             break;
-        }else{
-            printk(">>>>>>>>>>>====== not exit%u", pdr->qer->qfi);
-        }
-        // if (pdr->qer->qfi)
-        //     break;
-        printk("===+++++==seid:%llu, qerId:%u", pdr->seid,pdr->rel_qer_list[i]);
-    }
+    // for (i = 0; i < pdr->num_rel_qer; i++ )
+    // {   
+    //     // printk("=====++++==-----> %llu", pdr->seid,pdr->rel_qer_list[i] );
+    //     pdr->qer = find_qer_by_id(gtp, pdr->seid, pdr->rel_qer_list[i]);
+    //     if (pdr->qer->qfi){
+    //         printk(">>>>>>>>>>>====== exit%u",pdr->qer->qfi);
+    //         break;
+    //     }else{
+    //         printk(">>>>>>>>>>>====== not exit%u", pdr->qer->qfi);
+    //     }
+    //     // if (pdr->qer->qfi)
+    //     //     break;
+    //     printk("===+++++==seid:%llu, qerId:%u", pdr->seid,pdr->rel_qer_list[i]);
+    // }
     
     if (!pdr)
         return -EINVAL;
@@ -828,6 +828,7 @@ static int gtp5g_genl_fill_pdr(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
         u32 type, struct pdr *pdr)
 {
     void *genlh;
+    int cur_qer_idx;
 
     genlh = genlmsg_put(skb, snd_portid, snd_seq, &gtp5g_genl_family, 0, type);
     if (!genlh)
@@ -854,9 +855,10 @@ static int gtp5g_genl_fill_pdr(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
             goto genlmsg_fail;
     }
 
-    if (pdr->qer_id) {
-        if (nla_put_u32(skb, GTP5G_PDR_QER_ID, *pdr->qer_id))
+    while (pdr->rel_qer_list && cur_qer_idx < pdr->num_rel_qer) {
+        if (nla_put_u32(skb, GTP5G_PDR_QER_ID, pdr->rel_qer_list[cur_qer_idx]))
             goto genlmsg_fail;
+        cur_qer_idx++;
     }
 
     if (pdr->role_addr_ipv4.s_addr) {

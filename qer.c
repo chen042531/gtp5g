@@ -26,7 +26,8 @@ void qer_context_delete(struct qer *qer)
     struct gtp5g_dev *gtp = netdev_priv(qer->dev);
     struct hlist_head *head;
     struct pdr *pdr;
-    char seid_qer_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};;
+    char seid_qer_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
+    int cur_qer_idx = 0;
 
     if (!qer)
         return;
@@ -37,9 +38,10 @@ void qer_context_delete(struct qer *qer)
     seid_qer_id_to_hex_str(qer->seid, qer->id, seid_qer_id_hexstr);
     head = &gtp->related_qer_hash[str_hashfn(seid_qer_id_hexstr) % gtp->hash_size];
     hlist_for_each_entry_rcu(pdr, head, hlist_related_qer) {
-        if (*pdr->qer_id == qer->id) {
-            pdr->qer = NULL;
-            unix_sock_client_delete(pdr);
+        for (cur_qer_idx = 0; cur_qer_idx < pdr->num_rel_qer; cur_qer_idx++ ) {   
+            // printk("=====++++==-----> %llu", pdr->seid,pdr->rel_qer_list[i] );
+            if (pdr->rel_qer_list[cur_qer_idx] == qer->id)
+                unix_sock_client_delete(pdr);
         }
     }
 
@@ -64,16 +66,19 @@ struct qer *find_qer_by_id(struct gtp5g_dev *gtp, u64 seid, u32 qer_id)
 
 void qer_update(struct qer *qer, struct gtp5g_dev *gtp)
 {
+    /* ---------------------------- */
     struct pdr *pdr;
     struct hlist_head *head;
     char seid_qer_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
+    int cur_qer_idx = 0;
 
     seid_qer_id_to_hex_str(qer->seid, qer->id, seid_qer_id_hexstr);
     head = &gtp->related_qer_hash[str_hashfn(seid_qer_id_hexstr) % gtp->hash_size];
     hlist_for_each_entry_rcu(pdr, head, hlist_related_qer) {
-        if (*pdr->qer_id == qer->id) {
-            pdr->qer = qer;
-            unix_sock_client_update(pdr);
+        for (cur_qer_idx = 0; cur_qer_idx < pdr->num_rel_qer; cur_qer_idx++ ) {   
+            // printk("=====++++==-----> %llu", pdr->seid,pdr->rel_qer_list[i] );
+            if (pdr->rel_qer_list[cur_qer_idx] == qer->id)
+                unix_sock_client_update(pdr);
         }
     }
 }
@@ -94,6 +99,7 @@ int qer_get_pdr_ids(u16 *ids, int n, struct qer *qer, struct gtp5g_dev *gtp)
     struct pdr *pdr;
     int i;
     char seid_qer_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
+    int cur_qer_idx = 0;
 
     seid_qer_id_to_hex_str(qer->seid, qer->id, seid_qer_id_hexstr);
     head = &gtp->related_qer_hash[str_hashfn(seid_qer_id_hexstr) % gtp->hash_size];
@@ -101,8 +107,11 @@ int qer_get_pdr_ids(u16 *ids, int n, struct qer *qer, struct gtp5g_dev *gtp)
     hlist_for_each_entry_rcu(pdr, head, hlist_related_qer) {
         if (i >= n)
             break;
-        if (*pdr->qer_id == qer->id)
-            ids[i++] = pdr->id;
+        for (cur_qer_idx = 0; cur_qer_idx < pdr->num_rel_qer; cur_qer_idx++ ) {   
+            // printk("=====++++==-----> %llu", pdr->seid,pdr->rel_qer_list[i] );
+            if (pdr->rel_qer_list[cur_qer_idx] == qer->id)
+                ids[i++] = pdr->id;
+        }
     }
     return i;
 }
