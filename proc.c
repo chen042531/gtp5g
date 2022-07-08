@@ -249,20 +249,17 @@ static ssize_t proc_pdr_write(struct file *filp, const char __user *buffer,
     if (pdr->far_id)
         proc_pdr.far_id = *pdr->far_id;
     
+    // handle multiple QER IDs
+    cur_qer_idx = 0;
+    if (proc_pdr.qer_id_list)
+        kfree(proc_pdr.qer_id_list);
     proc_pdr.qer_id_list = kzalloc((pdr->num_rel_qer) * QER_ID_STR_LEN, GFP_ATOMIC);
     if (!proc_pdr.qer_id_list)
         return -ENOMEM;
-    cur_qer_idx = 0;
-    printk("================ >");
     while (pdr->rel_qer_list && cur_qer_idx < (pdr->num_rel_qer)){
-        printk("========= > %u", cur_qer_idx);
-        // snprintf(qer_id_str, QER_ID_STR_LEN, "%d", 
-        //     pdr->rel_qer_list[cur_qer_idx]);
         index += sprintf(&proc_pdr.qer_id_list[index], "%d, ", pdr->rel_qer_list[cur_qer_idx]);
-        // proc_pdr.qer_id_list = strcat(proc_pdr.qer_id_list ,qer_id_str);
         cur_qer_idx++;
     }
-    printk("================ >");
         
     proc_pdr.ul_drop_cnt = pdr->ul_drop_cnt;
     proc_pdr.dl_drop_cnt = pdr->dl_drop_cnt;
