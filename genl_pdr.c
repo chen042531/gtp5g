@@ -331,6 +331,15 @@ out:
     return skb->len;
 }  
 
+static int qer_id_already_exist(struct pdr *pdr, u32 tmp_qer_id)
+{
+    int cur_qer_idx = 0;
+    for (cur_qer_idx = 0; cur_qer_idx < pdr->num_rel_qer; cur_qer_idx++) {   
+        if (pdr->rel_qer_list[cur_qer_idx] == tmp_qer_id)
+            return 1;
+    }
+    return 0;
+}
 
 static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *info)
 {
@@ -342,6 +351,7 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
 
 
     u32 *tmp;
+    u32 tmp_qer_id;
 
 
     pdr->seid = 0;
@@ -385,6 +395,10 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
                 *pdr->far_id = nla_get_u32(hdr);
                 break;
             case GTP5G_PDR_QER_ID:
+                tmp_qer_id = nla_get_u32(hdr);
+                if (qer_id_already_exist(pdr, tmp_qer_id))
+                    break;
+                    
                 tmp = kzalloc((++pdr->num_rel_qer) * QER_ID_SIZE, GFP_ATOMIC);
                 if (!tmp)
                     return -ENOMEM;
@@ -394,7 +408,7 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
                     kfree(pdr->rel_qer_list);
                 }
                 
-                tmp[pdr->num_rel_qer-1] = nla_get_u32(hdr);
+                tmp[pdr->num_rel_qer-1] = tmp_qer_id;
                 pdr->rel_qer_list = tmp;                
                 break;
             case GTP5G_PDR_PDI:
@@ -411,6 +425,9 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
         return -EINVAL;
 
     pdr->af = AF_INET;
+
+    printk(">>>>>> seid:%llu, pdrId:%u \n", pdr->seid, pdr->id);
+
 
     pdr->far = find_far_by_id(gtp, pdr->seid, *pdr->far_id);
     far_set_pdr(pdr->seid, *pdr->far_id, &pdr->hlist_related_far, gtp);
