@@ -565,7 +565,7 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
 
     for (cur_qer_idx = 0; cur_qer_idx < pdr->num_rel_qer; cur_qer_idx++){   
         chosed_qer = find_qer_by_id(netdev_priv(dev), pdr->seid, pdr->rel_qer_list[cur_qer_idx]);
-        if (chosed_qer->qfi){
+        if (chosed_qer && chosed_qer->qfi){
             break;
         }
     }

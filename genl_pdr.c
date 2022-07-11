@@ -141,6 +141,7 @@ int gtp5g_genl_add_pdr(struct sk_buff *skb, struct genl_info *info)
     sock_hold(gtp->sk1u);
     pdr->sk = gtp->sk1u;
     pdr->dev = gtp->dev;
+    pdr->num_rel_qer = 0;
 
     err = pdr_fill(pdr, gtp, info);
     if (err) {
@@ -426,13 +427,8 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
 
     pdr->af = AF_INET;
 
-    printk(">>>>>> seid:%llu, pdrId:%u \n", pdr->seid, pdr->id);
-
-
     pdr->far = find_far_by_id(gtp, pdr->seid, *pdr->far_id);
     far_set_pdr(pdr->seid, *pdr->far_id, &pdr->hlist_related_far, gtp);
-
-    
 
     if (unix_sock_client_update(pdr) < 0)
         return -EINVAL;
