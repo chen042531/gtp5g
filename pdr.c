@@ -254,7 +254,7 @@ static void pkt_hex_dump(struct sk_buff *skb)
     // } else {
     //     len = skb->len;
     // }
-    len = skb->data_len;
+    len = skb->len;
     remaining = len;
     for (i = 0; i < len; i += rowsize) {
         printk("%06d\t", li);
@@ -287,8 +287,7 @@ struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff *skb,
     struct pdi *pdi;
     int may_pull_len;
 
-    pkt_hex_dump(skb);
-    printk("==========");
+    
     if (!gtp)
         return NULL;
 
@@ -300,6 +299,11 @@ struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff *skb,
     else
         may_pull_len = hdrlen + sizeof(struct iphdr);
 
+    printk("====>>>>>");
+    printk("====>>>>>");
+    printk("====>>>>>");
+    printk("====>>>>>");
+    pkt_hex_dump(skb);
     if (!pskb_may_pull(skb, may_pull_len))
         return NULL;
     pkt_hex_dump(skb);
