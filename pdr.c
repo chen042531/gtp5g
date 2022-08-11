@@ -255,8 +255,14 @@ struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff *skb,
     if (ntohs(skb->protocol) != ETH_P_IP)
         return NULL;
 
-    if (!pskb_may_pull(skb, hdrlen))
-        return NULL;
+    // if (!pskb_may_pull(skb, hdrlen))
+    //     return NULL;
+    printk("0000>>>>>&&==");
+    // if (!pskb_may_pull(skb, hdrlen + sizeof(struct iphdr)))
+    //     return NULL;
+    // len = hdrlen + sizeof(struct iphdr);
+      len = hdrlen;
+    __pskb_pull_tail(skb, len - skb_headlen(skb));
 
     iph = (struct iphdr *)(skb->data + hdrlen);
     target_addr = (gtp->role == GTP5G_ROLE_UPF ? &iph->saddr : &iph->daddr);
