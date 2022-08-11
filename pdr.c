@@ -3,6 +3,7 @@
 #include "dev.h"
 #include "link.h"
 #include "pdr.h"
+#include "gtp.h"
 #include "genl_pdr.h"
 #include "genl_far.h"
 #include "seid.h"
@@ -237,8 +238,45 @@ mismatch:
     return 0;
 }
 
+// static void pkt_hex_dump(struct sk_buff *skb)
+// {
+//     printk( "dsd\n");
+    // size_t len;
+    // int rowsize = 16;
+    // int i, l, linelen, remaining;
+    // int li = 0;
+    // uint8_t *data, ch; 
+
+    // printk("Packet hex dump:\n");
+    // data = (uint8_t *) skb_mac_header(skb);
+
+    // if (skb_is_nonlinear(skb)) {
+    //     len = skb->data_len;
+    // } else {
+    //     len = skb->len;
+    // }
+
+    // remaining = len;
+    // for (i = 0; i < len; i += rowsize) {
+    //     printk("%06d\t", li);
+
+    //     linelen = min(remaining, rowsize);
+    //     remaining -= rowsize;
+
+    //     for (l = 0; l < linelen; l++) {
+    //         ch = data[l];
+    //         printk(KERN_CONT "%02X ", (uint32_t) ch);
+    //     }
+
+    //     data += linelen;
+    //     li += 10; 
+
+    //     printk(KERN_CONT "\n");
+    // }
+// }
+
 struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff *skb,
-        unsigned int hdrlen, u32 teid)
+        unsigned int hdrlen, u32 teid, u8 type)
 {
 #ifdef MATCH_IP
     struct iphdr *outer_iph;
@@ -248,6 +286,7 @@ struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff *skb,
     struct hlist_head *head;
     struct pdr *pdr;
     struct pdi *pdi;
+    int may_pull_len;
 
     if (!gtp)
         return NULL;
@@ -255,14 +294,21 @@ struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff *skb,
     if (ntohs(skb->protocol) != ETH_P_IP)
         return NULL;
 
+    if (type == GTPV1_MSG_TYPE_EMARK)
+        may_pull_len = hdrlen;
+    else
+        may_pull_len = hdrlen + sizeof(struct iphdr);
+
+    if (!pskb_may_pull(skb, may_pull_len))
+        return NULL;
     // if (!pskb_may_pull(skb, hdrlen))
     //     return NULL;
-    printk("0000>>>>>&&==");
+    // printk("0000>>>>>&&==");
     // if (!pskb_may_pull(skb, hdrlen + sizeof(struct iphdr)))
     //     return NULL;
     // len = hdrlen + sizeof(struct iphdr);
-      len = hdrlen;
-    __pskb_pull_tail(skb, len - skb_headlen(skb));
+    //   len = hdrlen;
+    // __pskb_pull_tail(skb, len - skb_headlen(skb));
 
     iph = (struct iphdr *)(skb->data + hdrlen);
     target_addr = (gtp->role == GTP5G_ROLE_UPF ? &iph->saddr : &iph->daddr);
