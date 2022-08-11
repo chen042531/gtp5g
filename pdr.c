@@ -238,42 +238,41 @@ mismatch:
     return 0;
 }
 
-// static void pkt_hex_dump(struct sk_buff *skb)
-// {
-//     printk( "dsd\n");
-    // size_t len;
-    // int rowsize = 16;
-    // int i, l, linelen, remaining;
-    // int li = 0;
-    // uint8_t *data, ch; 
+static void pkt_hex_dump(struct sk_buff *skb)
+{
+    size_t len;
+    int rowsize = 16;
+    int i, l, linelen, remaining;
+    int li = 0;
+    uint8_t *data, ch; 
 
-    // printk("Packet hex dump:\n");
+    printk("Packet hex dump:\n");
     // data = (uint8_t *) skb_mac_header(skb);
-
+     data = (uint8_t *) skb->data;
     // if (skb_is_nonlinear(skb)) {
     //     len = skb->data_len;
     // } else {
     //     len = skb->len;
     // }
+    len = skb->data_len;
+    remaining = len;
+    for (i = 0; i < len; i += rowsize) {
+        printk("%06d\t", li);
 
-    // remaining = len;
-    // for (i = 0; i < len; i += rowsize) {
-    //     printk("%06d\t", li);
+        linelen = min(remaining, rowsize);
+        remaining -= rowsize;
 
-    //     linelen = min(remaining, rowsize);
-    //     remaining -= rowsize;
+        for (l = 0; l < linelen; l++) {
+            ch = data[l];
+            printk(KERN_CONT "%02X ", (uint32_t) ch);
+        }
 
-    //     for (l = 0; l < linelen; l++) {
-    //         ch = data[l];
-    //         printk(KERN_CONT "%02X ", (uint32_t) ch);
-    //     }
+        data += linelen;
+        li += 10; 
 
-    //     data += linelen;
-    //     li += 10; 
-
-    //     printk(KERN_CONT "\n");
-    // }
-// }
+        printk(KERN_CONT "\n");
+    }
+}
 
 struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff *skb,
         unsigned int hdrlen, u32 teid, u8 type)
@@ -288,6 +287,8 @@ struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff *skb,
     struct pdi *pdi;
     int may_pull_len;
 
+    pkt_hex_dump(skb);
+    printk("==========");
     if (!gtp)
         return NULL;
 
@@ -301,6 +302,7 @@ struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff *skb,
 
     if (!pskb_may_pull(skb, may_pull_len))
         return NULL;
+    pkt_hex_dump(skb);
     // if (!pskb_may_pull(skb, hdrlen))
     //     return NULL;
     // printk("0000>>>>>&&==");
@@ -309,9 +311,12 @@ struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff *skb,
     // len = hdrlen + sizeof(struct iphdr);
     //   len = hdrlen;
     // __pskb_pull_tail(skb, len - skb_headlen(skb));
-
+   
     iph = (struct iphdr *)(skb->data + hdrlen);
     target_addr = (gtp->role == GTP5G_ROLE_UPF ? &iph->saddr : &iph->daddr);
+    printk("++ gtp->role %u", gtp->role);
+    printk("++ iph->saddr %pI4", &iph->saddr );
+    printk("++ iph->daddr %pI4", &iph->daddr);
 
     head = &gtp->i_teid_hash[u32_hashfn(teid) % gtp->hash_size];
     hlist_for_each_entry_rcu(pdr, head, hlist_i_teid) {
