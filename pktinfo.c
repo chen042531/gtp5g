@@ -147,7 +147,7 @@ int ip_xmit(struct sk_buff *skb, struct sock *sk, struct net_device *gtp_dev)
     printk(">>> dst: %pI4", &rt->dst);
     printk(">>> src: %pI4", &src);
     printk(">>> gw4: %pI4", &rt->rt_gw4);
-    iph->saddr = rt->dst.dev->ip_ptr->ifa_list->ifa_address;
+    iph->saddr = src;
 
     if (ip_local_out(dev_net(gtp_dev), sk, skb) < 0) {
         GTP5G_ERR(gtp_dev, "Failed to send skb to ip layer\n");
