@@ -267,6 +267,7 @@ struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff *skb,
 
     iph = (struct iphdr *)(skb->data + hdrlen);
     target_addr = (gtp->role == GTP5G_ROLE_UPF ? &iph->saddr : &iph->daddr);
+    printk(">>>>> role: %d, s: %pI4, d: %pI4", gtp->role, &iph->saddr, &iph->daddr);
 
     head = &gtp->i_teid_hash[u32_hashfn(teid) % gtp->hash_size];
     hlist_for_each_entry_rcu(pdr, head, hlist_i_teid) {

@@ -5,6 +5,7 @@
 #include <net/ip.h>
 #include <net/icmp.h>
 #include <net/udp_tunnel.h>
+#include <net/route.h>
 
 #include "gtp.h"
 #include "far.h"
@@ -118,6 +119,8 @@ int ip_xmit(struct sk_buff *skb, struct sock *sk, struct net_device *gtp_dev)
     struct iphdr *iph = ip_hdr(skb);
     struct flowi4 fl4;
     struct rtable *rt;
+    // struct fib_result res;
+    __be32 src;
 
     rt = ip4_find_route_simple(skb, sk, gtp_dev, 0, iph->daddr, &fl4);
     if (IS_ERR(rt)) {
@@ -130,6 +133,20 @@ int ip_xmit(struct sk_buff *skb, struct sock *sk, struct net_device *gtp_dev)
         Source address should be IP addr of the outgoing interface.
         Limitation: Not support multiple IP address configured on outgoing interface.
      */
+
+
+    rcu_read_lock();
+    // if (fib_lookup(dev_net(rt->dst.dev), &fl4, &res, 0) == 0)
+    //     src = fib_result_prefsrc(dev_net(rt->dst.dev), &res);
+    // else
+    src = inet_select_addr(rt->dst.dev,
+                    rt_nexthop(rt, iph->daddr),
+                    RT_SCOPE_UNIVERSE);
+    rcu_read_unlock();
+
+    printk(">>> dst: %pI4", &rt->dst);
+    printk(">>> src: %pI4", &src);
+    printk(">>> gw4: %pI4", &rt->rt_gw4);
     iph->saddr = rt->dst.dev->ip_ptr->ifa_list->ifa_address;
 
     if (ip_local_out(dev_net(gtp_dev), sk, skb) < 0) {

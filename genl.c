@@ -142,7 +142,7 @@ static const struct genl_ops gtp5g_genl_ops[] = {
     },
 };
 
-struct genl_family gtp5g_genl_family __ro_after_init = {
+struct genl_family gtp5g_genl_family = {
     .name       = "gtp5g",
     .version    = 0,
     .hdrsize    = 0,
