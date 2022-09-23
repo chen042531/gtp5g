@@ -135,19 +135,23 @@ int ip_xmit(struct sk_buff *skb, struct sock *sk, struct net_device *gtp_dev)
      */
 
 
-    rcu_read_lock();
+    // rcu_read_lock();
     // if (fib_lookup(dev_net(rt->dst.dev), &fl4, &res, 0) == 0)
     //     src = fib_result_prefsrc(dev_net(rt->dst.dev), &res);
     // else
     src = inet_select_addr(rt->dst.dev,
                     rt_nexthop(rt, iph->daddr),
                     RT_SCOPE_UNIVERSE);
-    rcu_read_unlock();
+    if src != 0 {
+        iph->saddr = src;
+    }
+
+    // rcu_read_unlock();
 
     printk(">>> dst: %pI4", &rt->dst);
     printk(">>> src: %pI4", &src);
     printk(">>> gw4: %pI4", &rt->rt_gw4);
-    iph->saddr = src;
+    
 
     if (ip_local_out(dev_net(gtp_dev), sk, skb) < 0) {
         GTP5G_ERR(gtp_dev, "Failed to send skb to ip layer\n");
