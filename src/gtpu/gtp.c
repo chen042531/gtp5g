@@ -5,6 +5,7 @@
 
 int get_gtpu_header_len(struct gtpv1_hdr *gtpv1,  struct sk_buff *skb)
 {
+    ext_pdu_sess_ctr_t *cur_ext;
     u16 len = sizeof(*gtpv1);
     u16 pull_len = sizeof(struct udphdr);
 
@@ -39,6 +40,7 @@ int get_gtpu_header_len(struct gtpv1_hdr *gtpv1,  struct sk_buff *skb)
         gtpv1_opt = (gtpv1_hdr_opt_t *) ((u8 *) gtpv1 + sizeof(*gtpv1));
 
         next_ehdr_type = gtpv1_opt->next_ehdr_type;
+        
         while (next_ehdr_type) {
             switch (next_ehdr_type) {
             case GTPV1_NEXT_EXT_HDR_TYPE_85: {
@@ -64,13 +66,17 @@ int get_gtpu_header_len(struct gtpv1_hdr *gtpv1,  struct sk_buff *skb)
                 len += (etype85->length * 4);
                 pull_len += (etype85->length * 4);
                 next_ehdr_type = etype85->next_ehdr_type;
+                cur_ext = (ext_pdu_sess_ctr_t *) ((u8 *) etype85 + sizeof(*etype85)); 
                 break;
             }
             default:
                 /* Unknown/Unhandled Extension Header Type */
-                 GTP5G_ERR(NULL, "%s: Invalid header type(%#x)\n", 
+                GTP5G_WAR(NULL, "%s: Unsupported header type(%#x)\n", 
                     __func__, next_ehdr_type);
-                return -1;
+
+                len += (cur_ext->length * 4);
+                next_ehdr_type = cur_ext->next_ehdr_type;
+                cur_ext = (ext_pdu_sess_ctr_t *) ((u8 *) cur_ext + sizeof(*cur_ext)); 
             }
         }
     }
