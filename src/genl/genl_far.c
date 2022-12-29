@@ -63,6 +63,7 @@ int gtp5g_genl_add_far(struct sk_buff *skb, struct genl_info *info)
         seid = 0;
     }
 
+    
     if (info->attrs[GTP5G_FAR_ID]) {
         far_id = nla_get_u32(info->attrs[GTP5G_FAR_ID]);
     } else {
@@ -71,6 +72,8 @@ int gtp5g_genl_add_far(struct sk_buff *skb, struct genl_info *info)
         return -ENODEV;
     }
 
+    printk(">>> add far [seid: %llu][far: %u]", seid, far_id);
+    
     far = find_far_by_id(gtp, seid, far_id);
     if (far) {
         if (info->nlhdr->nlmsg_flags & NLM_F_EXCL) {
@@ -188,12 +191,14 @@ int gtp5g_genl_del_far(struct sk_buff *skb, struct genl_info *info)
         seid = 0;
     }
 
+     
     if (info->attrs[GTP5G_FAR_ID]) {
         far_id = nla_get_u32(info->attrs[GTP5G_FAR_ID]);
     } else {
         rcu_read_unlock();
         return -ENODEV;
     }
+    printk(">>> del far [seid: %llu][far: %u]", seid, far_id);
 
     far = find_far_by_id(gtp, seid, far_id);
     if (!far) {

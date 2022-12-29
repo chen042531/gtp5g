@@ -16,7 +16,10 @@
 #include <net/netns/generic.h>
 #include "net.h"
 #include "util.h"
-
+///
+#include "hash.h"
+#include "seid.h"
+///
 static int pdr_fill(struct pdr *, struct gtp5g_dev *, struct genl_info *);
 static int parse_pdi(struct pdr *, struct nlattr *);
 static int parse_f_teid(struct pdi *, struct nlattr *);
@@ -65,6 +68,7 @@ int gtp5g_genl_add_pdr(struct sk_buff *skb, struct genl_info *info)
         seid = nla_get_u64(info->attrs[GTP5G_PDR_SEID]);
     }
 
+  
     if (info->attrs[GTP5G_PDR_ID]) {
         pdr_id = nla_get_u32(info->attrs[GTP5G_PDR_ID]);
     } else {
@@ -72,6 +76,7 @@ int gtp5g_genl_add_pdr(struct sk_buff *skb, struct genl_info *info)
         rtnl_unlock();
         return -ENODEV;
     }
+    printk(">>> add pdr [seid: %llu][pdr: %u]", seid, pdr_id);
 
     pdr = find_pdr_by_id(gtp, seid, pdr_id);
     if (pdr) {
@@ -143,6 +148,12 @@ int gtp5g_genl_add_pdr(struct sk_buff *skb, struct genl_info *info)
     return 0;
 }
 
+///
+static void seid_qer_id_to_hex_str(u64 seid_int, u32 qer_id, char *buff)
+{
+    seid_and_u32id_to_hex_str(seid_int, qer_id, buff);
+}
+///
 int gtp5g_genl_del_pdr(struct sk_buff *skb, struct genl_info *info)
 {
     struct gtp5g_dev *gtp;
@@ -151,7 +162,10 @@ int gtp5g_genl_del_pdr(struct sk_buff *skb, struct genl_info *info)
     int netnsfd;
     u64 seid = 0;
     u16 pdr_id;
-
+///
+    struct hlist_head *head;
+    char seid_qer_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
+///
     if (!info->attrs[GTP5G_LINK])
         return -EINVAL;
     ifindex = nla_get_u32(info->attrs[GTP5G_LINK]);
@@ -173,6 +187,7 @@ int gtp5g_genl_del_pdr(struct sk_buff *skb, struct genl_info *info)
         seid = nla_get_u64(info->attrs[GTP5G_PDR_SEID]);
     }
 
+    
     if (info->attrs[GTP5G_PDR_ID]) {
         pdr_id = nla_get_u16(info->attrs[GTP5G_PDR_ID]);
     } else {
@@ -180,14 +195,60 @@ int gtp5g_genl_del_pdr(struct sk_buff *skb, struct genl_info *info)
         return -ENODEV;
     }
 
+    printk(">>> del pdr [seid: %llu][pdr: %u]", seid, pdr_id);
+
     pdr = find_pdr_by_id(gtp, seid, pdr_id);
     if (!pdr) {
         rcu_read_unlock();
         return -ENOENT;
     }
 
+
+    seid_qer_id_to_hex_str(1, 1, seid_qer_id_hexstr);
+    head = &gtp->related_qer_hash[str_hashfn(seid_qer_id_hexstr) % gtp->hash_size];
+    printk(">>> head addr: %p", head);
+    hlist_for_each_entry_rcu(pdr, head, hlist_related_qer) {
+        printk("before >>>>>>1, 1 qer_update pdr_id: %u, qer_num: %u", pdr->id, pdr->qer_num);
+        // if (find_qer_id_in_pdr(pdr, qer->id)) {
+        //     unix_sock_client_update(pdr);
+        // }
+    }
+
+    seid_qer_id_to_hex_str(1, 2, seid_qer_id_hexstr);
+    head = &gtp->related_qer_hash[str_hashfn(seid_qer_id_hexstr) % gtp->hash_size];
+    printk(">>> head addr: %p", head);
+    hlist_for_each_entry_rcu(pdr, head, hlist_related_qer) {
+        printk("before >>>>>>1, 2 qer_update pdr_id: %u, qer_num: %u", pdr->id, pdr->qer_num);
+        // if (find_qer_id_in_pdr(pdr, qer->id)) {
+        //     unix_sock_client_update(pdr);
+        // }
+    }
+
     pdr_context_delete(pdr);
-    rcu_read_unlock();
+
+rcu_read_unlock();
+
+    seid_qer_id_to_hex_str(1, 1, seid_qer_id_hexstr);
+    head = &gtp->related_qer_hash[str_hashfn(seid_qer_id_hexstr) % gtp->hash_size];
+     printk(">>> head addr: %p", head);
+    hlist_for_each_entry_rcu(pdr, head, hlist_related_qer) {
+        printk(">>>>>>1, 1 qer_update pdr_id: %u, qer_num: %u", pdr->id, pdr->qer_num);
+        // if (find_qer_id_in_pdr(pdr, qer->id)) {
+        //     unix_sock_client_update(pdr);
+        // }
+    }
+
+    seid_qer_id_to_hex_str(1, 2, seid_qer_id_hexstr);
+    head = &gtp->related_qer_hash[str_hashfn(seid_qer_id_hexstr) % gtp->hash_size];
+     printk(">>> head addr: %p", head);
+    hlist_for_each_entry_rcu(pdr, head, hlist_related_qer) {
+        printk(">>>>>>1, 2 qer_update pdr_id: %u, qer_num: %u", pdr->id, pdr->qer_num);
+        // if (find_qer_id_in_pdr(pdr, qer->id)) {
+        //     unix_sock_client_update(pdr);
+        // }
+    }
+    printk("==============================+");
+    
 
     return 0;
 }  
@@ -315,8 +376,9 @@ out:
 int find_qer_id_in_pdr(struct pdr *pdr, u32 qer_id)
 {
     int i = 0;
+    // printk(">>>>>> pdr_id: %u, qer_num: %u", pdr->id, pdr->qer_num);
     for (i = 0; i < pdr->qer_num; i++) {
-        if (pdr->qer_ids[i] == qer_id)
+        if (pdr->qer_ids != NULL && pdr->qer_ids[i] == qer_id)
             return 1;
     }
     return 0;

@@ -89,7 +89,7 @@ void pdr_context_delete(struct pdr *pdr)
     if (!hlist_unhashed(&pdr->hlist_related_far))
         hlist_del_rcu(&pdr->hlist_related_far);
 
-    if (!hlist_unhashed(&pdr->hlist_related_qer))
+    // if (!hlist_unhashed(&pdr->hlist_related_qer))
         hlist_del_rcu(&pdr->hlist_related_qer);
 
     if (!hlist_unhashed(&pdr->hlist_related_urr))
