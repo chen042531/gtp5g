@@ -50,12 +50,18 @@ struct pdi {
 
 #define QER_ID_SIZE sizeof(u32)
 #define URR_ID_SIZE sizeof(u32)
+
+struct qPdrNode {
+    struct hlist_node hlist_related_qer;
+    struct pdr *pdr;
+};
 struct pdr {
     struct hlist_node hlist_id;
     struct hlist_node hlist_i_teid;
     struct hlist_node hlist_addr;
     struct hlist_node hlist_related_far;
-    struct hlist_node hlist_related_qer;
+    // struct hlist_node hlist_related_qer;
+
     struct hlist_node hlist_related_urr;
 
     u64 seid;
@@ -93,7 +99,7 @@ struct pdr {
     u64                     dl_byte_cnt;
 };
 
-extern void pdr_context_delete(struct pdr *);
+extern void pdr_context_delete(struct gtp5g_dev *, struct pdr *);
 extern struct pdr *find_pdr_by_id(struct gtp5g_dev *, u64, u16);
 extern struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *, struct sk_buff *,
         unsigned int, u32, u8);

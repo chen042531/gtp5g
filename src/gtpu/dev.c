@@ -230,7 +230,7 @@ void gtp5g_hashtable_free(struct gtp5g_dev *gtp)
         hlist_for_each_entry_rcu(qer, &gtp->qer_id_hash[i], hlist_id)
             qer_context_delete(qer);
         hlist_for_each_entry_rcu(pdr, &gtp->pdr_id_hash[i], hlist_id)
-            pdr_context_delete(pdr);
+            pdr_context_delete(gtp, pdr);
         hlist_for_each_entry_rcu(bar, &gtp->bar_id_hash[i], hlist_id)
             bar_context_delete(bar);
         hlist_for_each_entry_rcu(urr, &gtp->urr_id_hash[i], hlist_id)

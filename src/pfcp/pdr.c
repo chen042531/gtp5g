@@ -12,6 +12,8 @@
 #include "log.h"
 #include <linux/types.h>
 
+#include "qer.h"
+
 
 static void seid_pdr_id_to_hex_str(u64 seid_int, u16 pdr_id, char *buff)
 {
@@ -72,10 +74,25 @@ static void pdr_context_free(struct rcu_head *head)
     kfree(pdr);
 }
 
-void pdr_context_delete(struct pdr *pdr)
+///
+static void seid_qer_id_to_hex_str(u64 seid_int, u32 qer_id, char *buff)
 {
-    if (!pdr)
+    seid_and_u32id_to_hex_str(seid_int, qer_id, buff);
+}
+///
+
+void pdr_context_delete(struct gtp5g_dev *gtp, struct pdr *pdr)
+{
+
+    u32 i, j;
+    struct qPdrNode *qPNode;
+    char seid_qer_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
+    // printk(">>>>>>==pdr_context_del");
+    if (!pdr){
+        // printk(">>>>>>!pdr");
         return;
+    }
+        
 
     if (!hlist_unhashed(&pdr->hlist_id))
         hlist_del_rcu(&pdr->hlist_id);
@@ -89,8 +106,17 @@ void pdr_context_delete(struct pdr *pdr)
     if (!hlist_unhashed(&pdr->hlist_related_far))
         hlist_del_rcu(&pdr->hlist_related_far);
 
-    // if (!hlist_unhashed(&pdr->hlist_related_qer))
-        hlist_del_rcu(&pdr->hlist_related_qer);
+    for (j = 0; j < pdr->qer_num; j++) {
+        seid_qer_id_to_hex_str(pdr->seid, pdr->qer_ids[j], seid_qer_id_hexstr);
+        i = str_hashfn(seid_qer_id_hexstr) % gtp->hash_size;
+        
+        hlist_for_each_entry_rcu(qPNode, &gtp->related_qer_hash[i], hlist_related_qer) {
+            if (qPNode->pdr->seid == pdr->seid && qPNode->pdr->id == pdr->id && !hlist_unhashed(&qPNode->hlist_related_qer)){
+                    hlist_del_rcu(&qPNode->hlist_related_qer);
+                    kfree(qPNode);
+            }
+        }
+    }
 
     if (!hlist_unhashed(&pdr->hlist_related_urr))
         hlist_del_rcu(&pdr->hlist_related_urr);
@@ -155,10 +181,12 @@ struct pdr *find_pdr_by_id(struct gtp5g_dev *gtp, u64 seid, u16 pdr_id)
     seid_pdr_id_to_hex_str(seid, pdr_id, seid_pdr_id);
     head = &gtp->pdr_id_hash[str_hashfn(seid_pdr_id) % gtp->hash_size];
     hlist_for_each_entry_rcu(pdr, head, hlist_id) {
-        if (pdr->seid == seid && pdr->id == pdr_id)
+        if (pdr->seid == seid && pdr->id == pdr_id){
+            printk(">>> find_pdr_by_id[seid: %llu][pdr: %u]", seid, pdr_id);
             return pdr;
+        }
     }
-
+    // printk(">>>>>> null");
     return NULL;
 }
 

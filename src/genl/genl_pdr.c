@@ -93,7 +93,7 @@ int gtp5g_genl_add_pdr(struct sk_buff *skb, struct genl_info *info)
 
         err = pdr_fill(pdr, gtp, info);
         if (err) {
-            pdr_context_delete(pdr);
+            pdr_context_delete(gtp, pdr);
             return err;
         }
 
@@ -134,7 +134,7 @@ int gtp5g_genl_add_pdr(struct sk_buff *skb, struct genl_info *info)
 
     err = pdr_fill(pdr, gtp, info);
     if (err) {
-        pdr_context_delete(pdr);
+        pdr_context_delete(gtp, pdr);
         rcu_read_unlock();
         rtnl_unlock();
         return err;
@@ -165,6 +165,7 @@ int gtp5g_genl_del_pdr(struct sk_buff *skb, struct genl_info *info)
 ///
     struct hlist_head *head;
     char seid_qer_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
+     struct qPdrNode *qpNode;
 ///
     if (!info->attrs[GTP5G_LINK])
         return -EINVAL;
@@ -195,7 +196,7 @@ int gtp5g_genl_del_pdr(struct sk_buff *skb, struct genl_info *info)
         return -ENODEV;
     }
 
-    printk(">>> del pdr [seid: %llu][pdr: %u]", seid, pdr_id);
+    // printk(">>> del pdr [seid: %llu][pdr: %u]", seid, pdr_id);
 
     pdr = find_pdr_by_id(gtp, seid, pdr_id);
     if (!pdr) {
@@ -207,49 +208,40 @@ int gtp5g_genl_del_pdr(struct sk_buff *skb, struct genl_info *info)
     seid_qer_id_to_hex_str(1, 1, seid_qer_id_hexstr);
     head = &gtp->related_qer_hash[str_hashfn(seid_qer_id_hexstr) % gtp->hash_size];
     printk(">>> head addr: %p", head);
-    hlist_for_each_entry_rcu(pdr, head, hlist_related_qer) {
-        printk("before >>>>>>1, 1 qer_update pdr_id: %u, qer_num: %u", pdr->id, pdr->qer_num);
-        // if (find_qer_id_in_pdr(pdr, qer->id)) {
-        //     unix_sock_client_update(pdr);
-        // }
+    hlist_for_each_entry_rcu(qpNode, head, hlist_related_qer) {
+        if(qpNode!=NULL && qpNode->pdr!=NULL)
+            printk("before >>>>>>1, 1 qer_update pdr_id: %u, qer_num: %u", qpNode->pdr->id, qpNode->pdr->qer_num);
     }
 
     seid_qer_id_to_hex_str(1, 2, seid_qer_id_hexstr);
     head = &gtp->related_qer_hash[str_hashfn(seid_qer_id_hexstr) % gtp->hash_size];
     printk(">>> head addr: %p", head);
-    hlist_for_each_entry_rcu(pdr, head, hlist_related_qer) {
-        printk("before >>>>>>1, 2 qer_update pdr_id: %u, qer_num: %u", pdr->id, pdr->qer_num);
-        // if (find_qer_id_in_pdr(pdr, qer->id)) {
-        //     unix_sock_client_update(pdr);
-        // }
+     hlist_for_each_entry_rcu(qpNode, head, hlist_related_qer) {
+        if(qpNode!=NULL && qpNode->pdr!=NULL)
+            printk("before >>>>>>1, 1 qer_update pdr_id: %u, qer_num: %u", qpNode->pdr->id, qpNode->pdr->qer_num);
     }
+    pdr_context_delete(gtp, pdr);
 
-    pdr_context_delete(pdr);
 
-rcu_read_unlock();
 
     seid_qer_id_to_hex_str(1, 1, seid_qer_id_hexstr);
     head = &gtp->related_qer_hash[str_hashfn(seid_qer_id_hexstr) % gtp->hash_size];
      printk(">>> head addr: %p", head);
-    hlist_for_each_entry_rcu(pdr, head, hlist_related_qer) {
-        printk(">>>>>>1, 1 qer_update pdr_id: %u, qer_num: %u", pdr->id, pdr->qer_num);
-        // if (find_qer_id_in_pdr(pdr, qer->id)) {
-        //     unix_sock_client_update(pdr);
-        // }
+    hlist_for_each_entry_rcu(qpNode, head, hlist_related_qer) {
+        if(qpNode!=NULL && qpNode->pdr!=NULL)
+            printk("before >>>>>>1, 1 qer_update pdr_id: %u, qer_num: %u", qpNode->pdr->id, qpNode->pdr->qer_num);
     }
 
     seid_qer_id_to_hex_str(1, 2, seid_qer_id_hexstr);
     head = &gtp->related_qer_hash[str_hashfn(seid_qer_id_hexstr) % gtp->hash_size];
      printk(">>> head addr: %p", head);
-    hlist_for_each_entry_rcu(pdr, head, hlist_related_qer) {
-        printk(">>>>>>1, 2 qer_update pdr_id: %u, qer_num: %u", pdr->id, pdr->qer_num);
-        // if (find_qer_id_in_pdr(pdr, qer->id)) {
-        //     unix_sock_client_update(pdr);
-        // }
+    hlist_for_each_entry_rcu(qpNode, head, hlist_related_qer) {
+        if(qpNode!=NULL && qpNode->pdr!=NULL)
+            printk("before >>>>>>1, 1 qer_update pdr_id: %u, qer_num: %u", qpNode->pdr->id, qpNode->pdr->qer_num);
     }
-    printk("==============================+");
+    printk("==============================+>");
     
-
+rcu_read_unlock();
     return 0;
 }  
 
@@ -376,6 +368,9 @@ out:
 int find_qer_id_in_pdr(struct pdr *pdr, u32 qer_id)
 {
     int i = 0;
+
+    if (!pdr)
+        return 0;
     // printk(">>>>>> pdr_id: %u, qer_num: %u", pdr->id, pdr->qer_num);
     for (i = 0; i < pdr->qer_num; i++) {
         if (pdr->qer_ids != NULL && pdr->qer_ids[i] == qer_id)
@@ -458,6 +453,7 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
     int err;
     struct nlattr *hdr = nlmsg_attrdata(info->nlhdr, 0);
     int remaining = nlmsg_attrlen(info->nlhdr, 0);
+    struct qPdrNode *qPNode;
 
     pdr->seid = 0;
 
@@ -525,7 +521,14 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
     pdr->far = find_far_by_id(gtp, pdr->seid, *pdr->far_id);
     far_set_pdr(pdr->seid, *pdr->far_id, &pdr->hlist_related_far, gtp);
     urr_set_pdr(pdr->seid, pdr->urr_ids, pdr->urr_num, &pdr->hlist_related_urr, gtp);
-    qer_set_pdr(pdr->seid, pdr->qer_ids, pdr->qer_num, &pdr->hlist_related_qer, gtp);
+
+    qPNode = kzalloc(sizeof(*qPNode), GFP_ATOMIC);
+    if (!qPNode) {
+        return -ENOMEM;
+    }
+    qPNode->pdr = pdr;
+    qer_set_pdr(pdr->seid, pdr->qer_ids, pdr->qer_num, &qPNode->hlist_related_qer, gtp);
+    
     set_pdr_qfi(pdr, gtp);
 
     if (unix_sock_client_update(pdr) < 0)
