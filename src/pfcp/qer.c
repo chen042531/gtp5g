@@ -38,7 +38,7 @@ void qer_context_delete(struct qer *qer)
     seid_qer_id_to_hex_str(qer->seid, qer->id, seid_qer_id_hexstr);
     head = &gtp->related_qer_hash[str_hashfn(seid_qer_id_hexstr) % gtp->hash_size];
     hlist_for_each_entry_rcu(qpNode, head, hlist_related_qer) {
-        if (find_qer_id_in_pdr(qpNode->pdr, qer->id)) {
+        if (qpNode->pdr != NULL && find_qer_id_in_pdr(qpNode->pdr, qer->id)) {
             unix_sock_client_delete(qpNode->pdr);
         }
     }
@@ -72,7 +72,7 @@ void qer_update(struct qer *qer, struct gtp5g_dev *gtp)
     seid_qer_id_to_hex_str(qer->seid, qer->id, seid_qer_id_hexstr);
     head = &gtp->related_qer_hash[str_hashfn(seid_qer_id_hexstr) % gtp->hash_size];
     hlist_for_each_entry_rcu(qpNode, head, hlist_related_qer) {
-        if (find_qer_id_in_pdr(qpNode->pdr, qer->id)) {
+        if (qpNode->pdr != NULL && find_qer_id_in_pdr(qpNode->pdr, qer->id)) {
             unix_sock_client_update(qpNode->pdr);
         }
     }
@@ -102,32 +102,11 @@ int qer_get_pdr_ids(u16 *ids, int n, struct qer *qer, struct gtp5g_dev *gtp)
     hlist_for_each_entry_rcu(qpNode, head, hlist_related_qer) {
         if (i >= n)
             break;
-        if (find_qer_id_in_pdr(qpNode->pdr, qer->id)) {
+        if (qpNode->pdr != NULL && find_qer_id_in_pdr(qpNode->pdr, qer->id)) {
             ids[i++] = qpNode->pdr->id;
         }
     }
     return i;
 }
 
-void qer_set_pdr(u64 seid, u32 *qer_ids, u32 qer_num, struct hlist_node *node, struct gtp5g_dev *gtp)
-{
-    char seid_qer_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
-    u32 i, j;
-    struct qPdrNode *qpNode;
 
-    if (!hlist_unhashed(node))
-        hlist_del_rcu(node);
-
-    for (j = 0; j < qer_num; j++) {
-        seid_qer_id_to_hex_str(seid, qer_ids[j], seid_qer_id_hexstr);
-        i = str_hashfn(seid_qer_id_hexstr) % gtp->hash_size;
-        printk(">>> set  === head addr: %p", &gtp->related_qer_hash[i]);
-        hlist_add_head_rcu(node, &gtp->related_qer_hash[i]);
-
-        hlist_for_each_entry_rcu(qpNode, &gtp->related_qer_hash[i], hlist_related_qer) {
-            printk(">>>>>> qer_id: %u, pdr_id: %u, qer_num: %u", qer_ids[j], qpNode->pdr->id, qpNode->pdr->qer_num);
-        }
-    }
-
-    
-}
