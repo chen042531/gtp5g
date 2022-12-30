@@ -74,25 +74,17 @@ static void pdr_context_free(struct rcu_head *head)
     kfree(pdr);
 }
 
-///
-static void seid_qer_id_to_hex_str(u64 seid_int, u32 qer_id, char *buff)
-{
-    seid_and_u32id_to_hex_str(seid_int, qer_id, buff);
-}
-///
+// ///
+// static void seid_qer_id_to_hex_str(u64 seid_int, u32 qer_id, char *buff)
+// {
+//     seid_and_u32id_to_hex_str(seid_int, qer_id, buff);
+// }
+// ///
 
-void pdr_context_delete(struct gtp5g_dev *gtp, struct pdr *pdr)
+void pdr_context_delete(struct pdr *pdr)
 {
-
-    u32 i, j;
-    struct qPdrNode *qPNode;
-    char seid_qer_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
-    // printk(">>>>>>==pdr_context_del");
-    if (!pdr){
-        // printk(">>>>>>!pdr");
+    if (!pdr)
         return;
-    }
-        
 
     if (!hlist_unhashed(&pdr->hlist_id))
         hlist_del_rcu(&pdr->hlist_id);
@@ -106,22 +98,9 @@ void pdr_context_delete(struct gtp5g_dev *gtp, struct pdr *pdr)
     if (!hlist_unhashed(&pdr->hlist_related_far))
         hlist_del_rcu(&pdr->hlist_related_far);
 
-    for (j = 0; j < pdr->qer_num; j++) {
-        seid_qer_id_to_hex_str(pdr->seid, pdr->qer_ids[j], seid_qer_id_hexstr);
-        i = str_hashfn(seid_qer_id_hexstr) % gtp->hash_size;
-        // printk(">>> # qer_id:%u", pdr->qer_ids[j]);
-        hlist_for_each_entry_rcu(qPNode, &gtp->related_qer_hash[i], hlist_related_qer) {
-            // printk(">>> qer_id:%u, qPNode->pdr->id:%u", pdr->qer_ids[j], qPNode->pdr->id);
-            if (qPNode->pdr->seid == pdr->seid && qPNode->pdr->id == pdr->id && !hlist_unhashed(&qPNode->hlist_related_qer)){
-                    hlist_del_rcu(&qPNode->hlist_related_qer);
-                    //  printk(">>> del qer_id:%u, qPNode->pdr->id:%u", pdr->qer_ids[j], qPNode->pdr->id);
-                    kfree(qPNode);
-            }
-        }
-    }
-
     if (!hlist_unhashed(&pdr->hlist_related_urr))
         hlist_del_rcu(&pdr->hlist_related_urr);
+
     call_rcu(&pdr->rcu_head, pdr_context_free);
 }
 

@@ -93,7 +93,7 @@ int gtp5g_genl_add_pdr(struct sk_buff *skb, struct genl_info *info)
 
         err = pdr_fill(pdr, gtp, info);
         if (err) {
-            pdr_context_delete(gtp, pdr);
+            pdr_context_delete(pdr);
             return err;
         }
 
@@ -134,7 +134,7 @@ int gtp5g_genl_add_pdr(struct sk_buff *skb, struct genl_info *info)
 
     err = pdr_fill(pdr, gtp, info);
     if (err) {
-        pdr_context_delete(gtp, pdr);
+        pdr_context_delete(pdr);
         rcu_read_unlock();
         rtnl_unlock();
         return err;
@@ -154,6 +154,34 @@ static void seid_qer_id_to_hex_str(u64 seid_int, u32 qer_id, char *buff)
     seid_and_u32id_to_hex_str(seid_int, qer_id, buff);
 }
 ///
+
+
+void del_qerPdrNode_in_hashTable(struct gtp5g_dev *gtp, struct pdr *pdr)
+{
+    u32 i, j;
+    struct qPdrNode *qPNode;
+    char seid_qer_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
+    printk(">>>>>>==del_qerPdrNode_in_hashTable");
+    if (!pdr){
+        // printk(">>>>>>!pdr");
+        return;
+    }
+
+    for (j = 0; j < pdr->qer_num; j++) {
+        seid_qer_id_to_hex_str(pdr->seid, pdr->qer_ids[j], seid_qer_id_hexstr);
+        i = str_hashfn(seid_qer_id_hexstr) % gtp->hash_size;
+        // printk(">>> # qer_id:%u", pdr->qer_ids[j]);
+        hlist_for_each_entry_rcu(qPNode, &gtp->related_qer_hash[i], hlist_related_qer) {
+            // printk(">>> qer_id:%u, qPNode->pdr->id:%u", pdr->qer_ids[j], qPNode->pdr->id);
+            if (qPNode->pdr->seid == pdr->seid && qPNode->pdr->id == pdr->id && !hlist_unhashed(&qPNode->hlist_related_qer)){
+                    hlist_del_rcu(&qPNode->hlist_related_qer);
+                    //  printk(">>> del qer_id:%u, qPNode->pdr->id:%u", pdr->qer_ids[j], qPNode->pdr->id);
+                    kfree(qPNode);
+            }
+        }
+    }
+}
+
 int gtp5g_genl_del_pdr(struct sk_buff *skb, struct genl_info *info)
 {
     struct gtp5g_dev *gtp;
@@ -205,7 +233,7 @@ int gtp5g_genl_del_pdr(struct sk_buff *skb, struct genl_info *info)
         return -ENOENT;
     }
 
-    printk(">>>> pppp");
+    // printk(">>>> pppp");
     seid_qer_id_to_hex_str(1, 1, seid_qer_id_hexstr);
     head = &gtp->related_qer_hash[str_hashfn(seid_qer_id_hexstr) % gtp->hash_size];
     printk(">>> head addr: %p", head);
@@ -221,7 +249,9 @@ int gtp5g_genl_del_pdr(struct sk_buff *skb, struct genl_info *info)
         if(qpNode!=NULL && qpNode->pdr!=NULL)
             printk("before >>>>>>1, 1 qer_update pdr_id: %u, qer_num: %u", qpNode->pdr->id, qpNode->pdr->qer_num);
     }
-    pdr_context_delete(gtp, pdr);
+
+    del_qerPdrNode_in_hashTable(gtp, pdr);
+    pdr_context_delete(pdr);
 
 
 
