@@ -161,25 +161,44 @@ void del_qerPdrNode_in_hashTable(struct gtp5g_dev *gtp, struct pdr *pdr)
     u32 i, j;
     struct qPdrNode *qPNode;
     char seid_qer_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
-    printk(">>>>>>==del_qerPdrNode_in_hashTable");
+    printk(">>>>>>==++--zz@@del_qerPdrNode_in_hashTable");
     if (!pdr){
         printk(">>>>>>!pdr");
         return;
     }
 
     for (j = 0; j < pdr->qer_num; j++) {
+        printk(">>> aa --");
         seid_qer_id_to_hex_str(pdr->seid, pdr->qer_ids[j], seid_qer_id_hexstr);
         i = str_hashfn(seid_qer_id_hexstr) % gtp->hash_size;
         printk(">>> # qer_id:%u", pdr->qer_ids[j]);
         hlist_for_each_entry_rcu(qPNode, &gtp->related_qer_hash[i], hlist_related_qer) {
-            printk(">>> qer_id:%u, qPNode->pdr->id:%u", pdr->qer_ids[j], qPNode->pdr->id);
-            if (qPNode->pdr->seid == pdr->seid && qPNode->pdr->id == pdr->id && !hlist_unhashed(&qPNode->hlist_related_qer)){
-                    hlist_del_rcu(&qPNode->hlist_related_qer);
+            printk(">>> bb 1 ==++--!!");
+            // printk(">>> qer_id:%u,pdr->id:%u", pdr->qer_ids[j], pdr->id);
+            printk(">>> bb 1 ==++-- 1");
+            if (qPNode == NULL)
+                printk(">>> qPNode == NULL");
+            printk(">>> bb 1 ==++-- 2");
+            // qPNode->pdr = NULL;
+            if (qPNode->pdr == NULL)
+                printk(">>> qPNode->pdr == NULL");
+            printk(">>> bb 1 ==++-- 3");
+            if (pdr == NULL)
+                printk(">>> pdr == NULL");
+            printk(">>> bb 1 ==++ 4");
+            if (qPNode->pdr != NULL && qPNode->pdr->seid == pdr->seid && qPNode->pdr->id == pdr->id ){
+                    printk(">>>delddd");
+                    if (&qPNode->hlist_related_qer == NULL)
+                        printk("&qPNode->hlist_related_qer == null");
+                    hlist_del_init_rcu(&qPNode->hlist_related_qer);
                      printk(">>> del qer_id:%u, qPNode->pdr->id:%u", pdr->qer_ids[j], qPNode->pdr->id);
                     kfree(qPNode);
             }
+            printk(">>> bb");
         }
+        printk(">>> cc");
     }
+    printk(">>> dd");
 }
 
 int gtp5g_genl_del_pdr(struct sk_buff *skb, struct genl_info *info)
@@ -511,7 +530,7 @@ int qer_set_pdr(struct pdr *pdr, struct gtp5g_dev *gtp)
 
             // printk("qPNode >>> 22");
             if (qPNode->pdr != NULL &&  qPNode->pdr->seid == pdr->seid && qPNode->pdr->id == pdr->id) {
-                hlist_del_rcu(&qPNode->hlist_related_qer);
+                hlist_del_init_rcu(&qPNode->hlist_related_qer);
                 kfree(qPNode);
             }      
         }
