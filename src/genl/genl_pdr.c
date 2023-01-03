@@ -153,66 +153,25 @@ static void seid_qer_id_to_hex_str(u64 seid_int, u32 qer_id, char *buff)
     seid_and_u32id_to_hex_str(seid_int, qer_id, buff);
 }
 ///
-
-
-void del_qerPdrNode_in_hashTable(struct gtp5g_dev *gtp, struct pdr *pdr)
-{
+void del_related_qer_hash(struct gtp5g_dev *gtp, struct pdr *pdr){
     u32 i, j;
-    struct qPdrNode *qPNode, *to_be_del ;
+    struct qPdrNode *qPNode = NULL ;
+    struct qPdrNode *to_be_del = NULL ;
     char seid_qer_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
-    printk(">>>>>>==++--zz@@del_qerPdrNode_in_hashTable");
-    if (!pdr){
-        printk(">>>>>>!pdr");
-        return;
-    }
 
-    qPNode = kzalloc(sizeof(*qPNode), GFP_ATOMIC);
-    if (!qPNode) {
-        return;
-    }
-    qPNode->pdr = NULL;
-
-    printk(">>> aa --zz!!xx pdr_id:%u", pdr->id);
     for (j = 0; j < pdr->qer_num; j++) {
-        printk(">>> aa --zz!!xx");
         seid_qer_id_to_hex_str(pdr->seid, pdr->qer_ids[j], seid_qer_id_hexstr);
         i = str_hashfn(seid_qer_id_hexstr) % gtp->hash_size;
-        printk(">>> @@6699777##---- qer_id:%u", pdr->qer_ids[j]);
-        
         hlist_for_each_entry_rcu(qPNode, &gtp->related_qer_hash[i], hlist_related_qer) {
-            // if (!hlist_unhashed(&qPNode->hlist_related_qer)){
-            
-                printk(">>> bb 1 ==++--!!");
-                // printk(">>> qer_id:%u,pdr->id:%u", pdr->qer_ids[j], pdr->id);
-                printk(">>> bb 1 ==++-- 1");
-                if (qPNode == NULL)
-                    printk(">>> qPNode == NULL");
-                printk(">>> bb 1 ==++-- 2");
-                // qPNode->pdr = NULL;
-                // if (qPNode->pdr == NULL)
-                //     printk(">>> qPNode->pdr == NULL");
-                printk(">>> bb 1 ==++-- 3");
-                if (pdr == NULL)
-                    printk(">>> pdr == NULL");
-                printk(">>> bb 1 ==++ 4");
-                printk("++-- seid:%llu, pdr_id:%u", qPNode->pdr->seid, qPNode->pdr->id);
-                if (qPNode && qPNode->pdr && qPNode->pdr->seid == pdr->seid && qPNode->pdr->id == pdr->id ){
-                //         printk(">>>delddd");
-                //         if (&qPNode->hlist_related_qer == NULL)
-                //             printk("&qPNode->hlist_related_qer == null");
-                //         hlist_del(&qPNode->hlist_related_qer);
-                        to_be_del = qPNode;
-                        printk(">>>= del qer_id:%u, qPNode->pdr->id:%u", pdr->qer_ids[j], qPNode->pdr->id);
-                //         kfree(qPNode);
-                }
-                printk(">>> bb");
-            // }
+            if (qPNode->pdr != NULL &&  qPNode->pdr->seid == pdr->seid && qPNode->pdr->id == pdr->id) {
+                to_be_del = qPNode;    
+            }      
         }
-        hlist_del(&to_be_del->hlist_related_qer);
-        kfree(to_be_del);
-        printk(">>> cc");
+        if (to_be_del){
+            hlist_del(&to_be_del->hlist_related_qer);
+            kfree(to_be_del);
+        }
     }
-    printk(">>> dd");
 }
 
 int gtp5g_genl_del_pdr(struct sk_buff *skb, struct genl_info *info)
@@ -282,7 +241,7 @@ int gtp5g_genl_del_pdr(struct sk_buff *skb, struct genl_info *info)
             printk("before >>>>>>1, 1 qer_update pdr_id: %u, qer_num: %u", qpNode->pdr->id, qpNode->pdr->qer_num);
     }
 
-    del_qerPdrNode_in_hashTable(gtp, pdr);
+    del_related_qer_hash(gtp, pdr);
     pdr_context_delete(pdr);
 
 
@@ -523,35 +482,18 @@ int qer_set_pdr(struct pdr *pdr, struct gtp5g_dev *gtp)
     char seid_qer_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
     u32 i, j;
     struct qPdrNode *qPNode = NULL;
-    struct qPdrNode *to_be_del = NULL;
 
     if (!pdr)
         return -1;
-    // if (!hlist_unhashed(node))
-    //     hlist_del_init_rcu(node);
 
+    // clean old qPNode
+    del_related_qer_hash(gtp, pdr);
+    
 
     for (j = 0; j < pdr->qer_num; j++) {
         seid_qer_id_to_hex_str(pdr->seid, pdr->qer_ids[j], seid_qer_id_hexstr);
         i = str_hashfn(seid_qer_id_hexstr) % gtp->hash_size;
         printk(">>> set  === head addr: %p", &gtp->related_qer_hash[i]);
-
-        // clean old qPNode
-        hlist_for_each_entry_rcu(qPNode, &gtp->related_qer_hash[i], hlist_related_qer) {
-            // printk(">>>>>> @@qer_id: %u, pdr_id: %u, qer_num: %u", qPNode->pdr->qer_ids[j], qPNode->pdr->id, qPNode->pdr->qer_num);
-            // printk("qPNode >>> 11");
-            // if (qPNode == NULL) {
-            //     printk("qPNode == NULL");
-            // }
-
-            // printk("qPNode >>> 22");
-            if (qPNode->pdr != NULL &&  qPNode->pdr->seid == pdr->seid && qPNode->pdr->id == pdr->id) {
-                to_be_del = qPNode;
-                
-            }      
-        }
-        if (to_be_del)
-            kfree(to_be_del);
 
         qPNode = kzalloc(sizeof(*qPNode), GFP_ATOMIC);
         if (!qPNode) {
