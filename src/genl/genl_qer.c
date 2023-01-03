@@ -57,6 +57,8 @@ int gtp5g_genl_add_qer(struct sk_buff *skb, struct genl_info *info)
         return -ENODEV;
     }
 
+    printk(">>> add qer [seid: %llu][qer: %u]", seid, qer_id);
+    
     qer = find_qer_by_id(gtp, seid, qer_id);
     if (qer) {
         if (info->nlhdr->nlmsg_flags & NLM_F_EXCL) {
@@ -151,6 +153,8 @@ int gtp5g_genl_del_qer(struct sk_buff *skb, struct genl_info *info)
         rcu_read_unlock();
         return -ENODEV;
     }
+
+    printk(">>> del qer [seid: %llu][qer: %u]", seid, qer_id);
 
     qer = find_qer_by_id(gtp, seid, qer_id);
     if (!qer) {
