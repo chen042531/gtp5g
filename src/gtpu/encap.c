@@ -611,11 +611,18 @@ int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink){
             urr->start_time = ktime_get_real();
         }
 
-        if (unix_sock_send(pdr, report, len, report_num) < 0) {
-            GTP5G_ERR(pdr->dev, "Failed to send report to unix domain socket PDR(%u)", pdr->id);
-            ret = -1;
-            kfree(report);
-            goto err1;
+        if (pdr_addr_is_netlink(pdr)) {
+            if (netlink_send(pdr, skb, dev_net(dev)) < 0) {
+                GTP5G_ERR(dev, "Failed to send skb to netlink socket PDR(%u)", pdr->id);
+                ++pdr->dl_drop_cnt;
+            }
+        } else {
+            if (unix_sock_send(pdr, report, len, report_num) < 0) {
+                GTP5G_ERR(pdr->dev, "Failed to send report to unix domain socket PDR(%u)", pdr->id);
+                ret = -1;
+                kfree(report);
+                goto err1;
+            }
         }
     }
 
