@@ -27,7 +27,7 @@ int gtp5g_genl_add_urr(struct sk_buff *skb, struct genl_info *info)
     u64 seid;
     u32 urr_id;
     int err;
-
+    printk(">>>> add_urr");
     if (!info->attrs[GTP5G_LINK])
         return -EINVAL;
     ifindex = nla_get_u32(info->attrs[GTP5G_LINK]);
@@ -80,6 +80,8 @@ int gtp5g_genl_add_urr(struct sk_buff *skb, struct genl_info *info)
         }
         rcu_read_unlock();
         rtnl_unlock();
+
+        printk(">>>> enda_urr");
         return 0;
     }
 
@@ -117,6 +119,7 @@ int gtp5g_genl_add_urr(struct sk_buff *skb, struct genl_info *info)
 
     rcu_read_unlock();
     rtnl_unlock();
+    printk(">>>> enda_urr");
     return 0;
 }
 
@@ -131,6 +134,7 @@ int gtp5g_genl_del_urr(struct sk_buff *skb, struct genl_info *info)
     struct sk_buff *skb_ack;
     int err;
 
+    printk(">>>> del_urr");
     if (!info->attrs[GTP5G_LINK])
         return -EINVAL;
     ifindex = nla_get_u32(info->attrs[GTP5G_LINK]);
@@ -189,6 +193,7 @@ int gtp5g_genl_del_urr(struct sk_buff *skb, struct genl_info *info)
     urr_context_delete(urr);
     rcu_read_unlock();
 
+    printk(">>>> endd_urr");
     return genlmsg_unicast(genl_info_net(info), skb_ack, info->snd_portid); 
 }
 
@@ -203,6 +208,7 @@ int gtp5g_genl_get_urr(struct sk_buff *skb, struct genl_info *info)
     struct sk_buff *skb_ack;
     int err;
 
+    printk(">>>> get_urr");
     if (!info->attrs[GTP5G_LINK])
         return -EINVAL;
     ifindex = nla_get_u32(info->attrs[GTP5G_LINK]);
@@ -257,6 +263,7 @@ int gtp5g_genl_get_urr(struct sk_buff *skb, struct genl_info *info)
     }
     rcu_read_unlock();
 
+    printk(">>>> endg_urr");
     return genlmsg_unicast(genl_info_net(info), skb_ack, info->snd_portid); 
 }
 
@@ -306,7 +313,6 @@ int gtp5g_genl_dump_urr(struct sk_buff *skb, struct netlink_callback *cb)
             }
         }
     }
-
     cb->args[5] = 1;
 out:
     return skb->len;

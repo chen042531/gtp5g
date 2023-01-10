@@ -38,6 +38,7 @@ int gtp5g_genl_add_far(struct sk_buff *skb, struct genl_info *info)
     u8 flag;
     struct gtp5g_emark_pktinfo epkt_info;
 
+    printk(">>>> add_far");
     if (!info->attrs[GTP5G_LINK])
         return -EINVAL;
     ifindex = nla_get_u32(info->attrs[GTP5G_LINK]);
@@ -110,6 +111,8 @@ int gtp5g_genl_add_far(struct sk_buff *skb, struct genl_info *info)
         }
         rcu_read_unlock();
         rtnl_unlock();
+
+        printk(">>>> enda_far");
         return 0;
     }
 
@@ -152,6 +155,7 @@ int gtp5g_genl_add_far(struct sk_buff *skb, struct genl_info *info)
  
     rcu_read_unlock();
     rtnl_unlock();
+    printk(">>>> enda_far");
     return 0;
 }  
 
@@ -164,7 +168,7 @@ int gtp5g_genl_del_far(struct sk_buff *skb, struct genl_info *info)
     u64 seid;
     u32 far_id;
 
-
+    printk(">>>> del_far");
     if (!info->attrs[GTP5G_LINK])
         return -EINVAL;
     ifindex = nla_get_u32(info->attrs[GTP5G_LINK]);
@@ -203,7 +207,7 @@ int gtp5g_genl_del_far(struct sk_buff *skb, struct genl_info *info)
 
     far_context_delete(far);
     rcu_read_unlock();
-
+    printk(">>>> endd_far");
     return 0;
 }   
 
@@ -218,6 +222,7 @@ int gtp5g_genl_get_far(struct sk_buff *skb, struct genl_info *info)
     struct sk_buff *skb_ack;
     int err;
 
+    printk(">>>> get_far");
     if (!info->attrs[GTP5G_LINK])
         return -EINVAL;
     ifindex = nla_get_u32(info->attrs[GTP5G_LINK]);
@@ -272,7 +277,7 @@ int gtp5g_genl_get_far(struct sk_buff *skb, struct genl_info *info)
     }
 
     rcu_read_unlock();
-
+    printk(">>>> endg_far");
     return genlmsg_unicast(genl_info_net(info), skb_ack, info->snd_portid);
 }
 

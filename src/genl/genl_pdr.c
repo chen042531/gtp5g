@@ -40,6 +40,7 @@ int gtp5g_genl_add_pdr(struct sk_buff *skb, struct genl_info *info)
     u16 pdr_id;
     int err;
 
+    printk(">>>> add_pdr");
     if (info->attrs[GTP5G_LINK]) {
         ifindex = nla_get_u32(info->attrs[GTP5G_LINK]);
     } else {
@@ -95,6 +96,8 @@ int gtp5g_genl_add_pdr(struct sk_buff *skb, struct genl_info *info)
 
         rcu_read_unlock();
         rtnl_unlock();
+
+        printk(">>>> enda_pdr");
         return 0;
     }
 
@@ -140,7 +143,7 @@ int gtp5g_genl_add_pdr(struct sk_buff *skb, struct genl_info *info)
 
     rcu_read_unlock();
     rtnl_unlock();
-
+    printk(">>>> enda_pdr");
     return 0;
 }
 
@@ -152,6 +155,8 @@ int gtp5g_genl_del_pdr(struct sk_buff *skb, struct genl_info *info)
     int netnsfd;
     u64 seid = 0;
     u16 pdr_id;
+
+    printk(">>>> del_pdr");
 
     if (!info->attrs[GTP5G_LINK])
         return -EINVAL;
@@ -193,6 +198,7 @@ int gtp5g_genl_del_pdr(struct sk_buff *skb, struct genl_info *info)
     pdr_context_delete(pdr);
     rcu_read_unlock();
 
+    printk(">>>> endd_pdr");
     return 0;
 }  
 
@@ -207,6 +213,7 @@ int gtp5g_genl_get_pdr(struct sk_buff *skb, struct genl_info *info)
     struct sk_buff *skb_ack;
     int err;
 
+    printk(">>>> get_pdr");
     if (!info->attrs[GTP5G_LINK])
         return -EINVAL;
     ifindex = nla_get_u32(info->attrs[GTP5G_LINK]);
@@ -260,6 +267,7 @@ int gtp5g_genl_get_pdr(struct sk_buff *skb, struct genl_info *info)
 
     rcu_read_unlock();
 
+    printk(">>>> endg_pdr");
     return genlmsg_unicast(genl_info_net(info), skb_ack, info->snd_portid);
 }  
 

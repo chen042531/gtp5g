@@ -29,6 +29,8 @@ int gtp5g_genl_get_usage_report(struct sk_buff *skb, struct genl_info *info)
     struct sk_buff *skb_ack;
     int err;
 
+    printk(">>>>> get_usage_report");
+
     if (!info->attrs[GTP5G_LINK])
         return -EINVAL;
     ifindex = nla_get_u32(info->attrs[GTP5G_LINK]);
@@ -85,7 +87,7 @@ int gtp5g_genl_get_usage_report(struct sk_buff *skb, struct genl_info *info)
         return err;
     }
     rcu_read_unlock();
-
+    printk(">>>>>endg_usage_report");
     return genlmsg_unicast(genl_info_net(info), skb_ack, info->snd_portid); 
 }
 

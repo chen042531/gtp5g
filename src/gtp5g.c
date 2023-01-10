@@ -56,6 +56,7 @@ error_out:
 
 static void __exit gtp5g_fini(void)
 {
+    printk("++++++");
     genl_unregister_family(&gtp5g_genl_family);
     rtnl_link_unregister(&gtp5g_link_ops);
     unregister_pernet_subsys(&gtp5g_net_ops);
