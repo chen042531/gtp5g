@@ -12,14 +12,21 @@ ifeq ($(KVER),)
 	KVER := $(shell uname -r)
 endif
 
-KER := $(shell echo $(KVER) | cut -d. -f1)
-MAJ := $(shell echo $(KVER) | cut -d. -f2)
-MIN := $(shell echo $(shell echo $(shell echo $(KVER) | cut -d. -f3) | cut -d- -f1))
-NUM := $(shell echo $(KVER) | cut -d- -f2)
-ifeq ($(shell expr "$(KER)" \>= "5")_$(shell expr "$(MAJ)" \>= "4")_$(shell expr "$(MIN)" \>= "1"), 1_1_1)
-	UBUNTUFLAG := -DUBUNTU
-else ifeq ($(findstring 5.4.0, $(KVER))_$(shell expr "$(NUM)" \>= "42"),5.4.0_1)
-	UBUNTUFLAG := -DUBUNTU
+UFLAG := $(shell cat /etc/lsb-release 2>/dev/null | grep -c "Ubuntu")
+ifneq (UFLAG, 0)
+	KER := $(shell echo $(KVER) | cut -d. -f1)
+	MAJ := $(shell echo $(KVER) | cut -d. -f2)
+	MIN := $(shell echo $(shell echo $(shell echo $(KVER) | cut -d. -f3) | cut -d- -f1))
+	NUM := $(shell echo $(KVER) | cut -d- -f2)
+	ifeq ($(shell expr "$(KER)" \> "5"), 1)
+		UBUNTUFLAG := -DUBUNTU
+	else ifeq ($(shell expr "$(KER)" \>= "5")_$(shell expr "$(MAJ)" \> "4"), 1_1)
+		UBUNTUFLAG := -DUBUNTU
+	else ifeq ($(shell expr "$(KER)" \>= "5")_$(shell expr "$(MAJ)" \>= "4")_$(shell expr "$(MIN)" \> "1"), 1_1_1)
+		UBUNTUFLAG := -DUBUNTU
+	else ifeq ($(shell expr "$(KER)" \>= "5")_$(shell expr "$(MAJ)" \>= "4")_$(shell expr "$(MIN)" \>= "1")_$(shell expr "$(NUM)" \> "42"), 1_1_1_1)
+		UBUNTUFLAG := -DUBUNTU
+	endif
 endif
 
 ifeq ($(KDIR),)
