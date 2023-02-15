@@ -12,6 +12,16 @@ ifeq ($(KVER),)
 	KVER := $(shell uname -r)
 endif
 
+KER := $(shell echo $(KVER) | cut -d. -f1)
+MAJ := $(shell echo $(KVER) | cut -d. -f2)
+MIN := $(shell echo $(shell echo $(shell echo $(KVER) | cut -d. -f3) | cut -d- -f1))
+NUM := $(shell echo $(KVER) | cut -d- -f2)
+ifeq ($(shell expr "$(KER)" \>= "5")_$(shell expr "$(MAJ)" \>= "4")_$(shell expr "$(MIN)" \>= "1"), 1_1_1)
+	UBUNTUFLAG := -DUBUNTU
+else ifeq ($(findstring 5.4.0, $(KVER))_$(shell expr "$(NUM)" \>= "42"),5.4.0_1)
+	UBUNTUFLAG := -DUBUNTU
+endif
+
 ifeq ($(KDIR),)
 	KDIR := /lib/modules/$(KVER)/build
 endif
@@ -29,7 +39,7 @@ else
 	DEPMOD := true
 endif
 
-MY_CFLAGS += -g -DDEBUG $(RHEL8FLAG)
+MY_CFLAGS += -g -DDEBUG $(RHEL8FLAG) $(UBUNTUFLAG)
 # MY_CFLAGS += -DMATCH_IP # match IP address(in F-TEID) or not
 EXTRA_CFLAGS += -Wno-misleading-indentation -Wuninitialized
 CC += ${MY_CFLAGS}
