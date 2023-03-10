@@ -21,14 +21,14 @@ static int parse_seid_urr(struct seid_urr *, struct nlattr *);
 int gtp5g_genl_get_usage_report(struct sk_buff *skb, struct genl_info *info)
 {
     struct gtp5g_dev *gtp;
-    struct urr *urr;
+    struct urr *urr = NULL;
     int ifindex;
     int netnsfd;
     u64 seid;
     u32 urr_id;
-    struct sk_buff *skb_ack;
+    struct sk_buff *skb_ack = NULL;
     int err = 0;
-    struct usage_report *report;
+    struct usage_report *report = NULL;
 
     if (!info->attrs[GTP5G_LINK])
         return -EINVAL;

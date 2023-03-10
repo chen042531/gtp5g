@@ -112,7 +112,7 @@ static int gtp5g_newlink(struct net *src_net, struct net_device *dev,
     list_add_rcu(&gtp->list, &gn->gtp5g_dev_list);
     list_add_rcu(&gtp->proc_list, get_proc_gtp5g_dev_list_head());
 
-    GTP5G_LOG(dev, "Registered a new 5G GTP interface\n");
+    GTP5G_LOG(dev, "888 Registered a new 5G GTP interface\n");
     return 0;
 out_hashtable:
     gtp5g_hashtable_free(gtp);
