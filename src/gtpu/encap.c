@@ -566,7 +566,7 @@ int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink) {
     struct urr *urr, **urrs = NULL;
     struct usage_report *report = NULL;
     bool mnop;
-    struct sk_buff *skb;
+    struct sk_buff *skb = NULL;
     
     urrs = kzalloc(sizeof(struct urr *) * pdr->urr_num , GFP_ATOMIC);
     triggers = kzalloc(sizeof(u32) * pdr->urr_num , GFP_ATOMIC);

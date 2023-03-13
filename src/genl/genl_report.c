@@ -20,14 +20,14 @@ static int parse_seid_urr(struct seid_urr *, struct nlattr *);
 
 int gtp5g_genl_get_usage_report(struct sk_buff *skb, struct genl_info *info)
 {
-    struct gtp5g_dev *gtp;
-    struct urr *urr = NULL;
     int ifindex;
     int netnsfd;
     u64 seid;
     u32 urr_id;
-    struct sk_buff *skb_ack = NULL;
     int err = 0;
+    struct gtp5g_dev *gtp = NULL;
+    struct urr *urr = NULL;
+    struct sk_buff *skb_ack = NULL;
     struct usage_report *report = NULL;
 
     if (!info->attrs[GTP5G_LINK])
@@ -102,8 +102,8 @@ fail:
 
 int gtp5g_genl_get_multi_usage_reports(struct sk_buff *skb, struct genl_info *info)
 {
-    struct gtp5g_dev *gtp;
-    struct urr *urr;
+    struct gtp5g_dev *gtp = NULL;
+    struct urr *urr = NULL;
     int ifindex;
     int netnsfd;
     u32 urr_num, report_num = 0, i = 0;
@@ -111,8 +111,8 @@ int gtp5g_genl_get_multi_usage_reports(struct sk_buff *skb, struct genl_info *in
     int err = 0;
     struct nlattr *hdr = nlmsg_attrdata(info->nlhdr, 0);
     int remaining = nlmsg_attrlen(info->nlhdr, 0);
-    struct seid_urr **seid_urrs;
-    struct usage_report **reports;
+    struct seid_urr **seid_urrs = NULL;
+    struct usage_report **reports = NULL;
 
     if (!info->attrs[GTP5G_LINK])
         return -EINVAL;
