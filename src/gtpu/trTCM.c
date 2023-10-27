@@ -24,12 +24,12 @@ TrafficPolicer* newTrafficPolicer(int cir, int pir, int cirBurst, int pirBurst, 
 
 void refillTokens(TrafficPolicer* p) {
     time_t now =  ktime_get_ns();
-    int elapsed = ktime_sub(now, p->lastUpdate);
+    int elapsed = ktime_sub(now, p->lastUpdate)/100000;
     int tokensToAdd = elapsed * p->tokenRate;
     p->tokenCIR = (p->tokenCIR + tokensToAdd) < p->cirBurst ? (p->tokenCIR + tokensToAdd) : p->cirBurst;
     p->tokenPIR = (p->tokenPIR + tokensToAdd) < p->pirBurst ? (p->tokenPIR + tokensToAdd) : p->pirBurst;
     p->lastUpdate = now;
-    printk("now: %ld", now);
+    printk("now: %ld, elapsed: %d, tokensToAdd: %d", now, elapsed, tokensToAdd);
 }
 
 Color policePacket(TrafficPolicer* p, int rate, int burst) {
