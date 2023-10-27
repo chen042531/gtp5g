@@ -4,6 +4,7 @@
 #include <linux/udp.h>
 #include <linux/gtp.h>
 
+
 #include <net/ip.h>
 #include <net/udp.h>
 #include <net/udp_tunnel.h>
@@ -690,6 +691,7 @@ static int gtp5g_rx(struct pdr *pdr, struct sk_buff *skb,
     u64 volume_mbqe = 0;
     struct far *far = rcu_dereference(pdr->far);
     // struct qer *qer = rcu_dereference(pdr->qer);
+     
 
     if (!far) {
         GTP5G_ERR(pdr->dev, "FAR not exists for PDR(%u)\n", pdr->id);
@@ -708,11 +710,13 @@ static int gtp5g_rx(struct pdr *pdr, struct sk_buff *skb,
         // One and only one of the DROP, FORW and BUFF flags shall be set to 1.
         // The NOCP flag may only be set if the BUFF flag is set.
         // The DUPL flag may be set with any of the DROP, FORW, BUFF and NOCP flags.
+        
         switch(far->action & FAR_ACTION_MASK) {
         case FAR_ACTION_DROP:
             rt = gtp5g_drop_skb_encap(skb, pdr->dev, pdr);
             break;
         case FAR_ACTION_FORW:
+            
             rt = gtp5g_fwd_skb_encap(skb, pdr->dev, hdrlen, pdr, far, volume_mbqe);
             break;
         case FAR_ACTION_BUFF:
@@ -745,6 +749,16 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     struct pcpu_sw_netstats *stats;
     int ret;
     u64 volume = 0;
+
+    int rate, burst;
+    Color color;
+    rate = (skb->len * 8) / 1000000;  // Mbps
+    burst = skb->len / 1000;          // KB
+    color = policePacket(pdr->policer, rate, burst);
+    printk("color: %d, rate: %d, burst: %d", color, rate, burst);
+    if (color != Green){
+        return 0;
+    }
 
     if (gtp1->type == GTPV1_MSG_TYPE_TPDU)
         volume = ip4_rm_header(skb, hdrlen);
@@ -987,3 +1001,4 @@ int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
 
     return -ENOENT;
 }
+

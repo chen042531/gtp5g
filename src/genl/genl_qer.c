@@ -309,6 +309,14 @@ static int qer_fill(struct qer *qer, struct gtp5g_dev *gtp, struct genl_info *in
         qer->mbr.dl_low  = nla_get_u8(mbr_param_attrs[GTP5G_QER_MBR_DL_LOW8]);
     }
 
+    if (qer != NULL){
+        printk("ul_high: %x", qer->mbr.ul_high);
+        printk("ul_low: %x", qer->mbr.ul_low);
+
+        printk("dl_high: %x", qer->mbr.dl_high);
+        printk("dl_low: %x", qer->mbr.dl_low);
+    }
+    
     /* GBR */
     if (info->attrs[GTP5G_QER_GBR] &&
         !nla_parse_nested(gbr_param_attrs, GTP5G_QER_GBR_ATTR_MAX, info->attrs[GTP5G_QER_GBR], NULL, NULL)) {
