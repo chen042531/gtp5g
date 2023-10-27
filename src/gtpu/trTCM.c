@@ -24,7 +24,7 @@ TrafficPolicer* newTrafficPolicer(int cir, int pir, int cirBurst, int pirBurst, 
 
 void refillTokens(TrafficPolicer* p) {
     time_t now =  ktime_get_ns();
-    int elapsed = ktime_sub(now, p->lastUpdate)/100000;
+    int elapsed = ktime_sub(now, p->lastUpdate)/10000;
     int tokensToAdd = elapsed * p->tokenRate;
     p->tokenCIR = (p->tokenCIR + tokensToAdd) < p->cirBurst ? (p->tokenCIR + tokensToAdd) : p->cirBurst;
     p->tokenPIR = (p->tokenPIR + tokensToAdd) < p->pirBurst ? (p->tokenPIR + tokensToAdd) : p->pirBurst;

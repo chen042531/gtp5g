@@ -12,7 +12,7 @@ typedef struct {
     int tokenCIR;   // Tokens available for CIR
     int tokenPIR;   // Tokens available for PIR
     int tokenRate;  // Token refill rate in Mbps
-    time_t lastUpdate;
+    int lastUpdate;
 } TrafficPolicer;
 
 extern TrafficPolicer* newTrafficPolicer(int, int, int, int, int);
