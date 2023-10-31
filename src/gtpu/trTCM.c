@@ -14,32 +14,39 @@ TrafficPolicer* newTrafficPolicer(int cir, int pir, int cirBurst, int pirBurst, 
     p->cirBurst = cirBurst;
     p->pirBurst = pirBurst;
     p->tokenRate = tokenRate;
-    p->tokenCIR = 0;
-    p->tokenPIR = 0;
+    p->tokenCIR = cir;
+    p->tokenPIR = pir;
     // p->lastUpdate = current_kernel_time().tv_nsec;
     p->lastUpdate = ktime_get_ns();
+    // p->lastUpdate = ktime_get_seconds();
+    // p->lastUpdate = ktime_get();
 
     return p;
-}
+} 
 
 void refillTokens(TrafficPolicer* p) {
-    time_t now =  ktime_get_ns();
-    int elapsed = ktime_sub(now, p->lastUpdate)/10000;
-    int tokensToAdd = elapsed * p->tokenRate;
-    p->tokenCIR = (p->tokenCIR + tokensToAdd) < p->cirBurst ? (p->tokenCIR + tokensToAdd) : p->cirBurst;
-    p->tokenPIR = (p->tokenPIR + tokensToAdd) < p->pirBurst ? (p->tokenPIR + tokensToAdd) : p->pirBurst;
+    // ktime_t now =  ktime_get();
+    u64 now = ktime_get_ns();
+    // int now =  ktime_get_seconds();
+    u64 elapsed = now - p->lastUpdate;
+    int tokensToAdd = elapsed * p->tokenRate / 1000000000;
+    p->tokenCIR = (p->tokenCIR + tokensToAdd) < p->cir ? (p->tokenCIR + tokensToAdd) : p->cir;
+    p->tokenPIR = (p->tokenPIR + tokensToAdd) < p->pir ? (p->tokenPIR + tokensToAdd) : p->pir;
     p->lastUpdate = now;
-    printk("now: %ld, elapsed: %d, tokensToAdd: %d", now, elapsed, tokensToAdd);
+    printk("@now: %lld, elapsed: %lld, tokensToAdd: %d", now, elapsed, tokensToAdd);
 }
 
 Color policePacket(TrafficPolicer* p, int rate, int burst) {
     refillTokens(p);
-    
-    if (rate <= p->cir && burst <= p->tokenCIR) {
-        p->tokenCIR -= burst;
+    printk("burst: %d", burst);
+
+    if (rate <= p->cir && rate <= p->tokenCIR) {
+        p->tokenCIR -= rate;
+        printk("tokenCIR: %d, rate: %d", p->tokenCIR, rate);
         return Green;
-    } else if (rate <= p->pir && burst <= p->tokenPIR) {
-        p->tokenPIR -= burst;
+    } else if (rate <= p->pir && rate <= p->tokenPIR) {
+        printk("tokenPIR: %d, rate: %d", p->tokenPIR, rate);
+        p->tokenPIR -= rate;
         return Yellow;
     } else {
         return Red;

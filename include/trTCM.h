@@ -1,3 +1,4 @@
+#include <linux/ktime.h>
 typedef enum {
     Green,
     Yellow,
@@ -12,7 +13,8 @@ typedef struct {
     int tokenCIR;   // Tokens available for CIR
     int tokenPIR;   // Tokens available for PIR
     int tokenRate;  // Token refill rate in Mbps
-    int lastUpdate;
+    // int lastUpdate;
+    u64 lastUpdate;
 } TrafficPolicer;
 
 extern TrafficPolicer* newTrafficPolicer(int, int, int, int, int);

@@ -752,8 +752,11 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
 
     int rate, burst;
     Color color;
-    rate = (skb->len * 8) / 1000000;  // Mbps
-    burst = skb->len / 1000;          // KB
+    // rate = (skb->len * 8) / 1000000;  // Mbps
+    rate = skb->len * 8; // bps
+    printk("rate: %d", skb->len);
+    // burst = skb->len / 1000;          // KB
+    burst = rate;          // Mbps
     color = policePacket(pdr->policer, rate, burst);
     printk("color: %d, rate: %d, burst: %d", color, rate, burst);
     if (color != Green){
