@@ -12,7 +12,9 @@ typedef struct {
     int pirBurst;   // Burst size for PIR in KB
     int tokenCIR;   // Tokens available for CIR
     int tokenPIR;   // Tokens available for PIR
-    int tokenRate;  // Token refill rate in Mbps
+    int tokenRate; 
+    int tokenCRate;  // Token refill rate in Mbps
+    int tokenPRate;  // Token refill rate in Mbps
     // int lastUpdate;
     u64 lastUpdate;
 } TrafficPolicer;
