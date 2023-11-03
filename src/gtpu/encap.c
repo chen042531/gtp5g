@@ -40,7 +40,7 @@ static int gtp5g_encap_recv(struct sock *, struct sk_buff *);
 static int gtp1u_udp_encap_recv(struct gtp5g_dev *, struct sk_buff *);
 static int gtp5g_rx(struct pdr *, struct sk_buff *, unsigned int, struct gtp5g_dev *);
 static int gtp5g_fwd_skb_encap(struct sk_buff *, struct net_device *,
-        unsigned int, struct pdr *, struct far *, uint64_t, struct gtp5g_dev *);
+        unsigned int, struct pdr *, struct far *, uint64_t);
 static int netlink_send(struct pdr *, struct far *, struct sk_buff *, struct net *, struct usage_report *, u32);
 static int unix_sock_send(struct pdr *, struct far *, void *, u32, u32);
 static int gtp5g_fwd_skb_ipv4(struct sk_buff *, 
@@ -716,7 +716,7 @@ static int gtp5g_rx(struct pdr *pdr, struct sk_buff *skb,
             rt = gtp5g_drop_skb_encap(skb, pdr->dev, pdr);
             break;
         case FAR_ACTION_FORW:   
-            rt = gtp5g_fwd_skb_encap(skb, pdr->dev, hdrlen, pdr, far, volume_mbqe, gtp);
+            rt = gtp5g_fwd_skb_encap(skb, pdr->dev, hdrlen, pdr, far, volume_mbqe);
             break;
         case FAR_ACTION_BUFF:
             rt = gtp5g_buf_skb_encap(skb, pdr->dev, hdrlen, pdr, far);
@@ -737,9 +737,9 @@ out:
 }
 
 static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
-    unsigned int hdrlen, struct pdr *pdr, struct far *far, uint64_t volume_mbqe, 
-    struct gtp5g_dev *gtp)
+    unsigned int hdrlen, struct pdr *pdr, struct far *far, uint64_t volume_mbqe)
 {
+    struct gtp5g_dev *gtp = netdev_priv(dev);
     struct forwarding_parameter *fwd_param = rcu_dereference(far->fwd_param);
     struct outer_header_creation *hdr_creation;
     struct forwarding_policy *fwd_policy;
@@ -890,12 +890,39 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     struct net_device *dev, struct gtp5g_pktinfo *pktinfo, 
     struct pdr *pdr, struct far *far, uint64_t volume_mbqe)
 {
+    struct gtp5g_dev *gtp = netdev_priv(dev);
     struct rtable *rt;
     struct flowi4 fl4;
     struct iphdr *iph = ip_hdr(skb);
     struct outer_header_creation *hdr_creation;
     u64 volume;
     struct forwarding_parameter *fwd_param;
+
+    TrafficPolicer* tp;
+    int rate, burst;
+    int i;
+    struct qer * qer;
+    Color color;
+    // rate = (skb->len * 8) / 1000000;  // Mbps
+    rate = skb->len * 8; // bps
+    printk("rate: %d", skb->len);
+    // burst = skb->len / 1000;          // KB
+    burst = rate;          // Mbps
+    for (i = 0; i < pdr->qer_num; i++) {
+        qer = find_qer_by_id(gtp, pdr->seid, pdr->qer_ids[i]);
+        printk("qer_id:%d", qer->id);
+        if (qer->ul_policer!= NULL){
+            tp = qer->dl_policer;
+            break;
+        }  
+    }
+    if (tp != NULL){
+        color = policePacket(tp, rate, burst);
+        printk("color: %d, rate: %d, burst: %d", color, rate, burst);
+        if (color != Green){
+            return 0;
+        }
+    }
 
     if (!far) {
         GTP5G_ERR(dev, "Unknown RAN address\n");
