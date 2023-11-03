@@ -38,9 +38,9 @@ enum msg_type {
 static void gtp5g_encap_disable_locked(struct sock *);
 static int gtp5g_encap_recv(struct sock *, struct sk_buff *);
 static int gtp1u_udp_encap_recv(struct gtp5g_dev *, struct sk_buff *);
-static int gtp5g_rx(struct pdr *, struct sk_buff *, unsigned int, unsigned int);
+static int gtp5g_rx(struct pdr *, struct sk_buff *, unsigned int, struct gtp5g_dev *);
 static int gtp5g_fwd_skb_encap(struct sk_buff *, struct net_device *,
-        unsigned int, struct pdr *, struct far *, uint64_t);
+        unsigned int, struct pdr *, struct far *, uint64_t, struct gtp5g_dev *);
 static int netlink_send(struct pdr *, struct far *, struct sk_buff *, struct net *, struct usage_report *, u32);
 static int unix_sock_send(struct pdr *, struct far *, void *, u32, u32);
 static int gtp5g_fwd_skb_ipv4(struct sk_buff *, 
@@ -331,7 +331,7 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
         return -1;
     }
 
-    return gtp5g_rx(pdr, skb, hdrlen, gtp->role);
+    return gtp5g_rx(pdr, skb, hdrlen, gtp);
 }
 
 static int gtp5g_drop_skb_encap(struct sk_buff *skb, struct net_device *dev, 
@@ -685,7 +685,7 @@ err1:
 }
 
 static int gtp5g_rx(struct pdr *pdr, struct sk_buff *skb,
-    unsigned int hdrlen, unsigned int role)
+    unsigned int hdrlen, struct gtp5g_dev *gtp)
 {
     int rt = -1;
     u64 volume_mbqe = 0;
@@ -715,9 +715,8 @@ static int gtp5g_rx(struct pdr *pdr, struct sk_buff *skb,
         case FAR_ACTION_DROP:
             rt = gtp5g_drop_skb_encap(skb, pdr->dev, pdr);
             break;
-        case FAR_ACTION_FORW:
-            
-            rt = gtp5g_fwd_skb_encap(skb, pdr->dev, hdrlen, pdr, far, volume_mbqe);
+        case FAR_ACTION_FORW:   
+            rt = gtp5g_fwd_skb_encap(skb, pdr->dev, hdrlen, pdr, far, volume_mbqe, gtp);
             break;
         case FAR_ACTION_BUFF:
             rt = gtp5g_buf_skb_encap(skb, pdr->dev, hdrlen, pdr, far);
@@ -738,7 +737,8 @@ out:
 }
 
 static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
-    unsigned int hdrlen, struct pdr *pdr, struct far *far, uint64_t volume_mbqe)
+    unsigned int hdrlen, struct pdr *pdr, struct far *far, uint64_t volume_mbqe, 
+    struct gtp5g_dev *gtp)
 {
     struct forwarding_parameter *fwd_param = rcu_dereference(far->fwd_param);
     struct outer_header_creation *hdr_creation;
@@ -750,18 +750,33 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     int ret;
     u64 volume = 0;
 
+    TrafficPolicer* tp;
     int rate, burst;
+    int i;
+    struct qer * qer;
     Color color;
     // rate = (skb->len * 8) / 1000000;  // Mbps
     rate = skb->len * 8; // bps
     printk("rate: %d", skb->len);
     // burst = skb->len / 1000;          // KB
     burst = rate;          // Mbps
-    color = policePacket(pdr->policer, rate, burst);
-    printk("color: %d, rate: %d, burst: %d", color, rate, burst);
-    if (color != Green){
-        return 0;
+    
+    for (i = 0; i < pdr->qer_num; i++) {
+        qer = find_qer_by_id(gtp, pdr->seid, pdr->qer_ids[i]);
+        printk("qer_id:%d", qer->id);
+        if (qer->ul_policer!= NULL){
+            tp = qer->ul_policer;
+            break;
+        }  
     }
+    if (tp != NULL){
+        color = policePacket(tp, rate, burst);
+        printk("color: %d, rate: %d, burst: %d", color, rate, burst);
+        if (color != Green){
+            return 0;
+        }
+    }
+    
 
     if (gtp1->type == GTPV1_MSG_TYPE_TPDU)
         volume = ip4_rm_header(skb, hdrlen);

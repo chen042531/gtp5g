@@ -158,6 +158,12 @@ int gtp5g_genl_del_qer(struct sk_buff *skb, struct genl_info *info)
         return -ENOENT;
     }
 
+    if (qer->ul_policer != NULL){
+        kfree(qer->ul_policer);
+    }
+    if (qer->dl_policer != NULL){
+        kfree(qer->dl_policer);
+    }
     qer_context_delete(qer);
     rcu_read_unlock();
 
@@ -293,8 +299,6 @@ static int qer_fill(struct qer *qer, struct gtp5g_dev *gtp, struct genl_info *in
     struct nlattr *mbr_param_attrs[GTP5G_QER_MBR_ATTR_MAX + 1];
     struct nlattr *gbr_param_attrs[GTP5G_QER_GBR_ATTR_MAX + 1];
 
-    u64 ul_mbr, dl_mbr;
-
     qer->id = nla_get_u32(info->attrs[GTP5G_QER_ID]);
 
     if (info->attrs[GTP5G_QER_SEID])
@@ -312,15 +316,20 @@ static int qer_fill(struct qer *qer, struct gtp5g_dev *gtp, struct genl_info *in
         qer->mbr.ul_low  = nla_get_u8(mbr_param_attrs[GTP5G_QER_MBR_UL_LOW8]);
         qer->mbr.dl_high = nla_get_u32(mbr_param_attrs[GTP5G_QER_MBR_DL_HIGH32]);
         qer->mbr.dl_low  = nla_get_u8(mbr_param_attrs[GTP5G_QER_MBR_DL_LOW8]);
+
+        qer->ul_mbr = concat_bit_rate(qer->mbr.ul_high, qer->mbr.ul_low);
+        qer->dl_mbr = concat_bit_rate(qer->mbr.dl_high, qer->mbr.dl_low);
+
+        printk("#ul_mbr: %lld", qer->ul_mbr);
+        printk("#dl_mbr: %lld", qer->dl_mbr);
+        printk("test1");
+
+        qer->ul_policer = newTrafficPolicer((1500*8)*10, (1500*8)*10, 100, 200, qer->ul_mbr*1000);
+        qer->dl_policer = newTrafficPolicer((1500*8)*10, (1500*8)*10, 100, 200, qer->dl_mbr*1000);
     }
 
-    ul_mbr = concat_bit_rate(qer->mbr.ul_high, qer->mbr.ul_low);
-    dl_mbr = concat_bit_rate(qer->mbr.dl_high, qer->mbr.dl_low);
-    
-    printk("ul_mbr: %lld", ul_mbr);
-    printk("dl_mbr: %lld", dl_mbr);
-    printk("test1");
-    
+   
+
     /* GBR */
     if (info->attrs[GTP5G_QER_GBR] &&
         !nla_parse_nested(gbr_param_attrs, GTP5G_QER_GBR_ATTR_MAX, info->attrs[GTP5G_QER_GBR], NULL, NULL)) {

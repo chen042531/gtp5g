@@ -486,7 +486,7 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
 
     set_pdr_qfi(pdr, gtp);
 
-    pdr->policer = newTrafficPolicer((1500*8)*10, (1500*8)*10, 100, 200, 1000000*90);
+    // pdr->policer = newTrafficPolicer((1500*8)*10, (1500*8)*10, 100, 200, 1000000*90);
 
     if (unix_sock_client_update(pdr, far) < 0)
         return -EINVAL;
