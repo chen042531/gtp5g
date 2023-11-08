@@ -1,5 +1,6 @@
 #include <linux/time.h>
 #include <linux/slab.h>
+#include <linux/random.h>
 
 #include "trTCM.h"
 
@@ -37,8 +38,21 @@ void refillTokens(TrafficPolicer* p) {
 }
 
 Color policePacket(TrafficPolicer* p, int rate, int burst) {
+    int probability, random_number;
     refillTokens(p);
     printk("burst: %d", burst);
+
+    // probability = (p->cir - p->tokenCIR) / (p->cir - 10) * p->cir;
+    probability = (p->cir - p->tokenCIR)/1000;
+    printk("p->cir:%d, p->tokenCIR:%d", p->cir, p->tokenCIR);
+    random_number = prandom_u32() % p->cir;
+    printk("random_number:%d, probability:%d", random_number, probability);
+    if (random_number < probability) {
+        // Drop the packet
+        printk(">>>> ^^drop packet Red");
+        return Red;
+    }
+
 
     if (rate <= p->cir && rate <= p->tokenCIR) {
         p->tokenCIR -= rate;

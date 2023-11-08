@@ -29,6 +29,11 @@
 /* used to compatible with api with/without seid */
 #define MSG_KOV_LEN 4
 
+#define MAX_THRESHOLD 100
+#define MIN_THRESHOLD 10
+#define MAX_PROBABILITY 100
+
+
 enum msg_type {
     TYPE_BUFFER = 1,
     TYPE_URR_REPORT,
@@ -886,6 +891,45 @@ static int gtp5g_drop_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     return FAR_ACTION_DROP;
 }
 
+
+
+// int red_packet_drop(uint32_t queue_length) {
+//     // Calculate the average queue length over time
+//     // You need to maintain a moving average of the queue length over time
+
+//     // Calculate the drop probability
+//     int probability = (MAX_THRESHOLD - queue_length) / (MAX_THRESHOLD - MIN_THRESHOLD) * MAX_PROBABILITY;
+
+//     // Generate a random number between 0 and 99
+//     int random_number = prandom_u32() % 100;
+//     printk("random_number:%d, probability:%d", random_number, probability);
+//     if (random_number > probability) {
+//         // Drop the packet
+//         printk(">>>> drop packet");
+//         return 1;
+//     }
+
+//     printk(">>>> don't drop packet");
+//     // Don't drop the packet
+//     return 0;
+// }
+
+// int red_packet_drop(uint32_t queue_length) {
+//     int random_number = prandom_u32() % 100;
+//     printk("r_drop:%d", queue_length);
+//     printk("random_number:%d", random_number);
+//     if (random_number > 98) {
+//         // Drop the packet
+//         printk(">>>> drop packet");
+//         return 1;
+//     }
+
+//     printk(">>>> don't drop packet");
+//     // Don't drop the packet
+//     return 0;
+// }
+
+
 static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb, 
     struct net_device *dev, struct gtp5g_pktinfo *pktinfo, 
     struct pdr *pdr, struct far *far, uint64_t volume_mbqe)
@@ -897,6 +941,9 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     struct outer_header_creation *hdr_creation;
     u64 volume;
     struct forwarding_parameter *fwd_param;
+
+    // random early drop
+    // int queue_length = 0;
 
     TrafficPolicer* tp;
     int rate, burst;
@@ -916,10 +963,21 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
             break;
         }  
     }
+
+    // queue_length += 1;
+    // if (red_packet_drop(queue_length)) {
+    //     queue_length -= 1;
+    //     printk(">>> red queue_len:%d", queue_length);
+    //     return 0;
+    // }   
+   
+    // printk(">>> queue_len:%d", queue_length);
     if (tp != NULL){
         color = policePacket(tp, rate, burst);
         printk("color: %d, rate: %d, burst: %d", color, rate, burst);
         if (color != Green){
+            // queue_length -= 1;
+            // printk(">>> policePacket queue_len:%d", queue_length);
             return 0;
         }
     }
@@ -969,6 +1027,8 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
             GTP5G_ERR(pdr->dev, "Fail to send Usage Report");
     }
 
+    printk(">>>>>");
+    // queue_length -= 1;  
     return FAR_ACTION_FORW;
 err:
     return -EBADMSG;
@@ -994,6 +1054,7 @@ static int gtp5g_buf_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     return FAR_ACTION_BUFF;
 }
 
+
 int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     struct gtp5g_pktinfo *pktinfo)
 {
@@ -1003,7 +1064,8 @@ int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     //struct gtp5g_qer *qer;
     struct iphdr *iph;
     u64 volume_mbqe = 0;
-
+    
+    
     /* Read the IP destination address and resolve the PDR.
      * Prepend PDR header with TEI/TID from PDR.
      */
