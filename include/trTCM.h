@@ -19,6 +19,6 @@ typedef struct {
     u64 lastUpdate;
 } TrafficPolicer;
 
-extern TrafficPolicer* newTrafficPolicer(int, int, int, int, int);
+extern TrafficPolicer* newTrafficPolicer(int, int, int, int);
 extern void refillTokens(TrafficPolicer*); 
 extern Color policePacket(TrafficPolicer*, int, int);
