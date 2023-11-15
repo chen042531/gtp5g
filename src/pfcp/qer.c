@@ -3,6 +3,7 @@
 #include "dev.h"
 #include "qer.h"
 #include "pdr.h"
+#include "far.h"
 #include "seid.h"
 #include "hash.h"
 
@@ -72,7 +73,7 @@ void qer_update(struct qer *qer, struct gtp5g_dev *gtp)
     head = &gtp->related_qer_hash[str_hashfn(seid_qer_id_hexstr) % gtp->hash_size];
     hlist_for_each_entry_rcu(pdr_node, head, hlist) {
         if (pdr_node->pdr != NULL && find_qer_id_in_pdr(pdr_node->pdr, qer->id)) {
-            unix_sock_client_update(pdr_node->pdr);
+            unix_sock_client_update(pdr_node->pdr, rcu_dereference(pdr_node->pdr->far));
         }
     }
 }
@@ -115,6 +116,7 @@ void del_related_qer_hash(struct gtp5g_dev *gtp, struct pdr *pdr)
     char seid_qer_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
 
     for (j = 0; j < pdr->qer_num; j++) {
+        to_be_del = NULL;
         seid_qer_id_to_hex_str(pdr->seid, pdr->qer_ids[j], seid_qer_id_hexstr);
         i = str_hashfn(seid_qer_id_hexstr) % gtp->hash_size;
         hlist_for_each_entry_rcu(pdr_node, &gtp->related_qer_hash[i], hlist) {

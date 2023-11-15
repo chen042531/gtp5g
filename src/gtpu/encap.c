@@ -39,13 +39,14 @@ static int gtp5g_encap_recv(struct sock *, struct sk_buff *);
 static int gtp1u_udp_encap_recv(struct gtp5g_dev *, struct sk_buff *);
 static int gtp5g_rx(struct pdr *, struct sk_buff *, unsigned int, unsigned int);
 static int gtp5g_fwd_skb_encap(struct sk_buff *, struct net_device *,
-        unsigned int, struct pdr *, uint64_t);
-static int netlink_send(struct pdr *, struct sk_buff *, struct net *, struct usage_report *, u32);
-static int unix_sock_send(struct pdr *, void *, u32, u32);
+        unsigned int, struct pdr *, struct far *, uint64_t);
+static int netlink_send(struct pdr *, struct far *, struct sk_buff *, struct net *, struct usage_report *, u32);
+static int unix_sock_send(struct pdr *, struct far *, void *, u32, u32);
 static int gtp5g_fwd_skb_ipv4(struct sk_buff *, 
     struct net_device *, struct gtp5g_pktinfo *, 
-    struct pdr *, uint64_t);
+    struct pdr *, struct far *, uint64_t);
 
+/* When gtp5g newlink, establish the udp tunnel used in N3 interface */
 struct sock *gtp5g_encap_enable(int fd, int type, struct gtp5g_dev *gtp){
     struct udp_tunnel_sock_cfg tuncfg = {NULL};
     struct socket *sock;
@@ -103,6 +104,7 @@ void gtp5g_encap_disable(struct sock *sk)
     if (gtp) {
         gtp->sk1u = NULL;
         udp_sk(sk)->encap_type = 0;
+        // sk_user_data was protected by RCU
         rcu_assign_sk_user_data(sk, NULL);
         sock_put(sk);
     }
@@ -116,6 +118,9 @@ static void gtp5g_encap_disable_locked(struct sock *sk)
     rtnl_unlock();
 }
 
+/**
+ * Entry function for Uplink packets
+ * */
 static int gtp5g_encap_recv(struct sock *sk, struct sk_buff *skb)
 {
     struct gtp5g_dev *gtp;
@@ -285,12 +290,18 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
          */
         while (*(ext_hdr = (u8 *)(skb->data + hdrlen - 1))) {
             u8 ext_hdr_type = *ext_hdr;
+            unsigned int extlen;
             pull_len = hdrlen + 1; // 1 byte for the length of extension hdr
             if (!pskb_may_pull(skb, pull_len)) {
                 GTP5G_ERR(gtp->dev, "Failed to pull skb length %#x\n", pull_len);
                 return -1;
             }
-            hdrlen += (*((u8 *)(skb->data + hdrlen))) * 4; // total length of extension hdr
+            extlen = (*((u8 *)(skb->data + hdrlen))) * 4; // total length of extension hdr
+            if (extlen == 0) {
+                GTP5G_ERR(gtp->dev, "Invalid extention header length\n");
+                return -1;
+            }
+            hdrlen += extlen;
             pull_len = hdrlen;
             if (!pskb_may_pull(skb, pull_len)) {
                 GTP5G_ERR(gtp->dev, "Failed to pull skb length %#x\n", pull_len);
@@ -335,7 +346,7 @@ static int gtp5g_drop_skb_encap(struct sk_buff *skb, struct net_device *dev,
 }
 
 static int gtp5g_buf_skb_encap(struct sk_buff *skb, struct net_device *dev, 
-    unsigned int hdrlen, struct pdr *pdr)
+    unsigned int hdrlen, struct pdr *pdr, struct far *far)
 {
     struct gtpv1_hdr *gtp1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
     if (gtp1->type == GTPV1_MSG_TYPE_TPDU) {
@@ -349,12 +360,12 @@ static int gtp5g_buf_skb_encap(struct sk_buff *skb, struct net_device *dev,
         }
 
         if (pdr_addr_is_netlink(pdr)) {
-            if (netlink_send(pdr, skb, dev_net(dev), NULL, 0) < 0) {
+            if (netlink_send(pdr, far, skb, dev_net(dev), NULL, 0) < 0) {
                 GTP5G_ERR(dev, "Failed to send skb to netlink socket PDR(%u)", pdr->id);
                 ++pdr->ul_drop_cnt;
             }
         } else {
-            if (unix_sock_send(pdr, skb->data, skb_headlen(skb), 0) < 0) {
+            if (unix_sock_send(pdr, far, skb->data, skb_headlen(skb), 0) < 0) {
                 GTP5G_ERR(dev, "Failed to send skb to unix domain socket PDR(%u)", pdr->id);
                 ++pdr->ul_drop_cnt;
             }
@@ -366,7 +377,7 @@ static int gtp5g_buf_skb_encap(struct sk_buff *skb, struct net_device *dev,
 
 /* Function netlink_{...} are used to handle buffering */
 // Send PDR ID, FAR action and buffered packet to user space
-static int netlink_send(struct pdr *pdr, struct sk_buff *skb_in, struct net *net, struct usage_report *reports, u32 report_num)
+static int netlink_send(struct pdr *pdr, struct far *far, struct sk_buff *skb_in, struct net *net, struct usage_report *reports, u32 report_num)
 {
     struct sk_buff *skb;
     static atomic_t seq_counter;
@@ -421,7 +432,7 @@ static int netlink_send(struct pdr *pdr, struct sk_buff *skb_in, struct net *net
             return err;
         }
 
-        err = nla_put_u16(skb, GTP5G_BUFFER_ACTION, pdr->far->action);
+        err = nla_put_u16(skb, GTP5G_BUFFER_ACTION, far->action);
         if (err != 0) {
             nlmsg_free(skb);
             return err;
@@ -444,7 +455,7 @@ static int netlink_send(struct pdr *pdr, struct sk_buff *skb_in, struct net *net
 
 /* Function unix_sock_{...} are used to handle buffering */
 // Send PDR ID, FAR action and buffered packet to user space
-static int unix_sock_send(struct pdr *pdr, void *buf, u32 len, u32 report_num)
+static int unix_sock_send(struct pdr *pdr, struct far *far, void *buf, u32 len, u32 report_num)
 {
     struct msghdr msg;
     struct kvec *kov;
@@ -454,7 +465,7 @@ static int unix_sock_send(struct pdr *pdr, void *buf, u32 len, u32 report_num)
     int i, rt;
     u8  type_hdr[1] = {TYPE_BUFFER};
     u64 self_seid_hdr[1] = {pdr->seid};
-    u16 self_hdr[2] = {pdr->id, pdr->far->action};
+    u16 self_hdr[2] = {pdr->id, far->action};
     u32 self_num_hdr[1] = {report_num};
 
     if (pdr_addr_is_netlink(pdr)) {
@@ -550,7 +561,7 @@ bool increment_and_check_counter(struct VolumeMeasurement *volmeasure, struct Vo
     return false;
 }
 
-int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink) {
+int check_urr(struct pdr *pdr, struct far *far, u64 vol, u64 vol_mbqe, bool uplink) {
     struct gtp5g_dev *gtp = netdev_priv(pdr->dev);
     int i;
     int ret = 1;
@@ -591,6 +602,7 @@ int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink) {
                     urrs[report_num++] = urr;
                     urr_quota_exhaust_action(urr, gtp);
                     GTP5G_TRC(NULL, "URR (%u) Start of Service Data Flow, stop measure until recieve quota", urr->id);
+                    continue;
                 }
 
                 if (urr->info & URR_INFO_MBQE) {
@@ -616,7 +628,7 @@ int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink) {
                         triggers[report_num] = USAR_TRIGGER_VOLQU;
                         urrs[report_num++] = urr;
                         urr_quota_exhaust_action(urr, gtp);
-                        GTP5G_LOG(NULL, "URR (%u) Quota Exhaust, stop measure", urr->id);
+                        GTP5G_INF(NULL, "URR (%u) Quota Exhaust, stop measure", urr->id);
                     }
                 }
             }
@@ -634,18 +646,23 @@ int check_urr(struct pdr *pdr, u64 vol, u64 vol_mbqe, bool uplink) {
         }
 
         for (i = 0; i < report_num; i++) {
+            // TODO: FAR ID for Quota Action IE for indicating the action while no quota is granted
+            if (triggers[i] == USAR_TRIGGER_START){
+                ret = DONT_SEND_UL_PACKET;
+            }                 
             convert_urr_to_report(urrs[i], &report[i]);
+
             report[i].trigger = triggers[i];
         }
 
         if (pdr_addr_is_netlink(pdr)) {
-            if (netlink_send(pdr, skb, dev_net(pdr->dev), report, report_num) < 0) {
+            if (netlink_send(pdr, far, skb, dev_net(pdr->dev), report, report_num) < 0) {
                 GTP5G_ERR(pdr->dev, "Failed to send report to netlink socket PDR(%u)", pdr->id);
                 ret = -1;
                 goto err1;
             }
         } else {
-            if (unix_sock_send(pdr, report, len, report_num) < 0) {
+            if (unix_sock_send(pdr, far, report, len, report_num) < 0) {
                 GTP5G_ERR(pdr->dev, "Failed to send report to unix domain socket PDR(%u)", pdr->id);
                 ret = -1;
                 goto err1;
@@ -671,8 +688,8 @@ static int gtp5g_rx(struct pdr *pdr, struct sk_buff *skb,
 {
     int rt = -1;
     u64 volume_mbqe = 0;
-    struct far *far = pdr->far;
-    // struct qer *qer = pdr->qer;
+    struct far *far = rcu_dereference(pdr->far);
+    // struct qer *qer = rcu_dereference(pdr->qer);
 
     if (!far) {
         GTP5G_ERR(pdr->dev, "FAR not exists for PDR(%u)\n", pdr->id);
@@ -696,10 +713,10 @@ static int gtp5g_rx(struct pdr *pdr, struct sk_buff *skb,
             rt = gtp5g_drop_skb_encap(skb, pdr->dev, pdr);
             break;
         case FAR_ACTION_FORW:
-            rt = gtp5g_fwd_skb_encap(skb, pdr->dev, hdrlen, pdr, volume_mbqe);
+            rt = gtp5g_fwd_skb_encap(skb, pdr->dev, hdrlen, pdr, far, volume_mbqe);
             break;
         case FAR_ACTION_BUFF:
-            rt = gtp5g_buf_skb_encap(skb, pdr->dev, hdrlen, pdr);
+            rt = gtp5g_buf_skb_encap(skb, pdr->dev, hdrlen, pdr, far);
             break;
         default:
             GTP5G_ERR(pdr->dev, "Unhandled apply action(%u) in FAR(%u) and related to PDR(%u)\n",
@@ -717,10 +734,9 @@ out:
 }
 
 static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
-    unsigned int hdrlen, struct pdr *pdr, uint64_t volume_mbqe)
+    unsigned int hdrlen, struct pdr *pdr, struct far *far, uint64_t volume_mbqe)
 {
-    struct far *far = pdr->far;
-    struct forwarding_parameter *fwd_param = far->fwd_param;
+    struct forwarding_parameter *fwd_param = rcu_dereference(far->fwd_param);
     struct outer_header_creation *hdr_creation;
     struct forwarding_policy *fwd_policy;
     struct gtpv1_hdr *gtp1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
@@ -757,15 +773,23 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
             uh = udp_hdr(skb);
             uh->check = 0;
 
+            if (pdr->urr_num != 0) {
+                ret = check_urr(pdr, far, volume, volume_mbqe, true);
+                if (ret < 0) {
+                    if (ret == DONT_SEND_UL_PACKET) {
+                        GTP5G_ERR(pdr->dev, "Should not foward the first uplink packet");
+                        return -1;
+                    } else {
+                        GTP5G_ERR(pdr->dev, "Fail to send Usage Report");
+                    }
+                }
+            }
+
             if (ip_xmit(skb, pdr->sk, dev) < 0) {
                 GTP5G_ERR(dev, "Failed to transmit skb through ip_xmit\n");
                 return -1;
             }
 
-            if (pdr->urr_num != 0) {
-                if (check_urr(pdr, volume, volume_mbqe, true) < 0)
-                    GTP5G_ERR(pdr->dev, "Fail to send Usage Report");
-            }
             return 0;
         }
     }
@@ -814,7 +838,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     }
 
     if (pdr->urr_num != 0) {
-        if (check_urr(pdr, volume, volume_mbqe, true) < 0)
+        if (check_urr(pdr, far, volume, volume_mbqe, true) < 0)
             GTP5G_ERR(pdr->dev, "Fail to send Usage Report");
     }
 
@@ -832,21 +856,28 @@ static int gtp5g_drop_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
 
 static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb, 
     struct net_device *dev, struct gtp5g_pktinfo *pktinfo, 
-    struct pdr *pdr, uint64_t volume_mbqe)
+    struct pdr *pdr, struct far *far, uint64_t volume_mbqe)
 {
     struct rtable *rt;
     struct flowi4 fl4;
     struct iphdr *iph = ip_hdr(skb);
     struct outer_header_creation *hdr_creation;
     u64 volume;
+    struct forwarding_parameter *fwd_param;
 
-    if (!(pdr->far && pdr->far->fwd_param &&
-        pdr->far->fwd_param->hdr_creation)) {
+    if (!far) {
         GTP5G_ERR(dev, "Unknown RAN address\n");
         goto err;
     }
 
-    hdr_creation = pdr->far->fwd_param->hdr_creation;
+    fwd_param = rcu_dereference(far->fwd_param);
+    if (!(fwd_param &&
+        fwd_param->hdr_creation)) {
+        GTP5G_ERR(dev, "Unknown RAN address\n");
+        goto err;
+    }
+
+    hdr_creation = fwd_param->hdr_creation;
     rt = ip4_find_route(skb, 
         iph, 
         pdr->sk,
@@ -870,12 +901,12 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     pdr->dl_byte_cnt += skb->len;
     GTP5G_INF(NULL, "PDR (%u) DL_PKT_CNT (%llu) DL_BYTE_CNT (%llu)", pdr->id, pdr->dl_pkt_cnt, pdr->dl_byte_cnt);
 
-    gtp5g_push_header(skb, pktinfo);
-
     volume = ip4_rm_header(skb, 0);
 
+    gtp5g_push_header(skb, pktinfo);
+
     if (pdr->urr_num != 0) {
-        if (check_urr(pdr, volume, volume_mbqe, false) < 0)
+        if (check_urr(pdr, far, volume, volume_mbqe, false) < 0)
             GTP5G_ERR(pdr->dev, "Fail to send Usage Report");
     }
 
@@ -885,16 +916,16 @@ err:
 }
 
 static int gtp5g_buf_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
-    struct pdr *pdr)
+    struct pdr *pdr, struct far *far)
 {
     if (pdr_addr_is_netlink(pdr)) {
-        if (netlink_send(pdr, skb, dev_net(dev), NULL, 0) < 0) {
+        if (netlink_send(pdr, far, skb, dev_net(dev), NULL, 0) < 0) {
             GTP5G_ERR(dev, "Failed to send skb to netlink socket PDR(%u)", pdr->id);
             ++pdr->dl_drop_cnt;
         }
     } else {
         // TODO: handle nonlinear part
-        if (unix_sock_send(pdr, skb->data, skb_headlen(skb), 0) < 0) {
+        if (unix_sock_send(pdr, far, skb->data, skb_headlen(skb), 0) < 0) {
             GTP5G_ERR(dev, "Failed to send skb to unix domain socket PDR(%u)", pdr->id);
             ++pdr->dl_drop_cnt;
         }
@@ -924,19 +955,19 @@ int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
         pdr = pdr_find_by_ipv4(gtp, skb, 0, iph->saddr);
 
     if (!pdr) {
-        GTP5G_TRC(dev, "no PDR found for %pI4, skip\n", &iph->daddr);
+        GTP5G_INF(dev, "no PDR found for %pI4, skip\n", &iph->daddr);
         return -ENOENT;
     }
 
     /* TODO: QoS rule have to apply before apply FAR 
      * */
-    //qer = pdr->qer;
+    //qer = rcu_dereference(pdr->qer);
     //if (qer) {
     //    GTP5G_ERR(dev, "%s:%d QER Rule found, id(%#x) qfi(%#x) TODO\n", 
     //            __func__, __LINE__, qer->id, qer->qfi);
     //}
 
-    far = pdr->far;
+    far = rcu_dereference(pdr->far);
     if (far) {
         // One and only one of the DROP, FORW and BUFF flags shall be set to 1.
         // The NOCP flag may only be set if the BUFF flag is set.
@@ -945,9 +976,9 @@ int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
         case FAR_ACTION_DROP:
             return gtp5g_drop_skb_ipv4(skb, dev, pdr);
         case FAR_ACTION_FORW:
-            return gtp5g_fwd_skb_ipv4(skb, dev, pktinfo, pdr, volume_mbqe);
+            return gtp5g_fwd_skb_ipv4(skb, dev, pktinfo, pdr, far, volume_mbqe);
         case FAR_ACTION_BUFF:
-            return gtp5g_buf_skb_ipv4(skb, dev, pdr);
+            return gtp5g_buf_skb_ipv4(skb, dev, pdr, far);
         default:
             GTP5G_ERR(dev, "Unspec apply action(%u) in FAR(%u) and related to PDR(%u)",
                 far->action, far->id, pdr->id);
