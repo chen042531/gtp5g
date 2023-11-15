@@ -34,14 +34,14 @@ void refillTokens(TrafficPolicer* p) {
     p->tokenCIR = (p->tokenCIR + tokensCToAdd) < p->cirBurst ? (p->tokenCIR + tokensCToAdd) : p->cirBurst;
     p->tokenPIR = (p->tokenPIR + tokensPToAdd) < p->pirBurst ? (p->tokenPIR + tokensPToAdd) : p->pirBurst;
     p->lastUpdate = now;
-    printk("@now: %lld, elapsed: %lld, tokensPToAdd: %d", now, elapsed, tokensPToAdd);
-    printk("@now: %lld, elapsed: %lld, tokensCToAdd: %d", now, elapsed, tokensCToAdd);
+    // printk("@now: %lld, elapsed: %lld, tokensPToAdd: %d", now, elapsed, tokensPToAdd);
+    // printk("@now: %lld, elapsed: %lld, tokensCToAdd: %d", now, elapsed, tokensCToAdd);
 }
 
 Color policePacket(TrafficPolicer* p, int rate, int burst) {
     // int probability, random_number;
     refillTokens(p);
-    printk("burst: %d", burst);
+    // printk("burst: %d", burst);
 
     // // probability = (p->cir - p->tokenCIR) / (p->cir - 10) * p->cir;
     // probability = (p->cir - p->tokenCIR)/1000;

@@ -762,13 +762,13 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     Color color;
     // rate = (skb->len * 8) / 1000000;  // Mbps
     rate = skb->len * 8; // bps
-    printk("rate: %d", skb->len);
+    // printk("rate: %d", skb->len);
     // burst = skb->len / 1000;          // KB
     burst = rate;          // Mbps
     
     for (i = 0; i < pdr->qer_num; i++) {
         qer = find_qer_by_id(gtp, pdr->seid, pdr->qer_ids[i]);
-        printk("qer_id:%d", qer->id);
+        // printk("qer_id:%d", qer->id);
         if (qer->ul_policer!= NULL){
             tp = qer->ul_policer;
             break;
@@ -776,7 +776,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     }
     if (tp != NULL){
         color = policePacket(tp, rate, burst);
-        printk("color: %d, rate: %d, burst: %d", color, rate, burst);
+        // printk("color: %d, rate: %d, burst: %d", color, rate, burst);
         if (color != Green){
             return 0;
         }
@@ -952,12 +952,12 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     Color color;
     // rate = (skb->len * 8) / 1000000;  // Mbps
     rate = skb->len * 8; // bps
-    printk("rate: %d", skb->len);
+    // printk("rate: %d", skb->len);
     // burst = skb->len / 1000;          // KB
     burst = rate;          // Mbps
     for (i = 0; i < pdr->qer_num; i++) {
         qer = find_qer_by_id(gtp, pdr->seid, pdr->qer_ids[i]);
-        printk("qer_id:%d", qer->id);
+        // printk("qer_id:%d", qer->id);
         if (qer->ul_policer!= NULL){
             tp = qer->dl_policer;
             break;
@@ -974,7 +974,7 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     // printk(">>> queue_len:%d", queue_length);
     if (tp != NULL){
         color = policePacket(tp, rate, burst);
-        printk("color: %d, rate: %d, burst: %d", color, rate, burst);
+        // printk("color: %d, rate: %d, burst: %d", color, rate, burst);
         if (color != Green){
             // queue_length -= 1;
             // printk(">>> policePacket queue_len:%d", queue_length);
@@ -1027,7 +1027,7 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
             GTP5G_ERR(pdr->dev, "Fail to send Usage Report");
     }
 
-    printk(">>>>>");
+    // printk(">>>>>");
     // queue_length -= 1;  
     return FAR_ACTION_FORW;
 err:
