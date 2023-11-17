@@ -764,6 +764,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
         color = policePacket(tp, skb->len * 8);
         // printk("color: %d, rate: %d, burst: %d", color, rate, burst);
         if (color != Green){
+             dev_kfree_skb(skb);
             return 0;
         }
     }
