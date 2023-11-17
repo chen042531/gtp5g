@@ -963,6 +963,7 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
         if (color != Green){
             // queue_length -= 1;
             // printk(">>> policePacket queue_len:%d", queue_length);
+            dev_kfree_skb(skb);
             return 0;
         }
     }
