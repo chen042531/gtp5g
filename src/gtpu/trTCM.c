@@ -38,34 +38,10 @@ void refillTokens(TrafficPolicer* p) {
     // printk("@now: %lld, elapsed: %lld, tokensCToAdd: %d", now, elapsed, tokensCToAdd);
 }
 
-Color policePacket(TrafficPolicer* p, int rate, int burst) {
-    // int probability, random_number;
+Color policePacket(TrafficPolicer* p, int rate) {
+    // printk(">>>>>## policePacket");
     refillTokens(p);
-    // printk("burst: %d", burst);
-
-    // // probability = (p->cir - p->tokenCIR) / (p->cir - 10) * p->cir;
-    // probability = (p->cir - p->tokenCIR)/1000;
-    // printk("p->cir:%d, p->tokenCIR:%d", p->cir, p->tokenCIR);
-    // random_number = prandom_u32() % p->cir;
-    // printk("random_number:%d, probability:%d", random_number, probability);
-    // if (random_number < probability) {
-    //     // Drop the packet
-    //     printk(">>>> ^^drop packet Red");
-    //     return Red;
-    // }
-
-
-    // if (rate <= p->cir && rate <= p->tokenCIR) {
-    //     p->tokenCIR -= rate;
-    //     printk("tokenCIR: %d, rate: %d", p->tokenCIR, rate);
-    //     return Green;
-    // } else if (rate <= p->pir && rate <= p->tokenPIR) {
-    //     printk("tokenPIR: %d, rate: %d", p->tokenPIR, rate);
-    //     p->tokenPIR -= rate;
-    //     return Yellow;
-    // } else {
-    //     return Red;
-    // }
+    
     if (p->tokenPIR < rate) {
         return Red;
     }

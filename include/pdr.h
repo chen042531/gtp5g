@@ -94,7 +94,7 @@ struct pdr {
     u64                     ul_byte_cnt;
     u64                     dl_byte_cnt;
 
-    TrafficPolicer* policer;    
+    TrafficPolicer  *ul_policer, *dl_policer;   
 };
 
 extern void pdr_context_delete(struct pdr *);
