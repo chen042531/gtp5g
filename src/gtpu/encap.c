@@ -958,7 +958,7 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     if (tp != NULL){
         color = policePacket(tp, skb->len * 8);
         // printk("dl color: %d, rate: %d, burst: %d", color, rate, burst);
-        printk("dl color: %d", color);
+        // printk("dl color: %d", color);
         if (color != Green){
             // queue_length -= 1;
             // printk(">>> policePacket queue_len:%d", queue_length);

@@ -490,7 +490,7 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
 
     for (i = 0; i < pdr->qer_num; i++) {
         qer = find_qer_by_id(gtp, pdr->seid, pdr->qer_ids[i]);
-        printk("qer_id:%d", qer->id);
+        // printk("qer_id:%d", qer->id);
         if (qer->ul_policer!= NULL && qer->dl_policer!= NULL){
             pdr->ul_policer = qer->ul_policer;
             pdr->dl_policer = qer->dl_policer;
