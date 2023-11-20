@@ -775,7 +775,8 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     gtp->ul_tr_start = ktime_get_ns();
     gtp->ul_tr_cnt += 1;
 
-    tp = pdr->ul_policer;
+    // tp = pdr->ul_policer;
+    tp = NULL;
     
     if (tp != NULL){
         color = policePacket(tp, skb->len * 8);
@@ -976,7 +977,8 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     gtp->tr_cnt += 1;
 
 
-    tp = pdr->dl_policer;
+    // tp = pdr->dl_policer;
+    tp = NULL;
 
     // queue_length += 1;
     // if (red_packet_drop(queue_length)) {
