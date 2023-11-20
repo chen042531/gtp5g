@@ -794,7 +794,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
         }
     }
     
-
+    // printk(">>>>>## ul green");
     if (gtp1->type == GTPV1_MSG_TYPE_TPDU)
         volume = ip4_rm_header(skb, hdrlen);
 
@@ -1000,6 +1000,7 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
         }
     }
 
+    // printk(">>>>>## dl green");
     gtp->tr_d += (ktime_get_ns() - gtp->tr_start);
     // printk("cnt:%lld", gtp->cnt);
     if (gtp->cnt % PKT_NUM == 0){

@@ -27,10 +27,10 @@ TrafficPolicer* newTrafficPolicer(int cirBurst, int pirBurst, int tokenCRate, in
 void refillTokens(TrafficPolicer* p) {
     // ktime_t now =  ktime_get();
     u64 now = ktime_get_ns();
-    // int now =  ktime_get_seconds();
+    // u64 now =  ktime_get_seconds();
     u64 elapsed = now - p->lastUpdate;
-    u64 tokensCToAdd = elapsed * p->tokenCRate / 1000000;
-    u64 tokensPToAdd = elapsed * p->tokenPRate / 1000000;
+    u64 tokensCToAdd = elapsed * p->tokenCRate/1000000 ;
+    u64 tokensPToAdd = elapsed * p->tokenPRate/1000000 ;
     p->tokenCIR = (p->tokenCIR + tokensCToAdd) < p->cirBurst ? (p->tokenCIR + tokensCToAdd) : p->cirBurst;
     p->tokenPIR = (p->tokenPIR + tokensPToAdd) < p->pirBurst ? (p->tokenPIR + tokensPToAdd) : p->pirBurst;
     p->lastUpdate = now;
@@ -42,9 +42,9 @@ Color policePacket(TrafficPolicer* p, int rate) {
     // printk(">>>>>## policePacket");
     refillTokens(p);
     
-    if (p->tokenPIR < rate) {
+    if (p->tokenPIR < rate/1000) {
         // printk(">>>>>## Red");
-        return Green;
+        return Red;
     }
 
     // // if (p->tokenCIR < rate) {
