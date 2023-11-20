@@ -29,8 +29,8 @@ void refillTokens(TrafficPolicer* p) {
     u64 now = ktime_get_ns();
     // int now =  ktime_get_seconds();
     u64 elapsed = now - p->lastUpdate;
-    int tokensCToAdd = elapsed * p->tokenCRate / 1000000;
-    int tokensPToAdd = elapsed * p->tokenPRate / 1000000;
+    u64 tokensCToAdd = elapsed * p->tokenCRate / 1000000;
+    u64 tokensPToAdd = elapsed * p->tokenPRate / 1000000;
     p->tokenCIR = (p->tokenCIR + tokensCToAdd) < p->cirBurst ? (p->tokenCIR + tokensCToAdd) : p->cirBurst;
     p->tokenPIR = (p->tokenPIR + tokensPToAdd) < p->pirBurst ? (p->tokenPIR + tokensPToAdd) : p->pirBurst;
     p->lastUpdate = now;

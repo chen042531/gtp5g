@@ -5,6 +5,7 @@
 #include <linux/rculist.h>
 #include <linux/socket.h>
 
+static const int PKT_NUM = 1000000;
 struct gtp5g_dev {
     struct list_head list;
     struct sock *sk1u; // UDP socket from user space
@@ -28,6 +29,15 @@ struct gtp5g_dev {
     
     /* Used by proc interface */
     struct list_head proc_list;
+
+    u32 start, cnt, d;
+    u32 tr_start, tr_cnt, tr_d; 
+
+    u32 ul_start, ul_cnt, ul_d;
+    u32 ul_tr_start, ul_tr_cnt, ul_tr_d; 
+
+    u32 ul_tx, ul_rx, ul_drop; 
+    u32 dl_tx, dl_rx, dl_drop; 
 };
 
 extern const struct net_device_ops gtp5g_netdev_ops;

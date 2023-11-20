@@ -137,6 +137,11 @@ static int gtp5g_encap_recv(struct sock *sk, struct sk_buff *skb)
         return 1;
     }
 
+    gtp->ul_start = ktime_get_ns();
+    gtp->ul_cnt += 1;
+
+    gtp->ul_rx += 1;
+
     switch (udp_sk(sk)->encap_type) {
     case UDP_ENCAP_GTP1U:
         ret = gtp1u_udp_encap_recv(gtp, skb);
@@ -150,6 +155,14 @@ static int gtp5g_encap_recv(struct sock *sk, struct sk_buff *skb)
         GTP5G_ERR(gtp->dev, "Pass up to the process\n");
         break;
     case 0:
+        gtp->ul_d += (ktime_get_ns() - gtp->ul_start);
+        gtp->ul_tx += 1;
+        if (gtp->ul_cnt % PKT_NUM == 0){
+            printk("ul handle one packet time :%lld, rx:%lld, drop:%lld, tx:%lld",  
+                gtp->ul_d/PKT_NUM, gtp->ul_rx, gtp->ul_drop, gtp->ul_tx);
+            gtp->ul_d = 0;
+            gtp->ul_cnt = 0;
+        }
         break;
     case -1:
         GTP5G_ERR(gtp->dev, "GTP packet has been dropped\n");
@@ -744,6 +757,7 @@ out:
 static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     unsigned int hdrlen, struct pdr *pdr, struct far *far, uint64_t volume_mbqe)
 {
+    struct gtp5g_dev *gtp = netdev_priv(dev);
     struct forwarding_parameter *fwd_param = rcu_dereference(far->fwd_param);
     struct outer_header_creation *hdr_creation;
     struct forwarding_policy *fwd_policy;
@@ -758,13 +772,23 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     // int rate;
     Color color;
     
+    gtp->ul_tr_start = ktime_get_ns();
+    gtp->ul_tr_cnt += 1;
+
     tp = pdr->ul_policer;
     
     if (tp != NULL){
         color = policePacket(tp, skb->len * 8);
+         gtp->ul_tr_d += (ktime_get_ns() - gtp->ul_tr_start);
+        // printk("ul_cnt:%lld", gtp->ul_cnt);
+        if (gtp->ul_cnt % PKT_NUM == 0){
+            printk("ul tr one packet time :%lld",  gtp->ul_tr_d/PKT_NUM);
+            gtp->ul_tr_d = 0;
+        }
         // printk("color: %d, rate: %d, burst: %d", color, rate, burst);
         if (color != Green){
-             dev_kfree_skb(skb);
+            gtp->ul_drop += 1;
+            dev_kfree_skb(skb);
             return 0;
         }
     }
@@ -921,6 +945,7 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     struct net_device *dev, struct gtp5g_pktinfo *pktinfo, 
     struct pdr *pdr, struct far *far, uint64_t volume_mbqe)
 {
+    struct gtp5g_dev *gtp = netdev_priv(dev);
     struct rtable *rt;
     struct flowi4 fl4;
     struct iphdr *iph = ip_hdr(skb);
@@ -946,6 +971,11 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     //         break;
     //     }  
     // }
+
+    gtp->tr_start = ktime_get_ns();
+    gtp->tr_cnt += 1;
+
+
     tp = pdr->dl_policer;
 
     // queue_length += 1;
@@ -967,6 +997,14 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
             return 0;
         }
     }
+
+    gtp->tr_d += (ktime_get_ns() - gtp->tr_start);
+    // printk("cnt:%lld", gtp->cnt);
+    if (gtp->cnt % PKT_NUM == 0){
+        printk("dl tr handle one packet time :%lld",  gtp->tr_d/PKT_NUM);
+        gtp->tr_d = 0;
+    }
+
 
     if (!far) {
         GTP5G_ERR(dev, "Unknown RAN address\n");
@@ -1051,6 +1089,8 @@ int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     struct iphdr *iph;
     u64 volume_mbqe = 0;
     
+    gtp->start = ktime_get_ns();
+    gtp->cnt += 1;
     
     /* Read the IP destination address and resolve the PDR.
      * Prepend PDR header with TEI/TID from PDR.
@@ -1083,6 +1123,12 @@ int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
         case FAR_ACTION_DROP:
             return gtp5g_drop_skb_ipv4(skb, dev, pdr);
         case FAR_ACTION_FORW:
+            gtp->d += (ktime_get_ns() - gtp->start);
+            if (gtp->cnt % PKT_NUM == 0){
+                printk("dl handle one packet time :%lld",  gtp->d/PKT_NUM);
+                gtp->d = 0;
+                gtp->cnt = 0;
+            }
             return gtp5g_fwd_skb_ipv4(skb, dev, pktinfo, pdr, far, volume_mbqe);
         case FAR_ACTION_BUFF:
             return gtp5g_buf_skb_ipv4(skb, dev, pdr, far);
@@ -1091,6 +1137,8 @@ int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
                 far->action, far->id, pdr->id);
         }
     }
+
+   
 
     return -ENOENT;
 }

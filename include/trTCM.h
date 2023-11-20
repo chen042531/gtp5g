@@ -13,8 +13,8 @@ typedef struct {
     int tokenCIR;   // Tokens available for CIR
     int tokenPIR;   // Tokens available for PIR
     int tokenRate; 
-    int tokenCRate;  // Token refill rate in Mbps
-    int tokenPRate;  // Token refill rate in Mbps
+    int tokenCRate;  // Token refill rate in Kbps
+    int tokenPRate;  // Token refill rate in Kbps
     // int lastUpdate;
     u64 lastUpdate;
 } TrafficPolicer;
