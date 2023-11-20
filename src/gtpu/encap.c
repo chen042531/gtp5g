@@ -158,8 +158,8 @@ static int gtp5g_encap_recv(struct sock *sk, struct sk_buff *skb)
         gtp->ul_d += (ktime_get_ns() - gtp->ul_start);
         gtp->ul_tx += 1;
         if (gtp->ul_cnt % PKT_NUM == 0){
-            printk("ul handle one packet time :%d, rx:%d, drop:%d, tx:%d",  
-                gtp->ul_d/PKT_NUM, gtp->ul_rx, gtp->ul_drop, gtp->ul_tx);
+            // printk("ul handle one packet time :%d, rx:%d, drop:%d, tx:%d",  
+            //     gtp->ul_d/PKT_NUM, gtp->ul_rx, gtp->ul_drop, gtp->ul_tx);
             gtp->ul_d = 0;
             gtp->ul_cnt = 0;
         }
@@ -775,15 +775,15 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     gtp->ul_tr_start = ktime_get_ns();
     gtp->ul_tr_cnt += 1;
 
-    // tp = pdr->ul_policer;
-    tp = NULL;
+    tp = pdr->ul_policer;
+    // tp = NULL;
     
     if (tp != NULL){
         color = policePacket(tp, skb->len * 8);
          gtp->ul_tr_d += (ktime_get_ns() - gtp->ul_tr_start);
         // printk("ul_cnt:%lld", gtp->ul_cnt);
         if (gtp->ul_cnt % PKT_NUM == 0){
-            printk("ul tr one packet time :%d",  gtp->ul_tr_d/PKT_NUM);
+            // printk("ul tr one packet time :%d",  gtp->ul_tr_d/PKT_NUM);
             gtp->ul_tr_d = 0;
         }
         // printk("color: %d, rate: %d, burst: %d", color, rate, burst);
@@ -977,8 +977,8 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     gtp->tr_cnt += 1;
 
 
-    // tp = pdr->dl_policer;
-    tp = NULL;
+    tp = pdr->dl_policer;
+    // tp = NULL;
 
     // queue_length += 1;
     // if (red_packet_drop(queue_length)) {
@@ -1003,7 +1003,7 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     gtp->tr_d += (ktime_get_ns() - gtp->tr_start);
     // printk("cnt:%lld", gtp->cnt);
     if (gtp->cnt % PKT_NUM == 0){
-        printk("dl tr handle one packet time :%d",  gtp->tr_d/PKT_NUM);
+        // printk("dl tr handle one packet time :%d",  gtp->tr_d/PKT_NUM);
         gtp->tr_d = 0;
     }
 
@@ -1127,7 +1127,7 @@ int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
         case FAR_ACTION_FORW:
             gtp->d += (ktime_get_ns() - gtp->start);
             if (gtp->cnt % PKT_NUM == 0){
-                printk("dl handle one packet time :%d",  gtp->d/PKT_NUM);
+                // printk("dl handle one packet time :%d",  gtp->d/PKT_NUM);
                 gtp->d = 0;
                 gtp->cnt = 0;
             }
