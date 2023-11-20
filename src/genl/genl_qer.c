@@ -324,8 +324,8 @@ static int qer_fill(struct qer *qer, struct gtp5g_dev *gtp, struct genl_info *in
         // printk("#dl_mbr: %lld", qer->dl_mbr);
         // printk("test1");
 
-        qer->ul_policer = newTrafficPolicer((1500*8)*10, (1500*8)*10, qer->ul_mbr*1000, qer->ul_mbr*1000);
-        qer->dl_policer = newTrafficPolicer((1500*8)*10, (1500*8)*10, qer->dl_mbr*1000, qer->dl_mbr*1000);
+        qer->ul_policer = newTrafficPolicer((1500*8)*10, (1500*8)*10, qer->ul_mbr, qer->ul_mbr);
+        qer->dl_policer = newTrafficPolicer((1500*8)*10, (1500*8)*10, qer->dl_mbr, qer->dl_mbr);
 
         // printk(">>>>>ccyy new policer");
     }
