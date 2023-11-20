@@ -780,15 +780,16 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     
     if (tp != NULL){
         color = policePacket(tp, skb->len * 8);
-         gtp->ul_tr_d += (ktime_get_ns() - gtp->ul_tr_start);
-        // printk("ul_cnt:%lld", gtp->ul_cnt);
-        if (gtp->ul_cnt % PKT_NUM == 0){
-            // printk("ul tr one packet time :%d",  gtp->ul_tr_d/PKT_NUM);
-            gtp->ul_tr_d = 0;
-        }
+        //  gtp->ul_tr_d += (ktime_get_ns() - gtp->ul_tr_start);
+        // // printk("ul_cnt:%lld", gtp->ul_cnt);
+        // if (gtp->ul_cnt % PKT_NUM == 0){
+        //     // printk("ul tr one packet time :%d",  gtp->ul_tr_d/PKT_NUM);
+        //     gtp->ul_tr_d = 0;
+        // }
         // printk("color: %d, rate: %d, burst: %d", color, rate, burst);
         if (color != Green){
-            gtp->ul_drop += 1;
+            printk("color != green");
+            // gtp->ul_drop += 1;
             dev_kfree_skb(skb);
             return 0;
         }
@@ -821,7 +822,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
 
             uh = udp_hdr(skb);
             uh->check = 0;
-
+            // printk(">>>>>## aaa");
             if (pdr->urr_num != 0) {
                 ret = check_urr(pdr, far, volume, volume_mbqe, true);
                 if (ret < 0) {
@@ -834,10 +835,12 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
                 }
             }
 
+            // printk(">>>>>## bbb");
             if (ip_xmit(skb, pdr->sk, dev) < 0) {
                 GTP5G_ERR(dev, "Failed to transmit skb through ip_xmit\n");
                 return -1;
             }
+            // printk(">>>>>## ip emit");
 
             return 0;
         }
@@ -885,6 +888,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     if (ret != NET_RX_SUCCESS) {
         GTP5G_ERR(dev, "Uplink: Packet got dropped\n");
     }
+    // printk(">>>>>## netif_rx");
 
     if (pdr->urr_num != 0) {
         if (check_urr(pdr, far, volume, volume_mbqe, true) < 0)
