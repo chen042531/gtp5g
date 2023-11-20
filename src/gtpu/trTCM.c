@@ -39,12 +39,12 @@ void refillTokens(TrafficPolicer* p) {
 }
 
 Color policePacket(TrafficPolicer* p, int rate) {
-    printk(">>>>>## policePacket");
+    // printk(">>>>>## policePacket");
     refillTokens(p);
     
     if (p->tokenPIR < rate) {
-        printk(">>>>>## Red");
-        return Red;
+        // printk(">>>>>## Red");
+        return Green;
     }
 
     // // if (p->tokenCIR < rate) {
