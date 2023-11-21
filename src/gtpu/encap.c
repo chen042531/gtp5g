@@ -4,6 +4,7 @@
 #include <linux/udp.h>
 #include <linux/gtp.h>
 
+
 #include <net/ip.h>
 #include <net/udp.h>
 #include <net/udp_tunnel.h>
@@ -27,6 +28,11 @@
 
 /* used to compatible with api with/without seid */
 #define MSG_KOV_LEN 4
+
+#define MAX_THRESHOLD 100
+#define MIN_THRESHOLD 10
+#define MAX_PROBABILITY 100
+
 
 enum msg_type {
     TYPE_BUFFER = 1,
@@ -131,6 +137,11 @@ static int gtp5g_encap_recv(struct sock *sk, struct sk_buff *skb)
         return 1;
     }
 
+    gtp->ul_start = ktime_get_ns();
+    gtp->ul_cnt += 1;
+
+    gtp->ul_rx += 1;
+
     switch (udp_sk(sk)->encap_type) {
     case UDP_ENCAP_GTP1U:
         ret = gtp1u_udp_encap_recv(gtp, skb);
@@ -144,6 +155,14 @@ static int gtp5g_encap_recv(struct sock *sk, struct sk_buff *skb)
         GTP5G_ERR(gtp->dev, "Pass up to the process\n");
         break;
     case 0:
+        gtp->ul_d += (ktime_get_ns() - gtp->ul_start);
+        gtp->ul_tx += 1;
+        if (gtp->ul_cnt % PKT_NUM == 0){
+            // printk("ul handle one packet time :%d, rx:%d, drop:%d, tx:%d",  
+            //     gtp->ul_d/PKT_NUM, gtp->ul_rx, gtp->ul_drop, gtp->ul_tx);
+            gtp->ul_d = 0;
+            gtp->ul_cnt = 0;
+        }
         break;
     case -1:
         GTP5G_ERR(gtp->dev, "GTP packet has been dropped\n");
@@ -690,6 +709,7 @@ static int gtp5g_rx(struct pdr *pdr, struct sk_buff *skb,
     u64 volume_mbqe = 0;
     struct far *far = rcu_dereference(pdr->far);
     // struct qer *qer = rcu_dereference(pdr->qer);
+     
 
     if (!far) {
         GTP5G_ERR(pdr->dev, "FAR not exists for PDR(%u)\n", pdr->id);
@@ -708,11 +728,12 @@ static int gtp5g_rx(struct pdr *pdr, struct sk_buff *skb,
         // One and only one of the DROP, FORW and BUFF flags shall be set to 1.
         // The NOCP flag may only be set if the BUFF flag is set.
         // The DUPL flag may be set with any of the DROP, FORW, BUFF and NOCP flags.
+        
         switch(far->action & FAR_ACTION_MASK) {
         case FAR_ACTION_DROP:
             rt = gtp5g_drop_skb_encap(skb, pdr->dev, pdr);
             break;
-        case FAR_ACTION_FORW:
+        case FAR_ACTION_FORW:   
             rt = gtp5g_fwd_skb_encap(skb, pdr->dev, hdrlen, pdr, far, volume_mbqe);
             break;
         case FAR_ACTION_BUFF:
@@ -736,6 +757,7 @@ out:
 static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     unsigned int hdrlen, struct pdr *pdr, struct far *far, uint64_t volume_mbqe)
 {
+    struct gtp5g_dev *gtp = netdev_priv(dev);
     struct forwarding_parameter *fwd_param = rcu_dereference(far->fwd_param);
     struct outer_header_creation *hdr_creation;
     struct forwarding_policy *fwd_policy;
@@ -746,6 +768,34 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     int ret;
     u64 volume = 0;
 
+    TrafficPolicer* tp;
+    // int rate;
+    Color color;
+    
+    gtp->ul_tr_start = ktime_get_ns();
+    gtp->ul_tr_cnt += 1;
+
+    tp = pdr->ul_policer;
+    // tp = NULL;
+    
+    if (tp != NULL){
+        color = policePacket(tp, skb->len * 8);
+        //  gtp->ul_tr_d += (ktime_get_ns() - gtp->ul_tr_start);
+        // // printk("ul_cnt:%lld", gtp->ul_cnt);
+        // if (gtp->ul_cnt % PKT_NUM == 0){
+        //     // printk("ul tr one packet time :%d",  gtp->ul_tr_d/PKT_NUM);
+        //     gtp->ul_tr_d = 0;
+        // }
+        // printk("color: %d, rate: %d, burst: %d", color, rate, burst);
+        if (color != Green){
+            // printk("color != green");
+            // gtp->ul_drop += 1;
+            dev_kfree_skb(skb);
+            return 0;
+        }
+    }
+    
+    // printk(">>>>>## ul green");
     if (gtp1->type == GTPV1_MSG_TYPE_TPDU)
         volume = ip4_rm_header(skb, hdrlen);
 
@@ -772,7 +822,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
 
             uh = udp_hdr(skb);
             uh->check = 0;
-
+            // printk(">>>>>## aaa");
             if (pdr->urr_num != 0) {
                 ret = check_urr(pdr, far, volume, volume_mbqe, true);
                 if (ret < 0) {
@@ -785,10 +835,12 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
                 }
             }
 
+            // printk(">>>>>## bbb");
             if (ip_xmit(skb, pdr->sk, dev) < 0) {
                 GTP5G_ERR(dev, "Failed to transmit skb through ip_xmit\n");
                 return -1;
             }
+            // printk(">>>>>## ip emit");
 
             return 0;
         }
@@ -836,6 +888,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     if (ret != NET_RX_SUCCESS) {
         GTP5G_ERR(dev, "Uplink: Packet got dropped\n");
     }
+    // printk(">>>>>## netif_rx");
 
     if (pdr->urr_num != 0) {
         if (check_urr(pdr, far, volume, volume_mbqe, true) < 0)
@@ -854,16 +907,111 @@ static int gtp5g_drop_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     return FAR_ACTION_DROP;
 }
 
+
+
+// int red_packet_drop(uint32_t queue_length) {
+//     // Calculate the average queue length over time
+//     // You need to maintain a moving average of the queue length over time
+
+//     // Calculate the drop probability
+//     int probability = (MAX_THRESHOLD - queue_length) / (MAX_THRESHOLD - MIN_THRESHOLD) * MAX_PROBABILITY;
+
+//     // Generate a random number between 0 and 99
+//     int random_number = prandom_u32() % 100;
+//     printk("random_number:%d, probability:%d", random_number, probability);
+//     if (random_number > probability) {
+//         // Drop the packet
+//         printk(">>>> drop packet");
+//         return 1;
+//     }
+
+//     printk(">>>> don't drop packet");
+//     // Don't drop the packet
+//     return 0;
+// }
+
+// int red_packet_drop(uint32_t queue_length) {
+//     int random_number = prandom_u32() % 100;
+//     printk("r_drop:%d", queue_length);
+//     printk("random_number:%d", random_number);
+//     if (random_number > 98) {
+//         // Drop the packet
+//         printk(">>>> drop packet");
+//         return 1;
+//     }
+
+//     printk(">>>> don't drop packet");
+//     // Don't drop the packet
+//     return 0;
+// }
+
+
 static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb, 
     struct net_device *dev, struct gtp5g_pktinfo *pktinfo, 
     struct pdr *pdr, struct far *far, uint64_t volume_mbqe)
 {
+    struct gtp5g_dev *gtp = netdev_priv(dev);
     struct rtable *rt;
     struct flowi4 fl4;
     struct iphdr *iph = ip_hdr(skb);
     struct outer_header_creation *hdr_creation;
     u64 volume;
     struct forwarding_parameter *fwd_param;
+
+    // random early drop
+    // int queue_length = 0;
+
+    TrafficPolicer* tp;
+    // int rate;
+    Color color;
+    // rate = (skb->len * 8) / 1000000;  // Mbps
+    // rate = skb->len * 8; // bps
+    // printk("rate: %d", skb->len);
+    // burst = skb->len / 1000;          // KB       // Mbps
+    // for (i = 0; i < pdr->qer_num; i++) {
+    //     qer = find_qer_by_id(gtp, pdr->seid, pdr->qer_ids[i]);
+    //     // printk("qer_id:%d", qer->id);
+    //     if (qer->ul_policer!= NULL){
+    //         tp = qer->dl_policer;
+    //         break;
+    //     }  
+    // }
+
+    gtp->tr_start = ktime_get_ns();
+    gtp->tr_cnt += 1;
+
+
+    tp = pdr->dl_policer;
+    // tp = NULL;
+
+    // queue_length += 1;
+    // if (red_packet_drop(queue_length)) {
+    //     queue_length -= 1;
+    //     printk(">>> red queue_len:%d", queue_length);
+    //     return 0;
+    // }   
+   
+    // printk(">>> queue_len:%d", queue_length);
+    if (tp != NULL){
+        color = policePacket(tp, skb->len * 8);
+        // printk("dl color: %d, rate: %d, burst: %d", color, rate, burst);
+        // printk("dl color: %d", color);
+        if (color != Green){
+            // queue_length -= 1;
+            // printk(">>> policePacket queue_len:%d", queue_length);
+            dev_kfree_skb(skb);
+            return 0;
+        }
+    }
+
+    // printk(">>>>>## dl green");
+    gtp->tr_d += (ktime_get_ns() - gtp->tr_start);
+    // printk("cnt:%lld", gtp->cnt);
+    if (gtp->cnt % PKT_NUM == 0){
+        // printk("dl tr handle one packet time :%d",  gtp->tr_d/PKT_NUM);
+        gtp->tr_d = 0;
+    }
+
 
     if (!far) {
         GTP5G_ERR(dev, "Unknown RAN address\n");
@@ -910,6 +1058,8 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
             GTP5G_ERR(pdr->dev, "Fail to send Usage Report");
     }
 
+    // printk(">>>>>");
+    // queue_length -= 1;  
     return FAR_ACTION_FORW;
 err:
     return -EBADMSG;
@@ -935,6 +1085,7 @@ static int gtp5g_buf_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     return FAR_ACTION_BUFF;
 }
 
+
 int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     struct gtp5g_pktinfo *pktinfo)
 {
@@ -944,7 +1095,10 @@ int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     //struct gtp5g_qer *qer;
     struct iphdr *iph;
     u64 volume_mbqe = 0;
-
+    
+    gtp->start = ktime_get_ns();
+    gtp->cnt += 1;
+    
     /* Read the IP destination address and resolve the PDR.
      * Prepend PDR header with TEI/TID from PDR.
      */
@@ -976,6 +1130,12 @@ int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
         case FAR_ACTION_DROP:
             return gtp5g_drop_skb_ipv4(skb, dev, pdr);
         case FAR_ACTION_FORW:
+            gtp->d += (ktime_get_ns() - gtp->start);
+            if (gtp->cnt % PKT_NUM == 0){
+                // printk("dl handle one packet time :%d",  gtp->d/PKT_NUM);
+                gtp->d = 0;
+                gtp->cnt = 0;
+            }
             return gtp5g_fwd_skb_ipv4(skb, dev, pktinfo, pdr, far, volume_mbqe);
         case FAR_ACTION_BUFF:
             return gtp5g_buf_skb_ipv4(skb, dev, pdr, far);
@@ -985,5 +1145,8 @@ int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
         }
     }
 
+   
+
     return -ENOENT;
 }
+

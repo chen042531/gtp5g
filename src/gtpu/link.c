@@ -66,7 +66,22 @@ static int gtp5g_newlink(struct net *src_net, struct net_device *dev,
     u32 fd1;
     int hashsize, err;
 
+
     gtp = netdev_priv(dev);
+    
+    gtp->start = 0;
+    gtp->cnt = 0;
+    gtp->d = 0;
+    gtp->tr_start = 0;
+    gtp->tr_cnt = 0;
+    gtp->tr_d = 0; 
+
+    gtp->ul_start = 0;
+    gtp->ul_cnt = 0;
+    gtp->ul_d = 0;
+    gtp->ul_tr_start = 0;
+    gtp->ul_tr_cnt = 0;
+    gtp->ul_tr_d = 0; 
 
     if (!data[IFLA_GTP5G_FD1]) {
         GTP5G_ERR(NULL, "Failed to create a new link\n");
