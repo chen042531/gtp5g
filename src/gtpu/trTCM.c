@@ -44,16 +44,16 @@ Color policePacket(TrafficPolicer* p, int rate) {
     
     if (p->tokenPIR * 1000 < rate) {
         // printk(">>>>>## Red");
-        return Red;
-        // return Green;
+        // return Red;
+        return Green;
     }
 
-    // // if (p->tokenCIR < rate) {
-    // //     p->tokenCIR -= rate;
-    // //     return Yellow;
-    // // }
+    if (p->tokenCIR < rate) {
+        p->tokenCIR -= rate;
+        return Green;
+    }
 
-    // // p->tokenCIR -= rate;
+    p->tokenCIR -= rate;
     p->tokenPIR -= rate;
     return Green;
 }
