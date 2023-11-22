@@ -320,7 +320,7 @@ static int qer_fill(struct qer *qer, struct gtp5g_dev *gtp, struct genl_info *in
         qer->ul_mbr = concat_bit_rate(qer->mbr.ul_high, qer->mbr.ul_low);
         qer->dl_mbr = concat_bit_rate(qer->mbr.dl_high, qer->mbr.dl_low);
 
-        printk("#ul_mbr^^: %lld", qer->ul_mbr);
+        printk("#ul_mbr^^>>: %lld", qer->ul_mbr);
         printk("#dl_mbr^^: %lld", qer->dl_mbr);
         // printk("test1");
 

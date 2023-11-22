@@ -4,20 +4,20 @@
 
 #include "trTCM.h"
 
-TrafficPolicer* newTrafficPolicer(int cbs, int ebs, int tokenRate) {
+TrafficPolicer* newTrafficPolicer(u64 cbs, u64 ebs, u64 tokenRate) {
     TrafficPolicer* p = (TrafficPolicer*)kmalloc(sizeof(TrafficPolicer), GFP_KERNEL);
     if (p == NULL) {
         printk("Memory allocation error\n");
     }
     
     p->tokenRate = tokenRate * 125 ; // Kbit/s to byte/s (*1000/8)
-    printk(">>>> p->tokenRate:%d", p->tokenRate);
+    printk(">>>> p->tokenRate:%lld", p->tokenRate);
 
     // 4ms as burst size
     p->cbs = p->tokenRate / 250; // bytes
     p->ebs = p->cbs * 4; // bytes
 
-    printk(">>>> cbs:%d", cbs);
+    printk(">>>> cbs:%lld", cbs);
     // fill buckets at the begining
     p->tc = cbs; 
     p->te = ebs; 

@@ -6,14 +6,14 @@ typedef enum {
 } Color;
 
 typedef struct {
-    int cbs;
-    int ebs;
-    int tc;
-    int te;  
-    int tokenRate; 
+    u64 cbs;
+    u64 ebs;
+    u64 tc;
+    u64 te;  
+    u64 tokenRate; 
     u64 lastUpdate;
 } TrafficPolicer;
 
-extern TrafficPolicer* newTrafficPolicer(int, int, int);
+extern TrafficPolicer* newTrafficPolicer(u64, u64, u64);
 extern void refillTokens(TrafficPolicer*); 
 extern Color policePacket(TrafficPolicer*, int);
