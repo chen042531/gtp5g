@@ -779,7 +779,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     // tp = NULL;
     
     if (tp != NULL){
-        color = policePacket(tp, skb->len * 8);
+        color = policePacket(tp, skb->len);
         //  gtp->ul_tr_d += (ktime_get_ns() - gtp->ul_tr_start);
         // // printk("ul_cnt:%lld", gtp->ul_cnt);
         // if (gtp->ul_cnt % PKT_NUM == 0){
@@ -787,7 +787,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
         //     gtp->ul_tr_d = 0;
         // }
         // printk("color: %d, rate: %d, burst: %d", color, rate, burst);
-        if (color != Green){
+        if (color == Red){
             // printk("color != green");
             // gtp->ul_drop += 1;
             dev_kfree_skb(skb);
@@ -993,10 +993,10 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
    
     // printk(">>> queue_len:%d", queue_length);
     if (tp != NULL){
-        color = policePacket(tp, skb->len * 8);
+        color = policePacket(tp, skb->len);
         // printk("dl color: %d, rate: %d, burst: %d", color, rate, burst);
         // printk("dl color: %d", color);
-        if (color != Green){
+        if (color == Red){
             // queue_length -= 1;
             // printk(">>> policePacket queue_len:%d", queue_length);
             dev_kfree_skb(skb);

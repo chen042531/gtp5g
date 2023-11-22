@@ -4,18 +4,25 @@
 
 #include "trTCM.h"
 
-TrafficPolicer* newTrafficPolicer(int cirBurst, int pirBurst, int tokenCRate, int tokenPRate) {
+TrafficPolicer* newTrafficPolicer(int cbs, int ebs, int tokenRate) {
     TrafficPolicer* p = (TrafficPolicer*)kmalloc(sizeof(TrafficPolicer), GFP_KERNEL);
     if (p == NULL) {
         printk("Memory allocation error\n");
     }
     
-    p->cirBurst = cirBurst; // gbr bucket size
-    p->pirBurst = pirBurst; // mbr bucket size
-    p->tokenCRate = tokenCRate; // gbr 
-    p->tokenPRate = tokenPRate; // mbr
-    p->tokenCIR = 0;
-    p->tokenPIR = 0;
+    p->tokenRate = tokenRate * 125 ; // Kbit/s to byte/s (*1000/8)
+    printk(">>>> p->tokenRate:%d", p->tokenRate);
+
+    // 4ms as burst size
+    p->cbs = p->tokenRate / 250; // bytes
+    p->ebs = p->cbs * 4; // bytes
+
+    printk(">>>> cbs:%d", cbs);
+    // fill buckets at the begining
+    p->tc = cbs; 
+    p->te = ebs; 
+
+    
     // p->lastUpdate = current_kernel_time().tv_nsec;
     p->lastUpdate = ktime_get_ns();
     // p->lastUpdate = ktime_get_seconds();
@@ -24,36 +31,44 @@ TrafficPolicer* newTrafficPolicer(int cirBurst, int pirBurst, int tokenCRate, in
     return p;
 } 
 
-void refillTokens(TrafficPolicer* p) {
+
+Color policePacket(TrafficPolicer* p, int pktLen) {
+    u64 tokensToAdd, tc;
+    u64 te;
     // ktime_t now =  ktime_get();
     u64 now = ktime_get_ns();
     // u64 now =  ktime_get_seconds();
     u64 elapsed = now - p->lastUpdate;
-    u64 tokensCToAdd = elapsed * p->tokenCRate/1000000 ;
-    u64 tokensPToAdd = elapsed * p->tokenPRate/1000000 ;
-    p->tokenCIR = (p->tokenCIR + tokensCToAdd) < p->cirBurst ? (p->tokenCIR + tokensCToAdd) : p->cirBurst;
-    p->tokenPIR = (p->tokenPIR + tokensPToAdd) < p->pirBurst ? (p->tokenPIR + tokensPToAdd) : p->pirBurst;
     p->lastUpdate = now;
-    // printk("@now: %lld, elapsed: %lld, tokensPToAdd: %d", now, elapsed, tokensPToAdd);
-    // printk("@now: %lld, elapsed: %lld, tokensCToAdd: %d", now, elapsed, tokensCToAdd);
-}
-
-Color policePacket(TrafficPolicer* p, int rate) {
-    // printk(">>>>>##^^^ policePacket");
-    refillTokens(p);
+    // printk("elapsed:%lld", elapsed);
+    tokensToAdd = elapsed * p->tokenRate / 1000000000;
+    // printk("elapsed:%lld", elapsed);
+    // printk("tokensToAdd:%lld", tokensToAdd);
+    tc = p->tc + tokensToAdd;
+    te = p->te;
+    if (tc > p->cbs){
+        te += (tc - p->cbs);
+        if (te > p->ebs){
+            te = p->ebs;
+        }
+        tc = p->cbs; 
+    }
+   
     
-    if (p->tokenPIR * 1000 < rate) {
-        // printk(">>>>>## Red");
-        return Red;
-        // return Green;
+    if (p->tc >= pktLen) {
+        p->tc = tc - pktLen;
+        p->te = te;
+        return Green;
     }
 
-    if (p->tokenCIR < rate) {
-        p->tokenCIR -= rate;
+    if (p->te >= pktLen) {
+        p->tc = tc;
+        p->te = te - pktLen;
         return Yellow;
     }
 
-    p->tokenCIR -= rate;
-    p->tokenPIR -= rate;
-    return Green;
+    p->tc = tc;
+    p->te = te;
+    // printk(">>> Red ");
+    return Red;
 }
