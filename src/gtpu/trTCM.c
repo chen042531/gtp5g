@@ -33,12 +33,16 @@ TrafficPolicer* newTrafficPolicer(u64 cbs, u64 ebs, u64 tokenRate) {
 
 
 Color policePacket(TrafficPolicer* p, int pktLen) {
-    u64 tokensToAdd, tc;
-    u64 te;
+    u64 tokensToAdd;
+    u64 tc, te;
+    u64 elapsed;
     // ktime_t now =  ktime_get();
     u64 now = ktime_get_ns();
     // u64 now =  ktime_get_seconds();
-    u64 elapsed = now - p->lastUpdate;
+
+    spin_lock(&p->lock); 
+
+    elapsed = now - p->lastUpdate;
     p->lastUpdate = now;
     // printk("elapsed:%lld", elapsed);
     tokensToAdd = elapsed * p->tokenRate / 1000000000;
@@ -58,17 +62,20 @@ Color policePacket(TrafficPolicer* p, int pktLen) {
     if (p->tc >= pktLen) {
         p->tc = tc - pktLen;
         p->te = te;
+        spin_unlock(&p->lock); 
         return Green;
     }
 
     if (p->te >= pktLen) {
         p->tc = tc;
         p->te = te - pktLen;
+        spin_unlock(&p->lock); 
         return Yellow;
     }
 
     p->tc = tc;
     p->te = te;
     // printk(">>> Red ");
+    spin_unlock(&p->lock); 
     return Red;
 }
