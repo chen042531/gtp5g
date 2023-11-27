@@ -11,22 +11,16 @@ TrafficPolicer* newTrafficPolicer(u64 cbs, u64 ebs, u64 tokenRate) {
     }
     
     p->tokenRate = tokenRate * 125 ; // Kbit/s to byte/s (*1000/8)
-    printk(">>>> p->tokenRate:%lld", p->tokenRate);
 
     // 4ms as burst size
     p->cbs = p->tokenRate / 250; // bytes
     p->ebs = p->cbs * 4; // bytes
 
-    printk(">>>> cbs:%lld", cbs);
     // fill buckets at the begining
     p->tc = cbs; 
     p->te = ebs; 
 
-    
-    // p->lastUpdate = current_kernel_time().tv_nsec;
     p->lastUpdate = ktime_get_ns();
-    // p->lastUpdate = ktime_get_seconds();
-    // p->lastUpdate = ktime_get();
 
     return p;
 } 
