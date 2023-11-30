@@ -709,6 +709,8 @@ static int gtp5g_rx(struct pdr *pdr, struct sk_buff *skb,
     u64 volume_mbqe = 0;
     struct far *far = rcu_dereference(pdr->far);
     // struct qer *qer = rcu_dereference(pdr->qer);
+    struct sk_buff *skb_q;
+    int is_full;
      
 
     if (!far) {
@@ -734,7 +736,27 @@ static int gtp5g_rx(struct pdr *pdr, struct sk_buff *skb,
             rt = gtp5g_drop_skb_encap(skb, pdr->dev, pdr);
             break;
         case FAR_ACTION_FORW:   
-            rt = gtp5g_fwd_skb_encap(skb, pdr->dev, hdrlen, pdr, far, volume_mbqe);
+            is_full = enqueue_skb(pdr, skb);
+            printk(">>>> pdr->ul_policer->tc:%lld",pdr->ul_policer->tc);
+            if (is_full){
+                printk(">>>> queue full2");
+                
+                // dev_kfree_skb(skb);
+                // break;
+            }
+
+            printk(">>>> queue_length(pdr):%d",queue_length(pdr));
+            while(queue_length(pdr) > 0 && (pdr->ul_policer->tc > skb->len)){
+                printk(">>>> before");
+                skb_q = dequeue_skb(pdr);
+                if (!skb_q){
+                    break;
+                }
+                printk(">>>> after");
+                rt = gtp5g_fwd_skb_encap(skb_q, pdr->dev, hdrlen, pdr, far, volume_mbqe);
+                // break;
+            }
+           
             break;
         case FAR_ACTION_BUFF:
             rt = gtp5g_buf_skb_encap(skb, pdr->dev, hdrlen, pdr, far);
@@ -754,6 +776,8 @@ out:
     return rt;
 }
 
+
+
 static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     unsigned int hdrlen, struct pdr *pdr, struct far *far, uint64_t volume_mbqe)
 {
@@ -772,13 +796,22 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     // int rate;
     Color color;
     
+    // struct sk_buff *skb_q;
+
     gtp->ul_tr_start = ktime_get_ns();
     gtp->ul_tr_cnt += 1;
 
     tp = pdr->ul_policer;
     // tp = NULL;
     
+
+ 
+
     if (tp != NULL){
+        // printk(">>>> tp != NULL");
+        
+
+        // printk("skb:%p, skb_q:%p", skb, skb_q);
         color = policePacket(tp, skb->len);
         //  gtp->ul_tr_d += (ktime_get_ns() - gtp->ul_tr_start);
         // // printk("ul_cnt:%lld", gtp->ul_cnt);
@@ -787,6 +820,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
         //     gtp->ul_tr_d = 0;
         // }
         // printk("color: %d, rate: %d, burst: %d", color, rate, burst);
+
         if (color == Red){
             // printk("color != green");
             // gtp->ul_drop += 1;

@@ -13,6 +13,11 @@
 #include "log.h"
 #include <linux/types.h>
 
+#include <linux/skbuff.h>
+#include <linux/slab.h>
+#include <linux/spinlock.h>
+
+
 
 static void seid_pdr_id_to_hex_str(u64 seid_int, u16 pdr_id, char *buff)
 {
@@ -86,6 +91,10 @@ void pdr_context_delete(struct pdr *pdr)
 
     if (!hlist_unhashed(&pdr->hlist_addr))
         hlist_del_rcu(&pdr->hlist_addr);
+
+    // queue_cleanup(pdr);
+    // kfree(pdr->ul_policer);
+    // kfree(pdr->dl_policer);
 
     call_rcu(&pdr->rcu_head, pdr_context_free);
 }
@@ -391,4 +400,77 @@ void pdr_update_hlist_table(struct pdr *pdr, struct gtp5g_dev *gtp)
         else
             hlist_add_behind_rcu(&pdr->hlist_addr, &last_ppdr->hlist_addr);
     }
+}
+
+
+int queue_init(struct pdr *pdr) {
+    pdr->skb_queue = kmalloc(sizeof(struct my_queue), GFP_KERNEL);
+    if (!pdr->skb_queue) {
+        pr_err("Failed to allocate memory for the queue\n");
+        return -ENOMEM;
+    }
+
+    pdr->skb_queue->buffer = kmalloc(sizeof(struct sk_buff *) * QUEUE_SIZE, GFP_KERNEL);
+    if (!pdr->skb_queue->buffer) {
+        kfree(pdr->skb_queue);
+        pr_err("Failed to allocate memory for the queue buffer\n");
+        return -ENOMEM;
+    }
+
+    pdr->skb_queue->size = QUEUE_SIZE;
+    pdr->skb_queue->front = pdr->skb_queue->rear = 0;
+    spin_lock_init(&pdr->skb_queue->lock);
+
+    return 0;
+}
+
+void queue_cleanup(struct pdr *pdr) {
+    kfree(pdr->skb_queue->buffer);
+    kfree(pdr->skb_queue);
+}
+
+int enqueue_skb(struct pdr *pdr, struct sk_buff *skb) {
+    struct my_queue *queue = pdr->skb_queue;
+    spin_lock(&queue->lock);
+
+    if ((queue->rear + 1) % queue->size == queue->front) {
+        // Queue is full
+        spin_unlock(&queue->lock);
+        pr_err("Queue is full, cannot enqueue\n");
+        return -EAGAIN;
+    }
+
+    queue->buffer[queue->rear] = skb;
+    queue->rear = (queue->rear + 1) % queue->size;
+
+    spin_unlock(&queue->lock);
+
+    return 0;
+}
+
+struct sk_buff *dequeue_skb(struct pdr *pdr) {
+    struct sk_buff *skb = NULL;
+    struct my_queue *queue = pdr->skb_queue;
+
+    spin_lock(&queue->lock);
+
+    if (queue->front != queue->rear) {
+        skb = queue->buffer[queue->front];
+        queue->front = (queue->front + 1) % queue->size;
+    }
+
+    spin_unlock(&queue->lock);
+
+    return skb;
+}
+
+int queue_length(struct pdr *pdr) {
+    int len;
+    struct my_queue *queue = pdr->skb_queue;
+
+    spin_lock(&queue->lock);
+    len = (queue->rear - queue->front + queue->size) % queue->size;
+    spin_unlock(&queue->lock);
+
+    return len;
 }

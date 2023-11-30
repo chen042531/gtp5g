@@ -21,3 +21,4 @@ typedef struct {
 extern TrafficPolicer* newTrafficPolicer(u64, u64, u64);
 extern void refillTokens(TrafficPolicer*); 
 extern Color policePacket(TrafficPolicer*, int);
+// extern void freeTrafficPolicer(struct pdr *);

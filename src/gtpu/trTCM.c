@@ -14,7 +14,9 @@ TrafficPolicer* newTrafficPolicer(u64 cbs, u64 ebs, u64 tokenRate) {
 
     // 4ms as burst size
     p->cbs = p->tokenRate / 250; // bytes
+    // p->cbs = p->tokenRate / 250; // bytes
     p->ebs = p->cbs * 4; // bytes
+    // printk(">>> ebs:%lld", p->ebs);
 
     // fill buckets at the begining
     p->tc = cbs; 
@@ -73,3 +75,8 @@ Color policePacket(TrafficPolicer* p, int pktLen) {
     spin_unlock(&p->lock); 
     return Red;
 }
+
+// void freeTrafficPolicer(struct pdr *pdr){
+//     kfree(pdr->ul_policer);
+//     kfree(pdr->dl_policer);
+// }

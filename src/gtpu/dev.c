@@ -51,7 +51,7 @@ static int gtp5g_dev_init(struct net_device *dev)
     if (!dev->tstats) {
         return -ENOMEM;
     }
-
+    
     return 0;
 }
 

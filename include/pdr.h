@@ -95,6 +95,7 @@ struct pdr {
     u64                     dl_byte_cnt;
 
     TrafficPolicer  *ul_policer, *dl_policer;   
+    struct my_queue *skb_queue;
 };
 
 extern void pdr_context_delete(struct pdr *);
@@ -117,5 +118,21 @@ static inline bool pdr_addr_is_netlink(struct pdr *pdr)
 {
     return (pdr->addr_unix.sun_path[0] == '/' && pdr->addr_unix.sun_path[1] == 0);
 }
+
+
+#define QUEUE_SIZE 10000
+struct my_queue {
+    struct sk_buff **buffer;
+    int size;
+    int front;
+    int rear;
+    spinlock_t lock;
+};
+
+extern int queue_init(struct pdr *);
+extern void queue_cleanup(struct pdr *);
+extern int enqueue_skb(struct pdr *, struct sk_buff *);
+extern struct sk_buff *dequeue_skb(struct pdr *);
+extern int queue_length(struct pdr *);
 
 #endif // __PDR_H__
