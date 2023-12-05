@@ -269,11 +269,22 @@ struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff *skb,
     }
 
     head = &gtp->i_teid_hash[u32_hashfn(teid) % gtp->hash_size];
+    printk("mm teid: %d", ntohl(teid));
+    if (pdr != NULL && pdr->pdi != NULL && pdr->pdi->f_teid != NULL) {
+        hlist_for_each_entry_rcu(pdr, head, hlist_i_teid) {
+            printk("mm ^^ seid:%lld, id:%d, teid: %d", pdr->seid, pdr->id, ntohl(pdr->pdi->f_teid->teid));
+        }
+    }
     hlist_for_each_entry_rcu(pdr, head, hlist_i_teid) {
+        printk("mm$ seid:%lld, id:%d", pdr->seid, pdr->id);
+        if (pdr != NULL && pdr->pdi != NULL && pdr->pdi->f_teid != NULL) {
+            printk("mm seid:%lld, id:%d, teid: %d", pdr->seid, pdr->id, ntohl(pdr->pdi->f_teid->teid));
+        }
         pdi = pdr->pdi;
         if (!pdi)
             continue;
 
+        
         // GTP-U packet must check teid
         if (!(pdi->f_teid && pdi->f_teid->teid == teid))
             continue;
@@ -373,10 +384,17 @@ void pdr_update_hlist_table(struct pdr *pdr, struct gtp5g_dev *gtp)
             else
                 break;
         }
-        if (!last_ppdr)
+        if (!last_ppdr){
             hlist_add_head_rcu(&pdr->hlist_i_teid, head);
-        else
+            printk("h seid:%lld, id:%d, teid: %d", pdr->seid, pdr->id, ntohl(pdr->pdi->f_teid->teid));
+        }
+        else{
             hlist_add_behind_rcu(&pdr->hlist_i_teid, &last_ppdr->hlist_i_teid);
+            printk("b seid:%lld, id:%d, teid: %d", pdr->seid, pdr->id, ntohl(pdr->pdi->f_teid->teid));
+        }
+        if (pdr != NULL && pdr->pdi != NULL && pdr->pdi->f_teid != NULL) {
+            printk("seid:%lld, id:%d, teid: %d", pdr->seid, pdr->id, ntohl(pdr->pdi->f_teid->teid));
+        }
     } else if (pdi->ue_addr_ipv4) {
         last_ppdr = NULL;
         head = &gtp->addr_hash[u32_hashfn(pdi->ue_addr_ipv4->s_addr) % gtp->hash_size];

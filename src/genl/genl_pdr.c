@@ -18,6 +18,10 @@
 #include "util.h"
 #include "far.h"
 
+#include "log.h"
+
+#include "hash.h"
+
 static int pdr_fill(struct pdr *, struct gtp5g_dev *, struct genl_info *);
 static int parse_pdi(struct pdr *, struct nlattr *);
 static int parse_f_teid(struct pdi *, struct nlattr *);
@@ -181,12 +185,17 @@ int gtp5g_genl_del_pdr(struct sk_buff *skb, struct genl_info *info)
         return -ENODEV;
     }
 
+    
     pdr = find_pdr_by_id(gtp, seid, pdr_id);
     if (!pdr) {
         rcu_read_unlock();
         return -ENOENT;
     }
 
+    if (pdr != NULL && pdr->pdi != NULL && pdr->pdi->f_teid != NULL) {
+        printk("del seid:%lld, id:%d, teid: %d", pdr->seid, pdr->id, ntohl(pdr->pdi->f_teid->teid));
+    }
+    
     del_related_urr_hash(gtp, pdr);
     del_related_qer_hash(gtp, pdr);
     del_related_far_hash(gtp, pdr);
@@ -405,8 +414,11 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
     struct nlattr *hdr = nlmsg_attrdata(info->nlhdr, 0);
     int remaining = nlmsg_attrlen(info->nlhdr, 0);
     struct far *far;
+    // int teidCount, teidList[10];
+    struct hlist_head *head;
 
     pdr->seid = 0;
+
 
     hdr = nla_next(hdr, &remaining);
     while (nla_ok(hdr, remaining)) {
@@ -489,8 +501,29 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
     if (unix_sock_client_update(pdr, far) < 0)
         return -EINVAL;
 
+    if (pdr != NULL && pdr->pdi != NULL && pdr->pdi->f_teid != NULL) {
+        printk("$$ seid:%lld, id:%d, teid: %d", pdr->seid, pdr->id, ntohl(pdr->pdi->f_teid->teid));
+    }
     // Update hlist table
     pdr_update_hlist_table(pdr, gtp);
+    
+    if (pdr != NULL && pdr->pdi != NULL && pdr->pdi->f_teid != NULL) {
+        head = &gtp->i_teid_hash[u32_hashfn(pdr->pdi->f_teid->teid) % gtp->hash_size];
+        hlist_for_each_entry_rcu(pdr, head, hlist_i_teid) {
+            printk("$$# seid:%lld, id:%d, teid: %d", pdr->seid, pdr->id, ntohl(pdr->pdi->f_teid->teid));
+        }
+    }
+    // if (pdr != NULL && pdr->pdi != NULL && pdr->pdi->f_teid != NULL) {
+    //     if (teidCount < 10) {
+    //         teidList[teidCount] = ntohl(pdr->pdi->f_teid->teid);
+    //         teidCount++;
+    //         if (teidCount == 10) {
+    //             GTP5G_ERR(gtp->dev, "pdr_fill : teid[%d, %d, %d, %d, %d, %d, %d, %d, %d, %d]\n", teidList[0], teidList[1], teidList[2], teidList[3], teidList[4],teidList[5], teidList[6], teidList[7], teidList[8], teidList[9]);
+    //             teidCount = 0;
+    //         }
+    //     }
+        
+    // }
 
     return 0;
 }
