@@ -30,6 +30,8 @@ int gtp5g_genl_get_usage_report(struct sk_buff *skb, struct genl_info *info)
     int err = 0;
     struct usage_report *report = NULL;
 
+    // printk("gtp5g_genl_get_usage_report");
+
     if (!info->attrs[GTP5G_LINK])
         return -EINVAL;
     ifindex = nla_get_u32(info->attrs[GTP5G_LINK]);
@@ -64,6 +66,8 @@ int gtp5g_genl_get_usage_report(struct sk_buff *skb, struct genl_info *info)
         err = -ENOENT;
         goto fail;
     }
+
+    printk("get_report SEID:%lld, URR id:%d", seid, urr_id);
 
     skb_ack = genlmsg_new(NLMSG_GOODSIZE, GFP_ATOMIC);
     if (!skb_ack) {
@@ -215,6 +219,13 @@ static int gtp5g_genl_fill_volume_measurement(struct sk_buff *skb, struct Volume
 {
     struct nlattr *nest_volume_measurement;
 
+    printk("totalVolume: %lld", bytes.totalVolume);
+    printk("uplinkVolume: %lld", bytes.uplinkVolume);
+    printk("downlinkVolume: %lld", bytes.downlinkVolume);
+
+    printk("totalPktNum: %lld", bytes.totalPktNum);
+    printk("uplinkPktNum: %lld", bytes.uplinkPktNum);
+    printk("downlinkPktNum: %lld", bytes.downlinkPktNum);
     nest_volume_measurement = nla_nest_start(skb, GTP5G_UR_VOLUME_MEASUREMENT);
     if (!nest_volume_measurement)
         return -EMSGSIZE;

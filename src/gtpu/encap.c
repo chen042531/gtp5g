@@ -525,6 +525,7 @@ static int unix_sock_send(struct pdr *pdr, struct far *far, void *buf, u32 len, 
 }
 
 bool increment_and_check_counter(struct VolumeMeasurement *volmeasure, struct Volume *volume, u64 vol, bool uplink, bool mnop){
+    //  printk("increment_and_check_counter");
     if (!volmeasure) {
         return false;
     }
@@ -546,15 +547,27 @@ bool increment_and_check_counter(struct VolumeMeasurement *volmeasure, struct Vo
 
     volmeasure->totalVolume = volmeasure->uplinkVolume + volmeasure->downlinkVolume;
 
+    // printk("1"); //here return
     if (!volume) {
         return false;
     }
 
+
+    // if (volume->flag & URR_VOLUME_TOVOL)
+    //     printk("URR_VOLUME_TOVOL");
+    // if (volume->flag & URR_VOLUME_ULVOL)
+    //     printk("URR_VOLUME_ULVOL");
+    // if (volume->flag & URR_VOLUME_DLVOL)
+    //     printk("URR_VOLUME_DLVOL");
+
     if (volume->totalVolume && (volmeasure->totalVolume >= volume->totalVolume) && (volume->flag & URR_VOLUME_TOVOL)) {
+        printk("TO");
         return true;
     } else if (volume->uplinkVolume && (volmeasure->uplinkVolume >= volume->uplinkVolume) && (volume->flag & URR_VOLUME_ULVOL)) {
+        printk("UL");
         return true;
     } else if (volume->downlinkVolume && (volmeasure->downlinkVolume >= volume->downlinkVolume) && (volume->flag & URR_VOLUME_DLVOL)) {
+        printk("DL");
         return true;
     }
 
@@ -615,15 +628,18 @@ int check_urr(struct pdr *pdr, struct far *far, u64 vol, u64 vol_mbqe, bool upli
                 }
                 // Caculate Volume measurement for each trigger
                 if (urr->trigger & URR_RPT_TRIGGER_VOLTH) {
+                    // printk("URR_RPT_TRIGGER_VOLTH");
                     if (increment_and_check_counter(&urr->bytes, &urr->volumethreshold, volume, uplink, mnop)) {
                         triggers[report_num] = USAR_TRIGGER_VOLTH;
                         urrs[report_num++] = urr;
                     }
                 } else {
-                    // For other triggers, only increment bytes
+                    // For other triggers, only increment bytes+
+                    // printk("else");
                     increment_and_check_counter(&urr->bytes, NULL, volume, uplink,mnop);
                 }
                 if (urr->trigger & URR_RPT_TRIGGER_VOLQU) {
+                    // printk("URR_RPT_TRIGGER_VOLQU");
                     if (increment_and_check_counter(&urr->consumed, &urr->volumequota, volume, uplink, mnop)) {
                         triggers[report_num] = USAR_TRIGGER_VOLQU;
                         urrs[report_num++] = urr;
