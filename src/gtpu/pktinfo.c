@@ -50,6 +50,7 @@ u64 ip4_rm_header(struct sk_buff *skb, unsigned int hdrlen) {
     skb_copy = &tmp;
 
     volume = skb->len;
+    printk("ip4_rm_header vol:%lld", volume);
     if (hdrlen > 0) {
         // packets with gtp header
         volume -= hdrlen;
@@ -59,6 +60,7 @@ u64 ip4_rm_header(struct sk_buff *skb, unsigned int hdrlen) {
 
     // packets without gtp header
     volume -= network_and_transport_header_len(skb_copy);
+    printk("-- volume:%lld", volume);
     return volume;
 }
 

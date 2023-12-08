@@ -542,6 +542,7 @@ bool increment_and_check_counter(struct VolumeMeasurement *volmeasure, struct Vo
     if (uplink) {
         volmeasure->uplinkVolume += vol;
     } else {
+        // printk("dlVol: %lld",  volmeasure->downlinkVolume);
         volmeasure->downlinkVolume += vol;
     }
 
@@ -918,12 +919,14 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     GTP5G_INF(NULL, "PDR (%u) DL_PKT_CNT (%llu) DL_BYTE_CNT (%llu)", pdr->id, pdr->dl_pkt_cnt, pdr->dl_byte_cnt);
 
     volume = ip4_rm_header(skb, 0);
+    printk(">>>$ volume: %lld", volume);
 
     gtp5g_push_header(skb, pktinfo);
 
     if (pdr->urr_num != 0) {
         if (check_urr(pdr, far, volume, volume_mbqe, false) < 0)
             GTP5G_ERR(pdr->dev, "Fail to send Usage Report");
+        printk("---------");
     }
 
     return FAR_ACTION_FORW;
