@@ -561,18 +561,126 @@ bool increment_and_check_counter(struct VolumeMeasurement *volmeasure, struct Vo
     return false;
 }
 
+int gen_usage_report(u32 report_num, u32 *triggers, struct urr **urrs, struct usage_report *report) {
+    int i;
+    u64 len;
+    if (!triggers || !urrs || !report){
+        return -1;
+    }
+    if (report_num > 0) {
+        len = sizeof(*report) * report_num;
+
+        report = kzalloc(len, GFP_ATOMIC);
+        if (!report) {
+            return -1;
+        }
+
+        for (i = 0; i < report_num; i++) {               
+            convert_urr_to_report(urrs[i], &report[i]);
+
+            report[i].trigger = triggers[i];
+        }
+    }
+    return 0;
+}
+
+int send_usage_report(struct pdr *pdr, struct far *far, u32 report_num, struct usage_report *report) {
+    u64 len;
+    struct sk_buff *skb;
+    if (!pdr || !far || !report){
+        return -1;
+    }
+    if (report_num > 0) {
+        len = sizeof(*report) * report_num;
+        if (pdr_addr_is_netlink(pdr)) {
+            if (netlink_send(pdr, far, skb, dev_net(pdr->dev), report, report_num) < 0) {
+                GTP5G_ERR(pdr->dev, "Failed to send report to netlink socket PDR(%u)", pdr->id);
+                return -1;
+            }
+        } else {
+            if (unix_sock_send(pdr, far, report, len, report_num) < 0) {
+                GTP5G_ERR(pdr->dev, "Failed to send report to unix domain socket PDR(%u)", pdr->id);
+                return -1;
+            }
+        }
+    }
+    return 0;
+}
+
+int check_urr_trigger_start(struct pdr *pdr, struct far *far, bool uplink) {
+    struct gtp5g_dev *gtp = netdev_priv(pdr->dev);
+    int i;
+    int ret = 1;
+    u32 report_num = 0;
+    u32 *triggers = NULL;
+    struct urr *urr, **urrs = NULL;
+    struct usage_report *report = NULL;
+    
+    urrs = kzalloc(sizeof(struct urr *) * pdr->urr_num , GFP_ATOMIC);
+    triggers = kzalloc(sizeof(u32) * pdr->urr_num , GFP_ATOMIC);
+    if (!urrs || !triggers) {
+        ret = -1;
+        goto err1;
+    }
+
+    for (i = 0; i < pdr->urr_num; i++) {
+        urr = find_urr_by_id(gtp, pdr->seid,  pdr->urr_ids[i]);
+
+        if (!(urr->info & URR_INFO_INAM)) {
+            if (urr->method & URR_METHOD_VOLUM) {
+                if (urr->trigger == 0) {
+                    GTP5G_ERR(pdr->dev, "no supported trigger(%u) in URR(%u) and related to PDR(%u)",
+                        urr->trigger, urr->id, pdr->id);
+                    ret = 0;
+                    goto err1;
+                }
+
+                if (urr->trigger & URR_RPT_TRIGGER_START && uplink) {
+                    triggers[report_num] = USAR_TRIGGER_START;
+                    urrs[report_num++] = urr;
+                    urr_quota_exhaust_action(urr, gtp);
+                    GTP5G_TRC(NULL, "URR (%u) Start of Service Data Flow, stop measure until recieve quota", urr->id);
+                    continue;
+                }
+            }
+        } else {
+            GTP5G_TRC(pdr->dev, "URR stop measurement");
+        }
+    }
+
+    ret = gen_usage_report(report_num, triggers, urrs, report);
+    if (ret < 0) {
+        goto err1;
+    }
+
+    ret = send_usage_report(pdr, far, report_num, report);
+    if (ret < 0) {
+        goto err1;
+    }
+
+err1:
+    if (report) {
+        kfree(report);
+    }
+    if (urrs) {
+        kfree(urrs);
+    }
+    if (triggers) {
+        kfree(triggers);
+    }
+    return ret;
+}
+
 int check_urr(struct pdr *pdr, struct far *far, u64 vol, u64 vol_mbqe, bool uplink, bool drop_pkt) {
     struct gtp5g_dev *gtp = netdev_priv(pdr->dev);
     int i;
     int ret = 1;
     u64 volume;
-    u64 len;
     u32 report_num = 0;
     u32 *triggers = NULL;
     struct urr *urr, **urrs = NULL;
     struct usage_report *report = NULL;
     bool mnop;
-    struct sk_buff *skb;
     
     urrs = kzalloc(sizeof(struct urr *) * pdr->urr_num , GFP_ATOMIC);
     triggers = kzalloc(sizeof(u32) * pdr->urr_num , GFP_ATOMIC);
@@ -636,38 +744,15 @@ int check_urr(struct pdr *pdr, struct far *far, u64 vol, u64 vol_mbqe, bool upli
             GTP5G_TRC(pdr->dev, "URR stop measurement");
         }
     }
-    if (report_num > 0) {
-        len = sizeof(*report) * report_num;
 
-        report = kzalloc(len, GFP_ATOMIC);
-        if (!report) {
-            ret = -1;
-            goto err1;
-        }
+    ret = gen_usage_report(report_num, triggers, urrs, report);
+    if (ret < 0) {
+        goto err1;
+    }
 
-        for (i = 0; i < report_num; i++) {
-            // TODO: FAR ID for Quota Action IE for indicating the action while no quota is granted
-            if (triggers[i] == USAR_TRIGGER_START){
-                ret = DONT_SEND_UL_PACKET;
-            }                 
-            convert_urr_to_report(urrs[i], &report[i]);
-
-            report[i].trigger = triggers[i];
-        }
-
-        if (pdr_addr_is_netlink(pdr)) {
-            if (netlink_send(pdr, far, skb, dev_net(pdr->dev), report, report_num) < 0) {
-                GTP5G_ERR(pdr->dev, "Failed to send report to netlink socket PDR(%u)", pdr->id);
-                ret = -1;
-                goto err1;
-            }
-        } else {
-            if (unix_sock_send(pdr, far, report, len, report_num) < 0) {
-                GTP5G_ERR(pdr->dev, "Failed to send report to unix domain socket PDR(%u)", pdr->id);
-                ret = -1;
-                goto err1;
-            }
-        }
+    ret = send_usage_report(pdr, far, report_num, report);
+    if (ret < 0) {
+        goto err1;
     }
 
 err1:
