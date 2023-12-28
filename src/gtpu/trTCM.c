@@ -26,8 +26,7 @@ TrafficPolicer* newTrafficPolicer(u64 tokenRate) {
     return p;
 } 
 
-
-Color policePacket(TrafficPolicer* p, int pktLen) {
+void refillToken(TrafficPolicer* p) {
     u64 tokensToAdd;
     u64 tc, te;
     u64 elapsed;
@@ -49,7 +48,21 @@ Color policePacket(TrafficPolicer* p, int pktLen) {
         }
         tc = p->cbs; 
     }
-   
+
+    p->te = te;
+    p->tc = tc;
+    spin_unlock(&p->lock);
+}
+
+Color policePacket(TrafficPolicer* p, int pktLen) {
+    u64 tc, te;
+
+    refillToken(p);
+
+    spin_lock(&p->lock); 
+
+    tc = p->tc;
+    te = p->te;   
     
     if (p->tc >= pktLen) {
         p->tc = tc - pktLen;

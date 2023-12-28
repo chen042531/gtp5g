@@ -873,7 +873,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
             uh->check = 0;
 
             if (pdr->urr_num != 0) {
-                ret = check_urr(pdr, far, volume, volume_mbqe, true, drop_pkt);
+                ret = check_urr_trigger_start(pdr, far, true);
                 if (ret < 0) {
                     if (ret == DONT_SEND_UL_PACKET) {
                         GTP5G_ERR(pdr->dev, "Should not foward the first uplink packet");
@@ -890,6 +890,10 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
             if (ip_xmit(skb, pdr->sk, dev) < 0) {
                 GTP5G_ERR(dev, "Failed to transmit skb through ip_xmit\n");
                 return -1;
+            }
+            if (pdr->urr_num != 0) {
+                if (check_urr(pdr, far, volume, volume_mbqe, true, drop_pkt) < 0)
+                    GTP5G_ERR(pdr->dev, "Fail to send Usage Report");
             }
 
             return 0;
@@ -933,18 +937,18 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     pdr->ul_pkt_cnt++;
     pdr->ul_byte_cnt += skb->len; /* length without GTP header */
     GTP5G_INF(NULL, "PDR (%u) UL_PKT_CNT (%llu) UL_BYTE_CNT (%llu)", pdr->id, pdr->ul_pkt_cnt, pdr->ul_byte_cnt);    
- 
-    if (pdr->urr_num != 0) {
-        if (check_urr(pdr, far, volume, volume_mbqe, true, drop_pkt) < 0)
-            GTP5G_ERR(pdr->dev, "Fail to send Usage Report");
-    }
-    
+   
     if (color == Red){
         return -1;
     }
     ret = netif_rx(skb);
     if (ret != NET_RX_SUCCESS) {
         GTP5G_ERR(dev, "Uplink: Packet got dropped\n");
+        return -1;
+    }
+    if (pdr->urr_num != 0) {
+        if (check_urr(pdr, far, volume, volume_mbqe, true, drop_pkt) < 0)
+            GTP5G_ERR(pdr->dev, "Fail to send Usage Report");
     }
 
     return 0;
