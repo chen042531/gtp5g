@@ -891,6 +891,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
                 GTP5G_ERR(dev, "Failed to transmit skb through ip_xmit\n");
                 return -1;
             }
+            update_policer_token(tp);
             if (pdr->urr_num != 0) {
                 if (check_urr(pdr, far, volume, volume_mbqe, true, drop_pkt) < 0)
                     GTP5G_ERR(pdr->dev, "Fail to send Usage Report");
@@ -946,6 +947,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
         GTP5G_ERR(dev, "Uplink: Packet got dropped\n");
         return -1;
     }
+    update_policer_token(tp);
     if (pdr->urr_num != 0) {
         if (check_urr(pdr, far, volume, volume_mbqe, true, drop_pkt) < 0)
             GTP5G_ERR(pdr->dev, "Fail to send Usage Report");
@@ -1030,13 +1032,19 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
 
     gtp5g_push_header(skb, pktinfo);
 
+    if (color == Red){
+        return -1;
+    }
+
+    gtp5g_xmit_skb_ipv4(skb, pktinfo);
+    
+    update_policer_token(tp);
+    
     if (pdr->urr_num != 0) {
         if (check_urr(pdr, far, volume, volume_mbqe, false, drop_pkt) < 0)
             GTP5G_ERR(pdr->dev, "Fail to send Usage Report");
     }
-    if (color == Red){
-        return -1;
-    }
+
     return FAR_ACTION_FORW;
 err:
     return -EBADMSG;

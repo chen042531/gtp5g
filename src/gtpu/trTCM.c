@@ -63,24 +63,33 @@ Color policePacket(TrafficPolicer* p, int pktLen) {
 
     tc = p->tc;
     te = p->te;   
-    
-    if (p->tc >= pktLen) {
-        p->tc = tc - pktLen;
-        p->te = te;
+
+    if (tc >= pktLen) {
+        p->tmp_tc = tc - pktLen;
+        p->tmp_te = te;
         spin_unlock(&p->lock); 
         return Green;
     }
 
-    if (p->te >= pktLen) {
-        p->tc = tc;
-        p->te = te - pktLen;
+    if (p->tmp_te >= pktLen) {
+        p->tmp_tc = tc;
+        p->tmp_te = te - pktLen;
         spin_unlock(&p->lock); 
         return Yellow;
     }
 
-    p->tc = tc;
-    p->te = te;
+    p->tmp_tc = tc;
+    p->tmp_te = te;
 
     spin_unlock(&p->lock); 
     return Red;
+}
+
+void update_policer_token(TrafficPolicer* p) {
+    spin_lock(&p->lock); 
+
+    p->tc = p->tmp_tc;
+    p->te = p->tmp_te; 
+
+    spin_unlock(&p->lock); 
 }

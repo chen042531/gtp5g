@@ -10,6 +10,9 @@ typedef struct {
     u64 cbs;
     u64 ebs;
     
+    u64 tmp_tc;
+    u64 tmp_te;
+
     u64 tc;
     u64 te;  
 
@@ -22,3 +25,4 @@ typedef struct {
 extern TrafficPolicer* newTrafficPolicer(u64);
 extern void refillTokens(TrafficPolicer*); 
 extern Color policePacket(TrafficPolicer*, int);
+extern void update_policer_token(TrafficPolicer*);
