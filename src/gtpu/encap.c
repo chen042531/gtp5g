@@ -841,12 +841,6 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     if (get_qos_enable() && tp != NULL){
         color = policePacket(tp, volume_mbqe);
     }
-    if (color == Red){
-        volume = 0;
-        drop_pkt = true;
-    }else{
-        volume = volume_mbqe;
-    }
 
     if (fwd_param) {
         if ((fwd_policy = fwd_param->fwd_policy))
@@ -884,14 +878,15 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
                 }
             }
 
-            if (color == Red){
-                return -1;
+            if (color != Red && ip_xmit(skb, pdr->sk, dev) == 0){
+                volume = volume_mbqe;
+                update_policer_token(tp);
+            } else{
+                volume = 0;
+                drop_pkt = true;
+                dev_kfree_skb(skb);
             }
-            if (ip_xmit(skb, pdr->sk, dev) < 0) {
-                GTP5G_ERR(dev, "Failed to transmit skb through ip_xmit\n");
-                return -1;
-            }
-            update_policer_token(tp);
+            
             if (pdr->urr_num != 0) {
                 if (check_urr(pdr, far, volume, volume_mbqe, true, drop_pkt) < 0)
                     GTP5G_ERR(pdr->dev, "Fail to send Usage Report");
@@ -939,15 +934,15 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     pdr->ul_byte_cnt += skb->len; /* length without GTP header */
     GTP5G_INF(NULL, "PDR (%u) UL_PKT_CNT (%llu) UL_BYTE_CNT (%llu)", pdr->id, pdr->ul_pkt_cnt, pdr->ul_byte_cnt);    
    
-    if (color == Red){
-        return -1;
+    if (color != Red && netif_rx(skb)== NET_RX_SUCCESS){
+        volume = volume_mbqe;
+        update_policer_token(tp);
+    } else{
+        volume = 0;
+        drop_pkt = true;
+        dev_kfree_skb(skb);
     }
-    ret = netif_rx(skb);
-    if (ret != NET_RX_SUCCESS) {
-        GTP5G_ERR(dev, "Uplink: Packet got dropped\n");
-        return -1;
-    }
-    update_policer_token(tp);
+    
     if (pdr->urr_num != 0) {
         if (check_urr(pdr, far, volume, volume_mbqe, true, drop_pkt) < 0)
             GTP5G_ERR(pdr->dev, "Fail to send Usage Report");
@@ -1023,22 +1018,20 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     if (get_qos_enable() && tp != NULL){
         color = policePacket(tp, volume_mbqe);
     }
-    if (color == Red){
-        volume = 0;
-        drop_pkt = true;
-    }else{
-        volume = volume_mbqe;
-    }
 
     gtp5g_push_header(skb, pktinfo);
 
-    if (color == Red){
-        return -1;
+    if (color != Red){
+        // udp_tunnel_xmit_skb in gtp5g_xmit_skb_ipv4 is used to send udp packets 
+        // udp_tunnel_xmit_skb return is void
+        gtp5g_xmit_skb_ipv4(skb, pktinfo);
+        update_policer_token(tp);
+        volume = volume_mbqe;
+    } else{
+        volume = 0;
+        drop_pkt = true;
+        dev_kfree_skb(skb);
     }
-
-    gtp5g_xmit_skb_ipv4(skb, pktinfo);
-    
-    update_policer_token(tp);
     
     if (pdr->urr_num != 0) {
         if (check_urr(pdr, far, volume, volume_mbqe, false, drop_pkt) < 0)
