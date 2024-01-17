@@ -808,6 +808,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
             }
 
             if (color == Red) {
+                kfree_skb(skb);
                 return COLOR_RED_DROP;
             }
             if (ip_xmit(skb, pdr->sk, dev) < 0) {
@@ -863,6 +864,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     }
     
     if (color == Red) {
+        kfree_skb(skb);
         return COLOR_RED_DROP;
     }
     ret = netif_rx(skb);
@@ -957,6 +959,7 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
             GTP5G_ERR(pdr->dev, "Fail to send Usage Report");
     }
     if (color == Red) {
+        kfree_skb(skb);
         return COLOR_RED_DROP;
     }
     return FAR_ACTION_FORW;
