@@ -754,7 +754,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
 
     TrafficPolicer* tp = NULL;
     Color color = Green;
-    struct qer *qer_with_rate = NULL;
+    struct qer __rcu *qer_with_rate = NULL;
     
     if (gtp1->type == GTPV1_MSG_TYPE_TPDU)
         volume_mbqe = ip4_rm_header(skb, hdrlen);
@@ -764,8 +764,10 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
         tp = qer_with_rate->ul_policer;
     if (get_qos_enable() && tp != NULL) {
         color = policePacket(tp, volume_mbqe);
+        // printk("color: %d", color);
     }
     if (color == Red) {
+        //  printk("red");
         volume = 0;
     } else {
         volume = volume_mbqe;
@@ -898,7 +900,7 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     TrafficPolicer* tp = NULL;
     Color color = Green;
     bool drop_pkt = false;
-    struct qer *qer_with_rate = NULL;
+    struct qer __rcu *qer_with_rate = NULL;
     
 
     if (!far) {

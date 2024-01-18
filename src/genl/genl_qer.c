@@ -322,6 +322,9 @@ static int qer_fill(struct qer *qer, struct gtp5g_dev *gtp, struct genl_info *in
 
         qer->ul_mbr = concat_bit_rate(qer->mbr.ul_high, qer->mbr.ul_low);
         qer->dl_mbr = concat_bit_rate(qer->mbr.dl_high, qer->mbr.dl_low);
+        printk("GTP5G_QER_MBR");
+        printk("qer->ul_mbr: %lld", qer->ul_mbr);
+        printk("qer->dl_mbr: %lld", qer->dl_mbr);
         qer->ul_policer = newTrafficPolicer(qer->ul_mbr);
         qer->dl_policer = newTrafficPolicer(qer->dl_mbr);
     }
