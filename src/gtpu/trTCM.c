@@ -48,14 +48,22 @@ Color policePacket(TrafficPolicer* p, int pktLen) {
     // the total time elapsed since the last token refill
     p->refillTokenTime = p->refillTokenTime + elapsed;
 
-    if (p->refillTokenTime >= REFILL_TOKEN_INTERVAL) {
-        u64 n = p->refillTokenTime / REFILL_TOKEN_INTERVAL;
-        p->refillTokenTime -= n * REFILL_TOKEN_INTERVAL;
-        // 1 token = 1 byte
-        refillTokens = p->byteRate * n * REFILL_TOKEN_INTERVAL / NANOSECONDS_PER_SECOND;
-    } else {
-        refillTokens = 0;
+    refillTokens = p->byteRate * p->refillTokenTime / NANOSECONDS_PER_SECOND;
+
+    if (refillTokens > 0) {
+        u64 remainTime = (
+            p->byteRate * p->refillTokenTime % NANOSECONDS_PER_SECOND
+            ) * NANOSECONDS_PER_SECOND / p->byteRate;
+        p->refillTokenTime = remainTime;
     }
+    // if (p->refillTokenTime >= REFILL_TOKEN_INTERVAL) {
+    //     u64 n = p->refillTokenTime / REFILL_TOKEN_INTERVAL;
+    //     p->refillTokenTime -= n * REFILL_TOKEN_INTERVAL;
+    //     // 1 token = 1 byte
+    //     refillTokens = p->byteRate * n * REFILL_TOKEN_INTERVAL / NANOSECONDS_PER_SECOND;
+    // } else {
+    //     refillTokens = 0;
+    // }
  
     tc = p->tc + refillTokens;
     te = p->te;
