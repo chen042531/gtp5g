@@ -253,3 +253,11 @@ int urr_set_pdr(struct pdr *pdr, struct gtp5g_dev *gtp)
     }
     return 0;
 }
+
+struct VolumeMeasurement *get_usage_report_counter(struct urr *urr){
+    u64 now = ktime_get_ns();
+    if ((now/urr->period)%2) {
+        return &urr->bytes2;
+    } 
+    return &urr->bytes;
+}
