@@ -254,10 +254,13 @@ int urr_set_pdr(struct pdr *pdr, struct gtp5g_dev *gtp)
     return 0;
 }
 
-struct VolumeMeasurement *get_usage_report_counter(struct urr *urr){
+struct VolumeMeasurement *get_usage_report_counter(struct urr *urr, bool previous_counter){
     u64 now = ktime_get_ns();
-    if ((now/urr->period)%2) {
+    printk("get counter time:%lld, period:%d", now, urr->period);
+    if (((now/urr->period)%2) && previous_counter) {
+        printk(">>> B");
         return &urr->bytes2;
     } 
+    printk(">>> A");
     return &urr->bytes;
 }

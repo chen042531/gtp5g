@@ -625,7 +625,7 @@ int update_urr_counter_and_send_report(struct pdr *pdr, struct far *far, u64 vol
                     volume = vol;
                 }
                 // Caculate Volume measurement for each trigger
-                urr_counter = get_usage_report_counter(urr);
+                urr_counter = get_usage_report_counter(urr, false);
                 if (urr->trigger & URR_RPT_TRIGGER_VOLTH) {
                     if (increment_and_check_counter(urr_counter, &urr->volumethreshold, volume, uplink, mnop)) {
                         triggers[report_num] = USAR_TRIGGER_VOLTH;
