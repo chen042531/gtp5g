@@ -341,7 +341,8 @@ static int urr_fill(struct urr *urr, struct gtp5g_dev *gtp, struct genl_info *in
 
     if (info->attrs[GTP5G_URR_MEASUREMENT_PERIOD])
         urr->period = nla_get_u32(info->attrs[GTP5G_URR_MEASUREMENT_PERIOD]);
-
+    printk(">>>> GTP5G_URR_MEASUREMENT_PERIOD:%x", urr->period);
+    printk(">>>> GTP5G_URR_MEASUREMENT_PERIOD:%d", urr->period);
     if (info->attrs[GTP5G_URR_MEASUREMENT_INFO])
         urr->info = nla_get_u8(info->attrs[GTP5G_URR_MEASUREMENT_INFO]);
 
