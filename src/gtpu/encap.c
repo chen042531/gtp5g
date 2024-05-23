@@ -747,6 +747,7 @@ out:
 static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     unsigned int hdrlen, struct pdr *pdr, struct far *far)
 {
+    struct gtp5g_dev *gtp_dev = netdev_priv(dev);
     struct forwarding_parameter *fwd_param = rcu_dereference(far->fwd_param);
     struct outer_header_creation *hdr_creation;
     struct forwarding_policy *fwd_policy;
@@ -877,6 +878,20 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
         GTP5G_ERR(dev, "Uplink: Packet got dropped\n");
     }
 
+    if (pdr->pdi) {
+        switch (pdr->pdi->srcIntf) {
+            case SRC_INTF_ACCESS:
+                gtp_dev->total_ul_pkt_cnt++;
+                break;
+            case SRC_INTF_CORE:
+                gtp_dev->total_dl_pkt_cnt++;
+                break;
+            default:
+                GTP5G_ERR(dev, "unknown srcIntf type\n");
+                break;
+        }
+    }
+    
     return PKT_FORWARDED;
 }
 
@@ -893,6 +908,7 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     struct net_device *dev, struct gtp5g_pktinfo *pktinfo, 
     struct pdr *pdr, struct far *far)
 {
+    struct gtp5g_dev *gtp_dev = netdev_priv(dev);
     struct rtable *rt;
     struct flowi4 fl4;
     struct iphdr *iph = ip_hdr(skb);
@@ -966,6 +982,21 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
         GTP5G_TRC(pdr->dev, "Drop red packet");
         return PKT_DROPPED;
     }
+
+    if (pdr->pdi) {
+        switch (pdr->pdi->srcIntf) {
+            case SRC_INTF_ACCESS:
+                gtp_dev->total_ul_pkt_cnt++;
+                break;
+            case SRC_INTF_CORE:
+                gtp_dev->total_dl_pkt_cnt++;
+                break;
+            default:
+                GTP5G_ERR(dev, "unknown srcIntf type\n");
+                break;
+        }
+    }
+
     return FAR_ACTION_FORW;
 err:
     return -EBADMSG;
