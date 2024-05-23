@@ -18,7 +18,7 @@
 static int gtp5g_genl_fill_volume_measurement(struct sk_buff *, struct VolumeMeasurement);
 static int parse_seid_urr(struct seid_urr *, struct nlattr *);
 
-static int gtp5g_genl_fill_ul_dl(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
+static int gtp5g_genl_fill_ul_dl(struct gtp5g_dev *gtp_dev , struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
         u32 type)
 {
     void *genlh;
@@ -27,9 +27,9 @@ static int gtp5g_genl_fill_ul_dl(struct sk_buff *skb, u32 snd_portid, u32 snd_se
     if (!genlh)
         goto genlmsg_fail;
 
-    if (nla_put_u64_64bit(skb, GTP5G_UL, (u64)1, 0))
+    if (nla_put_u64_64bit(skb, GTP5G_UL, gtp_dev->total_ul_pkt_cnt, 0))
         return -EMSGSIZE;
-    if (nla_put_u64_64bit(skb, GTP5G_DL, (u64)2, 0))
+    if (nla_put_u64_64bit(skb, GTP5G_DL, gtp_dev->total_dl_pkt_cnt, 0))
         return -EMSGSIZE;
 
     genlmsg_end(skb, genlh);
@@ -44,14 +44,34 @@ int gtp5g_genl_get_ul_dl_report(struct sk_buff *skb, struct genl_info *info)
 {
     struct sk_buff *skb_ack;
     int err;
+    int ifindex;
+    int netnsfd;
+    struct gtp5g_dev *gtp_dev;
 
+    if (!info->attrs[GTP5G_LINK])
+        return -EINVAL;
+    ifindex = nla_get_u32(info->attrs[GTP5G_LINK]);
+
+    if (info->attrs[GTP5G_NET_NS_FD])
+        netnsfd = nla_get_u32(info->attrs[GTP5G_NET_NS_FD]);
+    else
+        netnsfd = -1;
+
+    rcu_read_lock();
+
+    gtp_dev = gtp5g_find_dev(sock_net(skb->sk), ifindex, netnsfd);
+    if (!gtp_dev) {
+        err = -ENODEV;
+        goto fail;
+    }
+    
     printk("haha2");
     skb_ack = genlmsg_new(NLMSG_GOODSIZE, GFP_ATOMIC);
     if (!skb_ack) {
         return -ENOMEM;
     }
 
-    err = gtp5g_genl_fill_ul_dl(skb_ack,
+    err = gtp5g_genl_fill_ul_dl(gtp_dev, skb_ack,
             NETLINK_CB(skb).portid,
             info->snd_seq,
             info->nlhdr->nlmsg_type);
@@ -60,6 +80,16 @@ int gtp5g_genl_get_ul_dl_report(struct sk_buff *skb, struct genl_info *info)
         return err;
     }
 
+fail:
+    if (err) {
+        if (skb_ack) {
+            kfree_skb(skb_ack);
+        }
+        rcu_read_unlock();
+        return err;
+    }
+
+    rcu_read_unlock();
     return genlmsg_unicast(genl_info_net(info), skb_ack, info->snd_portid);
 }
 
