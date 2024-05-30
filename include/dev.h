@@ -28,6 +28,13 @@ struct gtp5g_dev {
     
     /* Used by proc interface */
     struct list_head proc_list;
+
+
+    /* Packet Statistics */
+    u64                     total_ul_pkt_cnt;
+    u64                     total_dl_pkt_cnt;
+    u64                     total_ul_byte_cnt;
+    u64                     total_dl_byte_cnt;
 };
 
 extern const struct net_device_ops gtp5g_netdev_ops;
