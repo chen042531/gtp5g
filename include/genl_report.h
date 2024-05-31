@@ -41,8 +41,15 @@ enum gtp5g_multi_usage_report_attrs {
 };
 
 enum gtp5g_ul_dl_report_attrs {
-    GTP5G_UL = 1,
-    GTP5G_DL,
+    GTP5G_UPLINK_VOL_RX = 1,
+    GTP5G_UPLINK_VOL_TX,
+    GTP5G_DOWNLINK_VOL_RX,
+	GTP5G_DOWNLINK_VOL_TX,
+
+	GTP5G_UPLINK_PKT_RX,
+	GTP5G_UPLINK_PKT_TX,
+	GTP5G_DOWNLINK_PKT_RX,
+	GTP5G_DOWNLINK_PKT_TX,
 
     __GTP5G_ULDL_ATTR_MAX,
 };

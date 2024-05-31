@@ -31,10 +31,15 @@ struct gtp5g_dev {
 
 
     /* Packet Statistics */
-    u64                     total_ul_pkt_cnt;
-    u64                     total_dl_pkt_cnt;
-    u64                     total_ul_byte_cnt;
-    u64                     total_dl_byte_cnt;
+    u64                     total_ul_byte_cnt_rx;
+    u64                     total_ul_byte_cnt_tx;
+    u64                     total_dl_byte_cnt_rx;
+    u64                     total_dl_byte_cnt_tx;
+
+    u64                     total_ul_pkt_cnt_rx;
+    u64                     total_ul_pkt_cnt_tx;
+    u64                     total_dl_pkt_cnt_rx;
+    u64                     total_dl_pkt_cnt_tx;
 };
 
 extern const struct net_device_ops gtp5g_netdev_ops;
