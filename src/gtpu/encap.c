@@ -881,10 +881,10 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     if (pdr->pdi) {
         switch (pdr->pdi->srcIntf) {
             case SRC_INTF_ACCESS:
-                gtp_dev->total_ul_pkt_cnt++;
+                gtp_dev->total_ul_pkt_cnt_rx++;
                 break;
             case SRC_INTF_CORE:
-                gtp_dev->total_dl_pkt_cnt++;
+                gtp_dev->total_dl_pkt_cnt_rx++;
                 break;
             default:
                 GTP5G_ERR(dev, "unknown srcIntf type\n");
@@ -986,10 +986,10 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     if (pdr->pdi) {
         switch (pdr->pdi->srcIntf) {
             case SRC_INTF_ACCESS:
-                gtp_dev->total_ul_pkt_cnt++;
+                gtp_dev->total_ul_pkt_cnt_rx++;
                 break;
             case SRC_INTF_CORE:
-                gtp_dev->total_dl_pkt_cnt++;
+                gtp_dev->total_dl_pkt_cnt_rx++;
                 break;
             default:
                 GTP5G_ERR(dev, "unknown srcIntf type\n");
