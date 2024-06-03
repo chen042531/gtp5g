@@ -125,11 +125,19 @@ static int gtp5g_encap_recv(struct sock *sk, struct sk_buff *skb)
 {
     struct gtp5g_dev *gtp;
     int ret = 0;
+    u64 total_ul_byte_cnt_tx = 0, total_ul_pkt_cnt_tx = 0,
+        total_dl_byte_cnt_tx = 0, total_dl_pkt_cnt_tx = 0;
 
     gtp = rcu_dereference_sk_user_data(sk);
     if (!gtp) {
         return 1;
     }
+
+    /* copy old count of tx */
+    total_ul_byte_cnt_tx = gtp->total_ul_byte_cnt_tx;
+    total_ul_pkt_cnt_tx = gtp->total_ul_pkt_cnt_tx;
+    total_dl_byte_cnt_tx = gtp->total_dl_byte_cnt_tx;
+    total_dl_pkt_cnt_tx = gtp->total_dl_pkt_cnt_tx;
 
     switch (udp_sk(sk)->encap_type) {
     case UDP_ENCAP_GTP1U:
@@ -154,6 +162,14 @@ static int gtp5g_encap_recv(struct sock *sk, struct sk_buff *skb)
         GTP5G_ERR(gtp->dev, "Unhandled return value from gtp1u_udp_encap_recv\n");
     }
 
+    if (ret != PKT_FORWARDED) {
+        gtp->total_ul_byte_cnt_tx = total_ul_byte_cnt_tx;
+        gtp->total_ul_pkt_cnt_tx = total_ul_pkt_cnt_tx;
+        /* for i-upf case */
+        gtp->total_dl_byte_cnt_tx = total_dl_byte_cnt_tx;
+        gtp->total_dl_pkt_cnt_tx = total_dl_pkt_cnt_tx;
+    }
+    
     return ret;
 }
 
@@ -764,6 +780,26 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     
     if (gtp1->type == GTPV1_MSG_TYPE_TPDU)
         volume_mbqe = ip4_rm_header(skb, hdrlen);
+    
+    if (pdr->pdi) {
+        switch (pdr->pdi->srcIntf) {
+            case SRC_INTF_ACCESS:
+                gtp_dev->total_ul_pkt_cnt_rx++;
+                gtp_dev->total_ul_byte_cnt_rx += volume_mbqe;
+                gtp_dev->total_ul_pkt_cnt_tx++;
+                gtp_dev->total_ul_byte_cnt_tx += volume_mbqe;
+                break;
+            case SRC_INTF_CORE:
+                gtp_dev->total_dl_pkt_cnt_rx++;
+                gtp_dev->total_dl_byte_cnt_rx += volume_mbqe;
+                gtp_dev->total_dl_pkt_cnt_tx++;
+                gtp_dev->total_dl_byte_cnt_tx += volume_mbqe;
+                break;
+            default:
+                GTP5G_ERR(dev, "unknown srcIntf type\n");
+                break;
+        }
+    }
 
     qer_with_rate = rcu_dereference(pdr->qer_with_rate);
     if (qer_with_rate != NULL)
@@ -877,20 +913,6 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     if (ret != NET_RX_SUCCESS) {
         GTP5G_ERR(dev, "Uplink: Packet got dropped\n");
     }
-
-    if (pdr->pdi) {
-        switch (pdr->pdi->srcIntf) {
-            case SRC_INTF_ACCESS:
-                gtp_dev->total_ul_pkt_cnt_rx++;
-                break;
-            case SRC_INTF_CORE:
-                gtp_dev->total_dl_pkt_cnt_rx++;
-                break;
-            default:
-                GTP5G_ERR(dev, "unknown srcIntf type\n");
-                break;
-        }
-    }
     
     return PKT_FORWARDED;
 }
@@ -960,6 +982,12 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
 
     volume_mbqe = ip4_rm_header(skb, 0);
 
+    // update downlink packet count
+    gtp_dev->total_dl_pkt_cnt_rx++;
+    gtp_dev->total_dl_byte_cnt_rx += volume_mbqe;
+    gtp_dev->total_dl_pkt_cnt_tx++;
+    gtp_dev->total_dl_byte_cnt_tx += volume_mbqe;
+
     qer_with_rate = rcu_dereference(pdr->qer_with_rate);
     if (qer_with_rate != NULL)
         tp = qer_with_rate->dl_policer;
@@ -981,20 +1009,6 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     if (color == Red) {
         GTP5G_TRC(pdr->dev, "Drop red packet");
         return PKT_DROPPED;
-    }
-
-    if (pdr->pdi) {
-        switch (pdr->pdi->srcIntf) {
-            case SRC_INTF_ACCESS:
-                gtp_dev->total_ul_pkt_cnt_rx++;
-                break;
-            case SRC_INTF_CORE:
-                gtp_dev->total_dl_pkt_cnt_rx++;
-                break;
-            default:
-                GTP5G_ERR(dev, "unknown srcIntf type\n");
-                break;
-        }
     }
 
     return FAR_ACTION_FORW;
