@@ -68,14 +68,20 @@ static void gtp5g_dev_uninit(struct net_device *dev)
  * */
 static netdev_tx_t gtp5g_dev_xmit(struct sk_buff *skb, struct net_device *dev)
 {
+    struct gtp5g_dev *gtp = netdev_priv(dev);
     unsigned int proto = ntohs(skb->protocol);
     struct gtp5g_pktinfo pktinfo;
     int ret = 0;
+    u64 total_dl_byte_cnt_tx = 0, total_dl_pkt_cnt_tx = 0;
 
     /* Ensure there is sufficient headroom */
     if (skb_cow_head(skb, dev->needed_headroom)) {
         goto tx_err;
     }
+
+    /* copy old count of tx */
+    total_dl_byte_cnt_tx = gtp->total_dl_byte_cnt_tx;
+    total_dl_pkt_cnt_tx = gtp->total_dl_pkt_cnt_tx;
 
     skb_reset_inner_headers(skb);
 
@@ -91,11 +97,18 @@ static netdev_tx_t gtp5g_dev_xmit(struct sk_buff *skb, struct net_device *dev)
     }
     rcu_read_unlock();
 
+    if (ret != FAR_ACTION_FORW) {
+        printk(">>>>>> ret != FAR_ACTION_FORW");
+        gtp->total_dl_byte_cnt_tx = total_dl_byte_cnt_tx;
+        gtp->total_dl_pkt_cnt_tx = total_dl_pkt_cnt_tx;
+    }
+
     if (ret < 0)
         goto tx_err;
 
     if (ret == FAR_ACTION_FORW)
         gtp5g_xmit_skb_ipv4(skb, &pktinfo);
+    
 
     return NETDEV_TX_OK;
 
