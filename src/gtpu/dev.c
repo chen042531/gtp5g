@@ -41,6 +41,30 @@ struct gtp5g_dev *gtp5g_find_dev(struct net *src_net, int ifindex, int netnsfd)
     return gtp;
 }
 
+
+void update_statistic(struct gtp5g_dev *gtp, u64 vol, bool drop, bool uplink) 
+{
+    if (uplink) {
+        printk(">>> uplink");
+        atomic_add(vol, &gtp->rx.ul_byte);
+        atomic_inc(&gtp->rx.ul_pkt);
+        if (!drop) {
+            printk(">>> uplink no drop");
+            atomic_add(vol, &gtp->tx.ul_byte);
+            atomic_inc(&gtp->tx.ul_pkt);
+        }
+    } else {
+        printk(">>> dl");
+        atomic_add(vol, &gtp->rx.dl_byte);
+        atomic_inc(&gtp->rx.dl_pkt);
+        if (!drop) {
+            printk(">>> dl no drop");
+            atomic_add(vol, &gtp->tx.dl_byte);
+            atomic_inc(&gtp->tx.dl_pkt);
+        }
+    }
+}
+
 static int gtp5g_dev_init(struct net_device *dev)
 {
     struct gtp5g_dev *gtp = netdev_priv(dev);
@@ -72,16 +96,16 @@ static netdev_tx_t gtp5g_dev_xmit(struct sk_buff *skb, struct net_device *dev)
     unsigned int proto = ntohs(skb->protocol);
     struct gtp5g_pktinfo pktinfo;
     int ret = 0;
-    u64 total_dl_byte_cnt_tx = 0, total_dl_pkt_cnt_tx = 0;
+    bool drop_pkt;
 
     /* Ensure there is sufficient headroom */
     if (skb_cow_head(skb, dev->needed_headroom)) {
         goto tx_err;
     }
 
-    /* copy old count of tx */
-    total_dl_byte_cnt_tx = gtp->total_dl_byte_cnt_tx;
-    total_dl_pkt_cnt_tx = gtp->total_dl_pkt_cnt_tx;
+    // /* copy old count of tx */
+    // total_dl_byte_cnt_tx = gtp->total_dl_byte_cnt_tx;
+    // total_dl_pkt_cnt_tx = gtp->total_dl_pkt_cnt_tx;
 
     skb_reset_inner_headers(skb);
 
@@ -91,17 +115,20 @@ static netdev_tx_t gtp5g_dev_xmit(struct sk_buff *skb, struct net_device *dev)
     switch (proto) {
     case ETH_P_IP:
         ret = gtp5g_handle_skb_ipv4(skb, dev, &pktinfo);
+        // update downlink packet count
+        if (ret != FAR_ACTION_FORW) {
+            printk(">>> true ret:%d", ret);
+            drop_pkt = true;
+        } else {
+            printk(">>>  false ret:%d", ret);
+            drop_pkt = false;
+        }
+        update_statistic(gtp, skb->len, drop_pkt, false);
         break;
     default:
         ret = -EOPNOTSUPP;
     }
     rcu_read_unlock();
-
-    if (ret != FAR_ACTION_FORW) {
-        printk(">>>>>> ret != FAR_ACTION_FORW");
-        gtp->total_dl_byte_cnt_tx = total_dl_byte_cnt_tx;
-        gtp->total_dl_pkt_cnt_tx = total_dl_pkt_cnt_tx;
-    }
 
     if (ret < 0)
         goto tx_err;
