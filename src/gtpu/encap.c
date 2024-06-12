@@ -125,19 +125,11 @@ static int gtp5g_encap_recv(struct sock *sk, struct sk_buff *skb)
 {
     struct gtp5g_dev *gtp;
     int ret = 0;
-    u64 total_ul_byte_cnt_tx = 0, total_ul_pkt_cnt_tx = 0,
-        total_dl_byte_cnt_tx = 0, total_dl_pkt_cnt_tx = 0;
 
     gtp = rcu_dereference_sk_user_data(sk);
     if (!gtp) {
         return 1;
     }
-
-    /* copy old count of tx */
-    total_ul_byte_cnt_tx = gtp->total_ul_byte_cnt_tx;
-    total_ul_pkt_cnt_tx = gtp->total_ul_pkt_cnt_tx;
-    total_dl_byte_cnt_tx = gtp->total_dl_byte_cnt_tx;
-    total_dl_pkt_cnt_tx = gtp->total_dl_pkt_cnt_tx;
 
     switch (udp_sk(sk)->encap_type) {
     case UDP_ENCAP_GTP1U:
@@ -160,14 +152,6 @@ static int gtp5g_encap_recv(struct sock *sk, struct sk_buff *skb)
         break;
     default:
         GTP5G_ERR(gtp->dev, "Unhandled return value from gtp1u_udp_encap_recv\n");
-    }
-
-    if (ret != PKT_FORWARDED) {
-        gtp->total_ul_byte_cnt_tx = total_ul_byte_cnt_tx;
-        gtp->total_ul_pkt_cnt_tx = total_ul_pkt_cnt_tx;
-        /* for i-upf case */
-        gtp->total_dl_byte_cnt_tx = total_dl_byte_cnt_tx;
-        gtp->total_dl_pkt_cnt_tx = total_dl_pkt_cnt_tx;
     }
     
     return ret;
@@ -257,17 +241,22 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
     unsigned int pull_len = hdrlen;
     u8 gtp_type;
     u32 teid;
+    int rt = 0;
+    int vol = 0;
+    bool drop_pkt = false;
 
     if (!pskb_may_pull(skb, pull_len)) {
         GTP5G_ERR(gtp->dev, "Failed to pull skb length %#x\n", pull_len);
-        return PKT_DROPPED;
+        rt = PKT_DROPPED;
+        goto not_forward;
     }
 
     gtpv1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
     if ((gtpv1->flags >> 5) != GTP_V1) {
         GTP5G_ERR(gtp->dev, "GTP version is not v1: %#x\n",
             gtpv1->flags);
-        return PKT_TO_APP;
+        rt = PKT_TO_APP;
+        goto not_forward;
     }
 
     gtp_type = gtpv1->type;
@@ -276,13 +265,15 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
         GTP5G_INF(gtp->dev, "GTP-C message type is GTP echo request: %#x\n",
             gtp_type);
 
-        return gtp1c_handle_echo_req(skb, gtp);
+        rt = gtp1c_handle_echo_req(skb, gtp);
+        goto not_forward;
     }
 
     if (gtp_type != GTPV1_MSG_TYPE_TPDU && gtp_type != GTPV1_MSG_TYPE_EMARK) {
         GTP5G_ERR(gtp->dev, "GTP-U message type is not a TPDU or End Marker: %#x\n",
             gtp_type);
-        return PKT_TO_APP;
+        rt = PKT_TO_APP;
+        goto not_forward;
     }
 
     /** TS 29.281 Chapter 5.1 and Figure 5.1-1
@@ -299,7 +290,8 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
         pull_len = hdrlen;
         if (!pskb_may_pull(skb, pull_len)) {
             GTP5G_ERR(gtp->dev, "Failed to pull skb length %#x\n", pull_len);
-            return PKT_DROPPED;
+            rt = PKT_DROPPED;
+            goto not_forward;
         }
 
         /** TS 29.281 Chapter 5.2 and Figure 5.2.1-1
@@ -312,18 +304,21 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
             pull_len = hdrlen + 1; // 1 byte for the length of extension hdr
             if (!pskb_may_pull(skb, pull_len)) {
                 GTP5G_ERR(gtp->dev, "Failed to pull skb length %#x\n", pull_len);
-                return PKT_DROPPED;
+                rt = PKT_DROPPED;
+                goto not_forward;
             }
             extlen = (*((u8 *)(skb->data + hdrlen))) * 4; // total length of extension hdr
             if (extlen == 0) {
                 GTP5G_ERR(gtp->dev, "Invalid extention header length\n");
-                return PKT_DROPPED;
+                rt = PKT_DROPPED;
+                goto not_forward;
             }
             hdrlen += extlen;
             pull_len = hdrlen;
             if (!pskb_may_pull(skb, pull_len)) {
                 GTP5G_ERR(gtp->dev, "Failed to pull skb length %#x\n", pull_len);
-                return PKT_DROPPED;
+                rt = PKT_DROPPED;
+                goto not_forward;
             }
             switch (ext_hdr_type) {
                 case GTPV1_NEXT_EXT_HDR_TYPE_85:
@@ -345,10 +340,38 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
     pdr = pdr_find_by_gtp1u(gtp, skb, hdrlen, teid, gtp_type);
     if (!pdr) {
         GTP5G_ERR(gtp->dev, "No PDR match this skb : teid[%x]\n", ntohl(teid));
-        return PKT_DROPPED;
+        rt = PKT_DROPPED;
+        goto not_forward;
     }
 
-    return gtp5g_rx(pdr, skb, hdrlen, gtp->role);
+    rt = gtp5g_rx(pdr, skb, hdrlen, gtp->role);
+
+not_forward:
+    if (rt != PKT_FORWARDED) {
+        drop_pkt = true;
+        printk(" drop_pkt = true");
+    } else {
+        drop_pkt = false;
+        printk(" drop_pkt = false");
+    }
+    vol = skb->len;
+    if (pdr->pdi) {
+        switch (pdr->pdi->srcIntf) {
+            case SRC_INTF_ACCESS: // uplink
+                printk("SRC_INTF_ACCESS");
+                update_statistic(gtp, vol, drop_pkt, true);
+                break;
+            case SRC_INTF_CORE: // downlink
+                printk("SRC_INTF_CORE");
+                update_statistic(gtp, vol, drop_pkt, false);
+                break;
+            default:
+                GTP5G_ERR(gtp->dev, "unknown srcIntf type\n");
+                break;
+        }
+    }
+
+    return rt;
 }
 
 static int gtp5g_drop_skb_encap(struct sk_buff *skb, struct net_device *dev, 
@@ -763,7 +786,6 @@ out:
 static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     unsigned int hdrlen, struct pdr *pdr, struct far *far)
 {
-    struct gtp5g_dev *gtp_dev = netdev_priv(dev);
     struct forwarding_parameter *fwd_param = rcu_dereference(far->fwd_param);
     struct outer_header_creation *hdr_creation;
     struct forwarding_policy *fwd_policy;
@@ -781,25 +803,19 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     if (gtp1->type == GTPV1_MSG_TYPE_TPDU)
         volume_mbqe = ip4_rm_header(skb, hdrlen);
     
-    if (pdr->pdi) {
-        switch (pdr->pdi->srcIntf) {
-            case SRC_INTF_ACCESS:
-                gtp_dev->total_ul_pkt_cnt_rx++;
-                gtp_dev->total_ul_byte_cnt_rx += volume_mbqe;
-                gtp_dev->total_ul_pkt_cnt_tx++;
-                gtp_dev->total_ul_byte_cnt_tx += volume_mbqe;
-                break;
-            case SRC_INTF_CORE:
-                gtp_dev->total_dl_pkt_cnt_rx++;
-                gtp_dev->total_dl_byte_cnt_rx += volume_mbqe;
-                gtp_dev->total_dl_pkt_cnt_tx++;
-                gtp_dev->total_dl_byte_cnt_tx += volume_mbqe;
-                break;
-            default:
-                GTP5G_ERR(dev, "unknown srcIntf type\n");
-                break;
-        }
-    }
+    // if (pdr->pdi) {
+    //     switch (pdr->pdi->srcIntf) {
+    //         case SRC_INTF_ACCESS: // uplink
+    //             pdate_statistic(gtp_dev, volume_mbqe, true)
+    //             break;
+    //         case SRC_INTF_CORE: // downlink
+    //             pdate_statistic(gtp_dev, volume_mbqe, false)
+    //             break;
+    //         default:
+    //             GTP5G_ERR(dev, "unknown srcIntf type\n");
+    //             break;
+    //     }
+    // }
 
     qer_with_rate = rcu_dereference(pdr->qer_with_rate);
     if (qer_with_rate != NULL)
@@ -930,7 +946,6 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     struct net_device *dev, struct gtp5g_pktinfo *pktinfo, 
     struct pdr *pdr, struct far *far)
 {
-    struct gtp5g_dev *gtp_dev = netdev_priv(dev);
     struct rtable *rt;
     struct flowi4 fl4;
     struct iphdr *iph = ip_hdr(skb);
@@ -982,11 +997,8 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
 
     volume_mbqe = ip4_rm_header(skb, 0);
 
-    // update downlink packet count
-    gtp_dev->total_dl_pkt_cnt_rx++;
-    gtp_dev->total_dl_byte_cnt_rx += volume_mbqe;
-    gtp_dev->total_dl_pkt_cnt_tx++;
-    gtp_dev->total_dl_byte_cnt_tx += volume_mbqe;
+    // // update downlink packet count
+    // update_statistic(gtp_dev, volume_mbqe, false)
 
     qer_with_rate = rcu_dereference(pdr->qer_with_rate);
     if (qer_with_rate != NULL)
