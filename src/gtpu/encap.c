@@ -349,20 +349,20 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
 not_forward:
     if (rt != PKT_FORWARDED) {
         drop_pkt = true;
-        printk(" drop_pkt = true");
+        // printk(" drop_pkt = true");
     } else {
         drop_pkt = false;
-        printk(" drop_pkt = false");
+        // printk(" drop_pkt = false");
     }
     vol = skb->len;
     if (pdr->pdi) {
         switch (pdr->pdi->srcIntf) {
             case SRC_INTF_ACCESS: // uplink
-                printk("SRC_INTF_ACCESS");
+                // printk("SRC_INTF_ACCESS");
                 update_statistic(gtp, vol, drop_pkt, true);
                 break;
             case SRC_INTF_CORE: // downlink
-                printk("SRC_INTF_CORE");
+                // printk("SRC_INTF_CORE");
                 update_statistic(gtp, vol, drop_pkt, false);
                 break;
             default:

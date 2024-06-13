@@ -78,7 +78,7 @@ int gtp5g_genl_get_ul_dl_report(struct sk_buff *skb, struct genl_info *info)
         goto fail;
     }
     
-    printk("haha2");
+    // printk("haha2");
     skb_ack = genlmsg_new(NLMSG_GOODSIZE, GFP_ATOMIC);
     if (!skb_ack) {
         return -ENOMEM;
