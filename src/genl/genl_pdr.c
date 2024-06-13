@@ -543,7 +543,7 @@ static int parse_pdi(struct pdr *pdr, struct nlattr *a)
 
     if (attrs[GTP5G_PDI_SRC_INTF]) {
         pdi->srcIntf = nla_get_u8(attrs[GTP5G_PDI_SRC_INTF]);
-        printk(">>>>> srcIntf:%d", pdi->srcIntf);
+        // printk(">>>>> srcIntf:%d", pdi->srcIntf);
     }
 
     if (attrs[GTP5G_PDI_SDF_FILTER]) {

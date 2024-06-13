@@ -45,20 +45,20 @@ struct gtp5g_dev *gtp5g_find_dev(struct net *src_net, int ifindex, int netnsfd)
 void update_statistic(struct gtp5g_dev *gtp, u64 vol, bool drop, bool uplink) 
 {
     if (uplink) {
-        printk(">>> uplink");
+        // printk(">>> uplink");
         atomic_add(vol, &gtp->rx.ul_byte);
         atomic_inc(&gtp->rx.ul_pkt);
         if (!drop) {
-            printk(">>> uplink no drop");
+            // printk(">>> uplink no drop");
             atomic_add(vol, &gtp->tx.ul_byte);
             atomic_inc(&gtp->tx.ul_pkt);
         }
     } else {
-        printk(">>> dl");
+        // printk(">>> dl");
         atomic_add(vol, &gtp->rx.dl_byte);
         atomic_inc(&gtp->rx.dl_pkt);
         if (!drop) {
-            printk(">>> dl no drop");
+            // printk(">>> dl no drop");
             atomic_add(vol, &gtp->tx.dl_byte);
             atomic_inc(&gtp->tx.dl_pkt);
         }
@@ -117,10 +117,10 @@ static netdev_tx_t gtp5g_dev_xmit(struct sk_buff *skb, struct net_device *dev)
         ret = gtp5g_handle_skb_ipv4(skb, dev, &pktinfo);
         // update downlink packet count
         if (ret != FAR_ACTION_FORW) {
-            printk(">>> true ret:%d", ret);
+            // printk(">>> true ret:%d", ret);
             drop_pkt = true;
         } else {
-            printk(">>>  false ret:%d", ret);
+            // printk(">>>  false ret:%d", ret);
             drop_pkt = false;
         }
         update_statistic(gtp, skb->len, drop_pkt, false);
