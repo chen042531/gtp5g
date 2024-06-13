@@ -299,19 +299,25 @@ struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff *skb,
             continue;
         printk("pdiTeid: %d, teid: %d", pdi->f_teid->teid, teid);
 
-        if (type != GTPV1_MSG_TYPE_TPDU)
+        if (type != GTPV1_MSG_TYPE_TPDU) {
+            printk("type != GTPV1_MSG_TYPE_TPDU");
             return pdr;
+        }
 
         // check outer IP dest addr to distinguish between N3 and N9 packet whil e act as i-upf
 #ifdef MATCH_IP
     #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 0, 0)
             outer_iph = (struct iphdr *)(skb->head + skb->network_header);
-            if (!(pdi->f_teid && pdi->f_teid->gtpu_addr_ipv4.s_addr == outer_iph->daddr))
+            if (!(pdi->f_teid && pdi->f_teid->gtpu_addr_ipv4.s_addr == outer_iph->daddr)){
+                printk("a");
                 continue;
+            }
     #else
             outer_iph = (struct iphdr *)(skb->network_header);
-            if (!(pdi->f_teid && pdi->f_teid->gtpu_addr_ipv4.s_addr == outer_iph->daddr))
+            if (!(pdi->f_teid && pdi->f_teid->gtpu_addr_ipv4.s_addr == outer_iph->daddr)) {
+                 printk("b");
                 continue;
+            }
     #endif
 #endif
         if (pdi->ue_addr_ipv4)
@@ -321,14 +327,15 @@ struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff *skb,
             }
 
         if (pdi->sdf)
-            if (!sdf_filter_match(pdi->sdf, skb, hdrlen, GTP5G_SDF_FILTER_OUT))
+            if (!sdf_filter_match(pdi->sdf, skb, hdrlen, GTP5G_SDF_FILTER_OUT)){
+                printk("!sdf");    
                 continue;
-
-        GTP5G_INF(NULL, "Match PDR ID:%d\n", pdr->id);
+            }
+        GTP5G_WAR(NULL, "Match PDR ID:%d\n", pdr->id);
 
         return pdr;
     }
-
+    printk("no match");  
     return NULL;
 }
 
