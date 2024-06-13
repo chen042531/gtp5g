@@ -266,28 +266,38 @@ struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff *skb,
     struct pdr *pdr;
     struct pdi *pdi;
 
-    if (!gtp)
+    if (!gtp) {
+        printk("!gtp");
         return NULL;
+    }
 
-    if (ntohs(skb->protocol) != ETH_P_IP)
+    if (ntohs(skb->protocol) != ETH_P_IP){
+        printk("!= ETH_P_IP");
         return NULL;
+    }
 
     if (type == GTPV1_MSG_TYPE_TPDU) {
-        if (!pskb_may_pull(skb, hdrlen + sizeof(struct iphdr)))
+        if (!pskb_may_pull(skb, hdrlen + sizeof(struct iphdr))) {
+            printk("!pskb_may_pull");
             return NULL;
+        }
         iph = (struct iphdr *)(skb->data + hdrlen);
         target_addr = (gtp->role == GTP5G_ROLE_UPF ? &iph->saddr : &iph->daddr);
     }
 
+    printk("hash:%d, size: %d, value: %d", 
+        u32_hashfn(teid), gtp->hash_size, u32_hashfn(teid) % gtp->hash_size);
     head = &gtp->i_teid_hash[u32_hashfn(teid) % gtp->hash_size];
     hlist_for_each_entry_rcu(pdr, head, hlist_i_teid) {
         pdi = pdr->pdi;
-        if (!pdi)
+        if (!pdi) {
+            printk("!pdi");
             continue;
-
+        }
         // GTP-U packet must check teid
         if (!(pdi->f_teid && pdi->f_teid->teid == teid))
             continue;
+        printk("pdiTeid: %d, teid: %d", pdi->f_teid->teid, teid);
 
         if (type != GTPV1_MSG_TYPE_TPDU)
             return pdr;
@@ -305,8 +315,10 @@ struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff *skb,
     #endif
 #endif
         if (pdi->ue_addr_ipv4)
-            if (!(pdr->af == AF_INET && target_addr && *target_addr == pdi->ue_addr_ipv4->s_addr))
+            if (!(pdr->af == AF_INET && target_addr && *target_addr == pdi->ue_addr_ipv4->s_addr)) {
+                printk("target_addr: %d, saddr, %d", *target_addr, pdi->ue_addr_ipv4->s_addr);
                 continue;
+            }
 
         if (pdi->sdf)
             if (!sdf_filter_match(pdi->sdf, skb, hdrlen, GTP5G_SDF_FILTER_OUT))
