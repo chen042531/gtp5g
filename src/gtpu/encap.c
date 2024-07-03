@@ -916,6 +916,7 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
         goto err;
     }
 
+    printk(">>>>> 1");
     hdr_creation = fwd_param->hdr_creation;
     rt = ip4_find_route(skb, 
         iph, 
@@ -927,6 +928,7 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     if (IS_ERR(rt))
         goto err;
 
+    printk(">>>>> 2");
     gtp5g_set_pktinfo_ipv4(pktinfo,
             pdr->sk, 
             iph, 
@@ -966,6 +968,7 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
         GTP5G_TRC(pdr->dev, "Drop red packet");
         return PKT_DROPPED;
     }
+    printk(">>>>> 3");
     return FAR_ACTION_FORW;
 err:
     return -EBADMSG;
