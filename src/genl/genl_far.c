@@ -19,7 +19,7 @@ static int header_creation_fill(struct forwarding_parameter *,
                 struct gtp5g_emark_pktinfo *,
                 uint8_t sendEndmarker);
 static int forwarding_parameter_fill(struct forwarding_parameter *,
-                struct nlattr **, u8 *,
+                struct nlattr *, struct genl_info *, u8 *,
                 struct gtp5g_emark_pktinfo *);
 static int far_fill(struct far *, struct gtp5g_dev *, struct genl_info *,
                 u8 *, struct gtp5g_emark_pktinfo *);
@@ -403,55 +403,60 @@ static int header_creation_fill(struct forwarding_parameter *param,
 }
 
 static int forwarding_parameter_fill(struct forwarding_parameter *param,
-               struct nlattr **attrs, u8 *flag,
+               struct nlattr *hdr, struct genl_info *info, u8 *flag,
                struct gtp5g_emark_pktinfo *epkt_info)
 {
     struct nlattr *hdr_creation_attrs[GTP5G_OUTER_HEADER_CREATION_ATTR_MAX + 1];
     struct forwarding_policy *fwd_policy;
+    int remaining = nlmsg_attrlen(info->nlhdr, 0);
     uint8_t sendEndmarker = 0;
     int err;
 
-    if (attrs[GTP5G_FORWARDING_PARAMETER_OUTER_HEADER_CREATION]) {
-        err = nla_parse_nested(hdr_creation_attrs,
+    hdr = nla_next(hdr, &remaining);
+    while (nla_ok(hdr, remaining)) {
+        switch (nla_type(hdr)) {
+        case GTP5G_FORWARDING_PARAMETER_OUTER_HEADER_CREATION:
+            err = nla_parse_nested(hdr_creation_attrs,
                 GTP5G_OUTER_HEADER_CREATION_ATTR_MAX,
-                attrs[GTP5G_FORWARDING_PARAMETER_OUTER_HEADER_CREATION],
+                hdr,
                 NULL,
                 NULL);
-        if (err)
-            return err;
-
-        /*
+            if (err)
+                return err;
+            err = header_creation_fill(param, hdr_creation_attrs, flag, epkt_info, sendEndmarker);
+            if (err)
+                return err;
+            break;
+        case GTP5G_FORWARDING_PARAMETER_PFCPSM_REQ_FLAGS:
+            /*
             TS 29.244 PFCPSMReq-Flags
             SNDEM (Send End Marker Packets): 
                 if this bit is set to "1", it indicates that the UP function 
                 shall construct and send End Marker packets
-        */
-        #define SNDEM 0x02
-        if (attrs[GTP5G_FORWARDING_PARAMETER_PFCPSM_REQ_FLAGS]) {
-            sendEndmarker = nla_get_u8(attrs[GTP5G_FORWARDING_PARAMETER_PFCPSM_REQ_FLAGS]) & SNDEM;       
-        }
-        err = header_creation_fill(param, hdr_creation_attrs, flag, epkt_info, sendEndmarker);
-        if (err)
-            return err;
-    }
-
-    if (attrs[GTP5G_FORWARDING_PARAMETER_FORWARDING_POLICY]) {
-        if (!param->fwd_policy) {
+            */
+            #define SNDEM 0x02
+            sendEndmarker = nla_get_u8(hdr) & SNDEM;
+            break;
+        case GTP5G_FORWARDING_PARAMETER_FORWARDING_POLICY:
+            if (!param->fwd_policy) {
             param->fwd_policy = kzalloc(sizeof(*param->fwd_policy), GFP_ATOMIC);
             if (!param->fwd_policy)
                 return -ENOMEM;
-        }
-        fwd_policy = param->fwd_policy;
-        fwd_policy->len = nla_len(attrs[GTP5G_FORWARDING_PARAMETER_FORWARDING_POLICY]);
-        if (fwd_policy->len >= sizeof(fwd_policy->identifier))
-            return -EINVAL;
-        strncpy(fwd_policy->identifier,
-                nla_data(attrs[GTP5G_FORWARDING_PARAMETER_FORWARDING_POLICY]), fwd_policy->len);
+            }
+            fwd_policy = param->fwd_policy;
+            fwd_policy->len = nla_len(hdr);
+            if (fwd_policy->len >= sizeof(fwd_policy->identifier))
+                return -EINVAL;
+            strncpy(fwd_policy->identifier,
+                    nla_data(hdr), fwd_policy->len);
 
-        /* Exact value to handle forwarding policy */
-        if (!(fwd_policy->mark = simple_strtol(fwd_policy->identifier, NULL, 10))) {
-            return -EINVAL;
+            /* Exact value to handle forwarding policy */
+            if (!(fwd_policy->mark = simple_strtol(fwd_policy->identifier, NULL, 10))) {
+                return -EINVAL;
+            }
+            break;
         }
+        hdr = nla_next(hdr, &remaining);
     }
 
     return 0;
@@ -461,7 +466,6 @@ static int forwarding_parameter_fill(struct forwarding_parameter *param,
 static int far_fill(struct far *far, struct gtp5g_dev *gtp, struct genl_info *info,
         u8 *flag, struct gtp5g_emark_pktinfo *epkt_info)
 {
-    struct nlattr *attrs[GTP5G_FORWARDING_PARAMETER_ATTR_MAX + 1];
     int err;
     struct forwarding_parameter *fwd_param;
 
@@ -492,20 +496,15 @@ static int far_fill(struct far *far, struct gtp5g_dev *gtp, struct genl_info *in
         }
 
     if (info->attrs[GTP5G_FAR_FORWARDING_PARAMETER]) {
-        err = nla_parse_nested(attrs,
-                GTP5G_FORWARDING_PARAMETER_ATTR_MAX,
-                info->attrs[GTP5G_FAR_FORWARDING_PARAMETER],
-                NULL,
-                NULL);
-        if (err)
-            return err;
         fwd_param = rcu_dereference(far->fwd_param);
         if (!fwd_param) {
             fwd_param = kzalloc(sizeof(*fwd_param), GFP_ATOMIC);
             if (!fwd_param)
                 return -ENOMEM;
         }
-        err = forwarding_parameter_fill(fwd_param, attrs, flag, epkt_info);
+        err = forwarding_parameter_fill(fwd_param, 
+            info->attrs[GTP5G_FAR_FORWARDING_PARAMETER],
+            info, flag, epkt_info);
         rcu_assign_pointer(far->fwd_param, fwd_param);
         if (err)
             return err;
