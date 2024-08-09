@@ -359,19 +359,56 @@ err:
     return -1;
 }
 
+char device_name[32] = "";
+
 static int gtp5g_statistic_read(struct seq_file *s, void *v)
 {
-    GTP5G_TRC(NULL, "gtp5g_statistic_read");
-    seq_printf(s, "Statistic: \n");
-    seq_printf(s, "\t RX UL(bytes) : %llu\n", proc_statistic.rx_ul_byte);
-    seq_printf(s, "\t TX UL(bytes) : %llu\n", proc_statistic.tx_ul_byte);
-    seq_printf(s, "\t RX DL(bytes) : %llu\n", proc_statistic.rx_dl_byte);
-    seq_printf(s, "\t TX DL(bytes) : %llu\n", proc_statistic.tx_dl_byte);
+    char dev_name[32] = "";
+    u8 found = 0;
+    struct gtp5g_dev *gtp;
 
-    seq_printf(s, "\t RX UL(packets) : %llu\n", proc_statistic.rx_ul_pkt);
-    seq_printf(s, "\t TX UL(packets) : %llu\n", proc_statistic.tx_ul_pkt);
-    seq_printf(s, "\t RX DL(packets) : %llu\n", proc_statistic.rx_dl_pkt);
-    seq_printf(s, "\t TX DL(packets) : %llu\n", proc_statistic.tx_dl_pkt);
+
+    GTP5G_TRC(NULL, "gtp5g_statistic_read");
+
+    if (strlen(device_name) == 0) {
+        strcpy(dev_name, "upfgtp");
+    } else {
+        strcpy(dev_name, device_name);
+    }
+
+    list_for_each_entry_rcu(gtp, &proc_gtp5g_dev, proc_list) {
+        if (strcmp(dev_name, netdev_name(gtp->dev)) == 0) {
+            found = 1;
+            break;
+        } 
+    }
+    if (!found) {
+        GTP5G_ERR(NULL, "Given dev: %s not exists\n", dev_name);
+    }
+
+    if (strlen(device_name) == 0) {
+        seq_printf(s, "Statistic: \n");
+        seq_printf(s, "\t RX UL(bytes) : %llu\n", (u64)atomic_read(&gtp->rx.ul_byte));
+        seq_printf(s, "\t TX UL(bytes) : %llu\n", (u64)atomic_read(&gtp->tx.ul_byte));
+        seq_printf(s, "\t RX DL(bytes) : %llu\n", (u64)atomic_read(&gtp->rx.dl_byte));
+        seq_printf(s, "\t TX DL(bytes) : %llu\n", (u64)atomic_read(&gtp->tx.dl_byte));
+
+        seq_printf(s, "\t RX UL(packets) : %llu\n", (u64)atomic_read(&gtp->rx.ul_pkt));
+        seq_printf(s, "\t TX UL(packets) : %llu\n", (u64)atomic_read(&gtp->tx.ul_pkt));
+        seq_printf(s, "\t RX DL(packets) : %llu\n", (u64)atomic_read(&gtp->rx.dl_pkt));
+        seq_printf(s, "\t TX DL(packets) : %llu\n", (u64)atomic_read(&gtp->tx.dl_pkt));
+    } else {
+        seq_printf(s, "Statistic: \n");
+        seq_printf(s, "\t RX UL(bytes) : %llu\n", proc_statistic.rx_ul_byte);
+        seq_printf(s, "\t TX UL(bytes) : %llu\n", proc_statistic.tx_ul_byte);
+        seq_printf(s, "\t RX DL(bytes) : %llu\n", proc_statistic.rx_dl_byte);
+        seq_printf(s, "\t TX DL(bytes) : %llu\n", proc_statistic.tx_dl_byte);
+
+        seq_printf(s, "\t RX UL(packets) : %llu\n", proc_statistic.rx_ul_pkt);
+        seq_printf(s, "\t TX UL(packets) : %llu\n", proc_statistic.tx_ul_pkt);
+        seq_printf(s, "\t RX DL(packets) : %llu\n", proc_statistic.rx_dl_pkt);
+        seq_printf(s, "\t TX DL(packets) : %llu\n", proc_statistic.tx_dl_pkt);
+    }
 
     return 0;
 }
@@ -406,6 +443,8 @@ static ssize_t proc_statistic_write(struct file *filp, const char __user *buffer
         GTP5G_ERR(NULL, "Given dev: %s not exists\n", dev_name);
         goto err;
     }
+
+    strcpy(device_name, dev_name);
 
     memset(&proc_statistic, 0, sizeof(proc_statistic));
     proc_statistic.rx_ul_byte = (u64)atomic_read(&gtp->rx.ul_byte);
