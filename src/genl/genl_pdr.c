@@ -330,14 +330,17 @@ static void set_pdr_qfi(struct pdr *pdr, struct gtp5g_dev *gtp){
     int i;
     struct qer *qer;
 
+    printk("set_pdr_qfi pdrId[%d] qfi[%d]", pdr->id, pdr->qfi);
     // TS 38.415 QFI range {0..2^6-1}
     for (i = 0; i < pdr->qer_num; i++) {
+        printk("> set_pdr_qfi pdrId[%d] qerId[%d]", pdr->id, pdr->qer_ids[i]);
         qer = find_qer_by_id(gtp, pdr->seid, pdr->qer_ids[i]);
         if (qer && qer->qfi > 0) {
             pdr->qfi = qer->qfi;
             break;
         }
     }
+
 }
 
 static int set_pdr_qer_ids(struct pdr *pdr, u32 qer_id)

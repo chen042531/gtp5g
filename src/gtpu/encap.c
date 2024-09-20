@@ -812,6 +812,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
                 return PKT_DROPPED;
             }
 
+            printk("gtp5g_fwd_skb_encap pdrId[%ld] qfi[%d]", pdr->id, pdr->qfi);
             iph->saddr = pdr->pdi->f_teid->gtpu_addr_ipv4.s_addr;
             iph->daddr = hdr_creation->peer_addr_ipv4.s_addr;
             if (hdr_creation->tosTc) {
@@ -949,6 +950,7 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     if (IS_ERR(rt))
         goto err;
 
+    printk("gtp5g_fwd_skb_ipv4 pdrId[%ld] qfi[%d]", pdr->id, pdr->qfi);
     gtp5g_set_pktinfo_ipv4(pktinfo,
             pdr->sk, 
             iph, 
