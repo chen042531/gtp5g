@@ -605,8 +605,10 @@ int update_urr_counter_and_send_report(struct pdr *pdr, struct far *far, u64 vol
 
     // Determine if the packet is uplink or downlink
     if (is_uplink(pdr)) {
+        GTP5G_TRC(pdr->dev, "update_urr_counter_and_send_report() PDR(%u) is uplink", pdr->id);
         uplink = true;
     } else if (is_downlink(pdr)) {
+        GTP5G_TRC(pdr->dev, "update_urr_counter_and_send_report() PDR(%u) is downlink", pdr->id);
         uplink = false;
     } else {
         GTP5G_ERR(pdr->dev, "PDR(%u) is not uplink or downlink", pdr->id);
@@ -658,7 +660,7 @@ int update_urr_counter_and_send_report(struct pdr *pdr, struct far *far, u64 vol
                     volume = vol;
                 }
                 // Caculate Volume measurement for each trigger
-                urr_counter = get_usage_report_counter(urr, false);
+                urr_counter = get_and_update_usage_report_counter(urr);
                 if (urr->trigger & URR_RPT_TRIGGER_VOLTH) {
                     if (increment_and_check_counter(urr_counter, &urr->volumethreshold, volume, uplink, mnop)) {
                         triggers[report_num] = USAR_TRIGGER_VOLTH;

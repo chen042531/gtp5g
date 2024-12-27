@@ -426,7 +426,7 @@ genlmsg_fail:
 void convert_urr_to_report(struct urr *urr, struct usage_report *report)
 {
     struct VolumeMeasurement *urr_counter 
-        = get_usage_report_counter(urr, true);
+        = &urr->accumulated;
     
     urr->end_time = ktime_get_real();
     *report = (struct usage_report ) {

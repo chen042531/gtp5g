@@ -255,36 +255,67 @@ int urr_set_pdr(struct pdr *pdr, struct gtp5g_dev *gtp)
 }
 
 /* 
- `get_usage_report_counter` will return one of the two counters.
- 
- To avoid sending incorrect reports, there are two counters (bytes, bytes2) for each period.
- These counters will take turns recording the packet count.
- 
- For usage report => counter of the previous period
- For packet counting => counter of the current period 
-*/  
-struct VolumeMeasurement *get_usage_report_counter(struct urr *urr, bool previous_counter)
+ * Update the accumulated counter with the current counter.
+ * This function is called when the counter is changed.
+ */
+void urr_update_accumulated(struct VolumeMeasurement *accumulated, 
+    struct VolumeMeasurement *bytes)
 {
+    accumulated->totalVolume += bytes->totalVolume;
+    accumulated->uplinkVolume += bytes->uplinkVolume;
+    accumulated->downlinkVolume += bytes->downlinkVolume;
+    accumulated->totalPktNum += bytes->totalPktNum;
+    accumulated->uplinkPktNum += bytes->uplinkPktNum;
+    accumulated->downlinkPktNum += bytes->downlinkPktNum;
+}
+
+// Helper function to determine which counter to use based on the period
+static struct VolumeMeasurement *select_counter(struct urr *urr, u32 current_period) 
+{
+    return (current_period == 1) ? &urr->bytes2 : &urr->bytes;
+}
+
+// Helper function to check if counter needs to be accumulated
+static bool should_accumulate_counter(u32 now, u32 last_update, 
+                                    u32 last_counter, u32 current_counter,
+                                    u32 period_for_counter_change) 
+{
+    
+    // the case that use the smae counter => A B A but B no packets/get report comes
+    bool time_to_change = (now - last_update >  period_for_counter_change && 
+                          last_counter == current_counter);
+
+    // the case is every interval has packets/get report comes
+    bool counter_changed = (last_counter != current_counter);
+    
+    return time_to_change || counter_changed;
+}
+
+struct VolumeMeasurement *get_and_update_usage_report_counter(struct urr *urr)
+{
+ 
+    const u8 NUM_OF_COUNTERS = 2;
+    const u32 PERIOD_FOR_COUNTER_CHANGE = 1;
+    
     u32 now = ktime_get_real() / NSEC_PER_SEC;
+    u32 current_counter = (now / PERIOD_FOR_COUNTER_CHANGE) % NUM_OF_COUNTERS;
+    u32 last_counter = (urr->last_update / PERIOD_FOR_COUNTER_CHANGE) % NUM_OF_COUNTERS;
 
-    // If the period is zero, always return the first counter.
+    // Select which counter to return and which to accumulate
+    struct VolumeMeasurement *counter_to_return = select_counter(urr, current_counter);
+    struct VolumeMeasurement *counter_to_accumulate = select_counter(urr, !current_counter);
+
+    // If period is zero, always use the first counter
     if (urr->period == 0) {
-       return &urr->bytes; 
+        return &urr->bytes;
     }
 
-    if ((now/urr->period)%2 == 1) {
-        if (previous_counter) {
-            return &urr->bytes;
-        } else{
-            return &urr->bytes2;
-        } 
-    } else {
-        if (previous_counter) {
-            return &urr->bytes2;
-        } else{
-            return &urr->bytes;
-        } 
+    // Update the accumulated counters if needed
+    if (should_accumulate_counter(now, urr->last_update, last_counter, current_counter, PERIOD_FOR_COUNTER_CHANGE)) {
+        urr_update_accumulated(&urr->accumulated, counter_to_accumulate);
+        memset(counter_to_accumulate, 0, sizeof(struct VolumeMeasurement));
     }
 
-    return &urr->bytes;
+    urr->last_update = now;
+    return counter_to_return;
 }
