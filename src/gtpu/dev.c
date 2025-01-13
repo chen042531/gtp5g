@@ -221,6 +221,15 @@ int dev_hashtable_new(struct gtp5g_dev *gtp, int hsize)
         INIT_HLIST_HEAD(&gtp->related_urr_hash[i]);
     }
 
+    gtp->rx.ul_byte = 0;
+    gtp->rx.ul_pkt = 0;
+    gtp->rx.dl_byte = 0;
+    gtp->rx.dl_pkt = 0;
+    gtp->tx.ul_byte = 0;
+    gtp->tx.ul_pkt = 0;
+    gtp->tx.dl_byte = 0;
+    gtp->tx.dl_pkt = 0;
+    
     return 0;
 err10:
     kfree(gtp->related_bar_hash);
