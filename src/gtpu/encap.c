@@ -900,6 +900,20 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
 
     skb->dev = dev;
 
+    /* 在封装之前检查并打印大包内容 */
+    if (skb->len > 300) {
+        printk(KERN_INFO "GTP5G: Large packet detected (size: %d)\n", skb->len);
+        printk(KERN_INFO "GTP5G: Packet content:\n");
+        
+        /* 使用print_hex_dump打印数据包内容 */
+        print_hex_dump(KERN_INFO, "GTP5G: ", DUMP_PREFIX_OFFSET,
+                      16,                /* 每行显示16字节 */
+                      1,                 /* 按字节分组 */
+                      skb->data,         /* 数据来源 */
+                      skb->len,          /* 数据长度 */
+                      true);             /* 显示ASCII */
+    }
+
     stats = this_cpu_ptr(skb->dev->tstats);
     u64_stats_update_begin(&stats->syncp);
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 0, 0)
