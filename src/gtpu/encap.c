@@ -346,6 +346,7 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
     rt = gtp5g_rx(pdr, skb, hdrlen, gtp->role);
 
 end:
+    printk("skb->len: %d\n", skb->len);
     if (pdr && pdr->pdi) {
         update_usage_statistic(gtp, rxVol, skb->len, rt, pdr->pdi->srcIntf);
     } else {
@@ -987,6 +988,10 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     TrafficPolicer* tp = NULL;
     Color color = Green;
     struct qer __rcu *qer_with_rate = NULL;
+
+    
+    struct timespec64 ts;
+    struct tm tm;
     
     if (!far) {
         GTP5G_ERR(dev, "Unknown RAN address\n");
@@ -1014,6 +1019,25 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     if (is_uplink(pdr)) {
         pdu_type = PDU_SESSION_INFO_TYPE1;
     }
+
+    ktime_get_real_ts64(&ts);
+    time64_to_tm(ts.tv_sec, 0, &tm);
+    printk(KERN_INFO "GTP5G: [%02d:%02d:%02d.%06lld] DL packet detected (size: %d)\n",
+            tm.tm_hour,                    /* 小时 */
+            tm.tm_min,                     /* 分钟 */
+            tm.tm_sec,                     /* 秒 */
+            (long long)ts.tv_nsec / 1000,  /* 微秒 */
+            skb->len);
+    printk(KERN_INFO "GTP5G: Packet content:\n");
+    
+    /* 使用print_hex_dump打印数据包内容 */
+    print_hex_dump(KERN_INFO, "GTP5G: ", DUMP_PREFIX_OFFSET,
+                    16,                /* 每行显示16字节 */
+                    1,                 /* 按字节分组 */
+                    skb->data,         /* 数据来源 */
+                    skb->len,          /* 数据长度 */
+                    true);             /* 显示ASCII */
+
 
     gtp5g_set_pktinfo_ipv4(pktinfo,
             pdr->sk, 
@@ -1046,6 +1070,15 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     }
 
     gtp5g_push_header(skb, pktinfo);
+
+    printk(KERN_INFO "gtp5g_push_header(size: %d)\n", skb->len);        
+    /* 使用print_hex_dump打印数据包内容 */
+    print_hex_dump(KERN_INFO, "GTP5G: ", DUMP_PREFIX_OFFSET,
+                    16,                /* 每行显示16字节 */
+                    1,                 /* 按字节分组 */
+                    skb->data,         /* 数据来源 */
+                    skb->len,          /* 数据长度 */
+                    true);             /* 显示ASCII */
 
     if (pdr->urr_num != 0) {
         if (update_urr_counter_and_send_report(pdr, far, volume, volume_mbqe, false) < 0)
