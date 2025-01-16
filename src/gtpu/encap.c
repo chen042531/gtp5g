@@ -791,7 +791,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     }
 
     /* 在封装之前检查并打印大包内容 */
-    if (skb->len > 200) {
+    if (skb->len > 128) {
         ktime_get_real_ts64(&ts);
         time64_to_tm(ts.tv_sec, 0, &tm);
         printk(KERN_INFO "GTP5G: [%02d:%02d:%02d.%06lld] Large packet detected (size: %d)\n",
