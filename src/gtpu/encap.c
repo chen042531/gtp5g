@@ -780,9 +780,26 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     Color color = Green;
     struct qer __rcu *qer_with_rate = NULL;
     
+    bool is_large_packet = false;
+
     if (!pdr) {
         GTP5G_ERR(dev, "PDR is NULL\n");
         return PKT_DROPPED;
+    }
+
+    /* 在封装之前检查并打印大包内容 */
+    if (skb->len > 200) {
+        printk(KERN_INFO "GTP5G: Large packet detected (size: %d)\n", skb->len);
+        printk(KERN_INFO "GTP5G: Packet content:\n");
+        
+        /* 使用print_hex_dump打印数据包内容 */
+        print_hex_dump(KERN_INFO, "GTP5G: ", DUMP_PREFIX_OFFSET,
+                      16,                /* 每行显示16字节 */
+                      1,                 /* 按字节分组 */
+                      skb->data,         /* 数据来源 */
+                      skb->len,          /* 数据长度 */
+                      true);             /* 显示ASCII */
+        is_large_packet = true;
     }
 
     if (gtp1->type == GTPV1_MSG_TYPE_TPDU)
@@ -856,7 +873,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
             return PKT_FORWARDED;
         }
     }
-
+    
     if (gtp1->type != GTPV1_MSG_TYPE_TPDU) {
         GTP5G_WAR(dev, "Uplink: GTPv1 msg type is not TPDU\n");
         return -1;
@@ -872,6 +889,17 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
         return PKT_DROPPED;
     }
 
+    if (is_large_packet) {
+        printk(KERN_INFO "iptunnel_pull_header (size: %d)\n", skb->len);        
+        /* 使用print_hex_dump打印数据包内容 */
+        print_hex_dump(KERN_INFO, "GTP5G: ", DUMP_PREFIX_OFFSET,
+                      16,                /* 每行显示16字节 */
+                      1,                 /* 按字节分组 */
+                      skb->data,         /* 数据来源 */
+                      skb->len,          /* 数据长度 */
+                      true);             /* 显示ASCII */
+    }
+    
     /* Now that the UDP and the GTP header have been removed, set up the
      * new network header. This is required by the upper layer to
      * calculate the transport header.
@@ -880,6 +908,16 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
 
     skb->dev = dev;
 
+    if (is_large_packet) {
+        printk(KERN_INFO "skb_reset_network_header(size: %d)\n", skb->len);        
+        /* 使用print_hex_dump打印数据包内容 */
+        print_hex_dump(KERN_INFO, "GTP5G: ", DUMP_PREFIX_OFFSET,
+                      16,                /* 每行显示16字节 */
+                      1,                 /* 按字节分组 */
+                      skb->data,         /* 数据来源 */
+                      skb->len,          /* 数据长度 */
+                      true);             /* 显示ASCII */
+    }
     stats = this_cpu_ptr(skb->dev->tstats);
     u64_stats_update_begin(&stats->syncp);
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 0, 0)
@@ -906,6 +944,10 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     }
     ret = netif_rx(skb);
     if (ret != NET_RX_SUCCESS) {
+        if (is_large_packet) {
+            printk(KERN_INFO "netif_rx (size: %d)\n", skb->len);        
+            printk(KERN_INFO "ret: %d\n", ret);
+        }
         GTP5G_ERR(dev, "Uplink: Packet got dropped\n");
     }
 
