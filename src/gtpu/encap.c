@@ -782,6 +782,9 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     
     bool is_large_packet = false;
 
+    struct timespec64 ts;
+    struct tm tm;
+
     if (!pdr) {
         GTP5G_ERR(dev, "PDR is NULL\n");
         return PKT_DROPPED;
@@ -789,7 +792,14 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
 
     /* 在封装之前检查并打印大包内容 */
     if (skb->len > 200) {
-        printk(KERN_INFO "GTP5G: Large packet detected (size: %d)\n", skb->len);
+        ktime_get_real_ts64(&ts);
+        time64_to_tm(ts.tv_sec, 0, &tm);
+        printk(KERN_INFO "GTP5G: [%02d:%02d:%02d.%06lld] Large packet detected (size: %d)\n",
+               tm.tm_hour,                    /* 小时 */
+               tm.tm_min,                     /* 分钟 */
+               tm.tm_sec,                     /* 秒 */
+               (long long)ts.tv_nsec / 1000,  /* 微秒 */
+               skb->len);
         printk(KERN_INFO "GTP5G: Packet content:\n");
         
         /* 使用print_hex_dump打印数据包内容 */
