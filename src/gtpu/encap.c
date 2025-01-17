@@ -603,6 +603,8 @@ int update_urr_counter_and_send_report(struct pdr *pdr, struct far *far, u64 vol
     struct sk_buff *skb;
     bool uplink = false;
 
+    return 0;
+
     // Determine if the packet is uplink or downlink
     if (is_uplink(pdr)) {
         uplink = true;
