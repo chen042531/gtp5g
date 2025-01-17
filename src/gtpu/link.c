@@ -116,8 +116,8 @@ static int gtp5g_newlink(struct net *src_net, struct net_device *dev,
     list_add_rcu(&gtp->list, &gn->gtp5g_dev_list);
     list_add_rcu(&gtp->proc_list, get_proc_gtp5g_dev_list_head());
 
-    simulate_massive_ip_insertion(gtp);
-    print_pdr_count(gtp);
+    // simulate_massive_ip_insertion(gtp);
+    // print_pdr_count(gtp);
 
     GTP5G_LOG(dev, "Registered a new 5G GTP interface\n");
     return 0;

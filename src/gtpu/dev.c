@@ -45,27 +45,28 @@ struct gtp5g_dev *gtp5g_find_dev(struct net *src_net, int ifindex, int netnsfd)
 void update_usage_statistic(struct gtp5g_dev *gtp, u64 rxVol, u64 txVol,
     int pkt_action, uint srcIntf)
 {
-    switch (srcIntf) {
-    case SRC_INTF_ACCESS: // uplink
-        atomic64_add(rxVol, &gtp->rx.ul_byte);
-        atomic64_inc(&gtp->rx.ul_pkt);
-        if (pkt_action != PKT_DROPPED) {
-            atomic64_add(txVol, &gtp->tx.ul_byte);
-            atomic64_inc(&gtp->tx.ul_pkt);
-        }
-        break;
-    case SRC_INTF_CORE: // downlink
-        atomic64_add(rxVol, &gtp->rx.dl_byte);
-        atomic64_inc(&gtp->rx.dl_pkt);
-        if (pkt_action != PKT_DROPPED) {
-            atomic64_add(txVol, &gtp->tx.dl_byte);
-            atomic64_inc(&gtp->tx.dl_pkt);
-        }
-        break;
-    default:
-        GTP5G_ERR(gtp->dev, "unknown srcIntf type\n");
-        break;
-    }
+    return;
+    // switch (srcIntf) {
+    // case SRC_INTF_ACCESS: // uplink
+    //     atomic64_add(rxVol, &gtp->rx.ul_byte);
+    //     atomic64_inc(&gtp->rx.ul_pkt);
+    //     if (pkt_action != PKT_DROPPED) {
+    //         atomic64_add(txVol, &gtp->tx.ul_byte);
+    //         atomic64_inc(&gtp->tx.ul_pkt);
+    //     }
+    //     break;
+    // case SRC_INTF_CORE: // downlink
+    //     atomic64_add(rxVol, &gtp->rx.dl_byte);
+    //     atomic64_inc(&gtp->rx.dl_pkt);
+    //     if (pkt_action != PKT_DROPPED) {
+    //         atomic64_add(txVol, &gtp->tx.dl_byte);
+    //         atomic64_inc(&gtp->tx.dl_pkt);
+    //     }
+    //     break;
+    // default:
+    //     GTP5G_ERR(gtp->dev, "unknown srcIntf type\n");
+    //     break;
+    // }
 }
 
 static int gtp5g_dev_init(struct net_device *dev)
