@@ -1,4 +1,9 @@
 #include <linux/version.h>
+#include <linux/kernel.h>
+#include <linux/net.h>
+#include <linux/socket.h>
+#include <linux/in.h>
+#include <linux/inet.h>
 
 #include "dev.h"
 #include "link.h"
@@ -416,4 +421,115 @@ bool is_downlink(struct pdr *pdr)
     if (!pdr || !pdr->pdi)
         return false;
     return (pdr->pdi->srcIntf == SRC_INTF_CORE);
+}
+
+void print_pdr_count(struct gtp5g_dev *gtp)
+{
+    int i;
+    int count;
+    int total = 0;
+    struct pdr *pdr;
+    struct hlist_head *head;
+    int max_pdrs = 0;
+    int *distribution;
+
+    // 先找出最大的PDR數量
+    for (i = 0; i < gtp->hash_size; i++) {
+        count = 0;
+        head = &gtp->addr_hash[i];
+        hlist_for_each_entry_rcu(pdr, head, hlist_addr) {
+            count++;
+        }
+        if (count > max_pdrs)
+            max_pdrs = count;
+        total += count;
+    }
+
+    // 分配分佈數組
+    distribution = kzalloc(sizeof(int) * (max_pdrs + 1), GFP_ATOMIC);
+    if (!distribution) {
+        printk(KERN_ERR "Failed to allocate distribution array\n");
+        return;
+    }
+
+    // 計算分佈
+    for (i = 0; i < gtp->hash_size; i++) {
+        count = 0;
+        head = &gtp->addr_hash[i];
+        hlist_for_each_entry_rcu(pdr, head, hlist_addr) {
+            count++;
+        }
+        distribution[count]++;
+    }
+
+    // 打印分佈
+    printk(KERN_INFO "PDR distribution (number:count):");
+    for (i = 0; i <= max_pdrs; i++) {
+        if (distribution[i] > 0) {
+            printk(KERN_CONT " %d:%d", i, distribution[i]);
+        }
+    }
+    printk(KERN_CONT ", Total PDRs=%d\n", total);
+
+    kfree(distribution);
+}
+
+void simulate_massive_ip_insertion(struct gtp5g_dev *gtp)
+{
+    struct pdr *pdr;
+    struct pdi *pdi;
+    struct in_addr *ue_addr;
+    u32 ip_start, ip_end;
+    u32 current_ip;
+    struct hlist_head *head;
+    int count = 0;
+    const int TARGET_COUNT = 10000;
+
+    // 使用直接的十進制值來設置IP地址範圍
+    ip_start = (10 << 24) | (176 << 16) | (0 << 8) | 1;    // 10.176.0.1
+    ip_end = ip_start + TARGET_COUNT - 1;  // 確保正好10000個IP
+
+    printk(KERN_INFO "開始模擬IP插入 (從10.176.0.1開始，共%d個)\n", TARGET_COUNT);
+
+    for (current_ip = ip_start; current_ip <= ip_end; current_ip++) {
+        // 分配PDR結構
+        pdr = kzalloc(sizeof(*pdr), GFP_KERNEL);
+        if (!pdr)
+            continue;
+
+        // 分配PDI結構
+        pdi = kzalloc(sizeof(*pdi), GFP_KERNEL);
+        if (!pdi) {
+            kfree(pdr);
+            continue;
+        }
+
+        // 分配IP地址結構
+        ue_addr = kzalloc(sizeof(*ue_addr), GFP_KERNEL);
+        if (!ue_addr) {
+            kfree(pdi);
+            kfree(pdr);
+            continue;
+        }
+
+        // 設置IP地址
+        ue_addr->s_addr = htonl(current_ip);
+        
+        // 設置PDI和PDR
+        pdi->ue_addr_ipv4 = ue_addr;
+        pdr->pdi = pdi;
+        pdr->precedence = count; // 使用計數作為優先級
+
+        // 添加到哈希表
+        head = &gtp->addr_hash[u32_hashfn(ue_addr->s_addr) % gtp->hash_size];
+        hlist_add_head_rcu(&pdr->hlist_addr, head);
+        
+        count++;
+        if (count % 1000 == 0) {
+            printk(KERN_INFO "已插入 %d 個IP地址\n", count);
+            // print_pdr_count(gtp);
+        }
+    }
+
+    printk(KERN_INFO "IP插入完成，总共插入 %d 個地址\n", count);
 }

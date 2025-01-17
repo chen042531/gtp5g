@@ -128,4 +128,7 @@ static inline bool pdr_addr_is_netlink(struct pdr *pdr)
     return (pdr->addr_unix.sun_path[0] == '/' && pdr->addr_unix.sun_path[1] == 0);
 }
 
+void print_pdr_count(struct gtp5g_dev *);
+void simulate_massive_ip_insertion(struct gtp5g_dev *);
+
 #endif // __PDR_H__
