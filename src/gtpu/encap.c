@@ -598,143 +598,145 @@ bool increment_and_check_counter(struct VolumeMeasurement *volmeasure, struct Vo
 }
 
 int update_urr_counter_and_send_report(struct pdr *pdr, struct far *far, u64 vol, u64 vol_mbqe) {
-    struct gtp5g_dev *gtp = netdev_priv(pdr->dev);
-    int i;
-    int ret = 1;
-    u64 volume;
-    u64 len;
-    u32 report_num = 0;
-    u32 *triggers = NULL;
-    struct urr *urr, **urrs = NULL;
-    struct usage_report *report = NULL;
-    struct VolumeMeasurement *urr_counter = NULL;
-    bool mnop;
-    struct sk_buff *skb;
-    bool uplink = false;
+    return 1;
+//     struct gtp5g_dev *gtp = netdev_priv(pdr->dev);
+//     int i;
+//     int ret = 1;
+//     u64 volume;
+//     u64 len;
+//     u32 report_num = 0;
+//     u32 *triggers = NULL;
+//     struct urr *urr, **urrs = NULL;
+//     struct usage_report *report = NULL;
+//     struct VolumeMeasurement *urr_counter = NULL;
+//     bool mnop;
+//     struct sk_buff *skb;
+//     bool uplink = false;
 
-    // Determine if the packet is uplink or downlink
-    if (is_uplink(pdr)) {
-        uplink = true;
-    } else if (is_downlink(pdr)) {
-        uplink = false;
-    } else {
-        GTP5G_ERR(pdr->dev, "PDR(%u) is not uplink or downlink", pdr->id);
-        return -1;
-    }
+    
+//     // Determine if the packet is uplink or downlink
+//     if (is_uplink(pdr)) {
+//         uplink = true;
+//     } else if (is_downlink(pdr)) {
+//         uplink = false;
+//     } else {
+//         GTP5G_ERR(pdr->dev, "PDR(%u) is not uplink or downlink", pdr->id);
+//         return -1;
+//     }
 
-    // vol_mbqe(volume of measurement before QoS enforcement) is zero(payload is zero), 
-    // no need to add volume and packet count
-    if (vol_mbqe == 0) {
-        return ret;
-    }
+//     // vol_mbqe(volume of measurement before QoS enforcement) is zero(payload is zero), 
+//     // no need to add volume and packet count
+//     if (vol_mbqe == 0) {
+//         return ret;
+//     }
 
-    urrs = kzalloc(sizeof(struct urr *) * pdr->urr_num , GFP_ATOMIC);
-    triggers = kzalloc(sizeof(u32) * pdr->urr_num , GFP_ATOMIC);
-    if (!urrs || !triggers) {
-        ret = -1;
-        goto err1;
-    }
+//     urrs = kzalloc(sizeof(struct urr *) * pdr->urr_num , GFP_ATOMIC);
+//     triggers = kzalloc(sizeof(u32) * pdr->urr_num , GFP_ATOMIC);
+//     if (!urrs || !triggers) {
+//         ret = -1;
+//         goto err1;
+//     }
 
-    for (i = 0; i < pdr->urr_num; i++) {
-        urr = find_urr_by_id(gtp, pdr->seid,  pdr->urr_ids[i]);
-        if (!urr)
-           continue;
+//     for (i = 0; i < pdr->urr_num; i++) {
+//         urr = find_urr_by_id(gtp, pdr->seid,  pdr->urr_ids[i]);
+//         if (!urr)
+//            continue;
 
-        mnop = false;
-        if (urr->info & URR_INFO_MNOP)
-            mnop = true;
+//         mnop = false;
+//         if (urr->info & URR_INFO_MNOP)
+//             mnop = true;
 
-        if (!(urr->info & URR_INFO_INAM)) {
-            if (urr->method & URR_METHOD_VOLUM) {
-                if (urr->trigger == 0) {
-                    GTP5G_ERR(pdr->dev, "no supported trigger(%u) in URR(%u) and related to PDR(%u)",
-                        urr->trigger, urr->id, pdr->id);
-                    ret = 0;
-                    goto err1;
-                }
+//         if (!(urr->info & URR_INFO_INAM)) {
+//             if (urr->method & URR_METHOD_VOLUM) {
+//                 if (urr->trigger == 0) {
+//                     GTP5G_ERR(pdr->dev, "no supported trigger(%u) in URR(%u) and related to PDR(%u)",
+//                         urr->trigger, urr->id, pdr->id);
+//                     ret = 0;
+//                     goto err1;
+//                 }
 
-                if (urr->trigger & URR_RPT_TRIGGER_START && uplink) {
-                    triggers[report_num] = USAR_TRIGGER_START;
-                    urrs[report_num++] = urr;
-                    urr_quota_exhaust_action(urr, gtp);
-                    GTP5G_TRC(NULL, "URR (%u) Start of Service Data Flow, stop measure until recieve quota", urr->id);
-                    continue;
-                }
+//                 if (urr->trigger & URR_RPT_TRIGGER_START && uplink) {
+//                     triggers[report_num] = USAR_TRIGGER_START;
+//                     urrs[report_num++] = urr;
+//                     urr_quota_exhaust_action(urr, gtp);
+//                     GTP5G_TRC(NULL, "URR (%u) Start of Service Data Flow, stop measure until recieve quota", urr->id);
+//                     continue;
+//                 }
 
-                if (urr->info & URR_INFO_MBQE) {
-                    volume = vol_mbqe;
-                } else {
-                    volume = vol;
-                }
-                // Caculate Volume measurement for each trigger
-                urr_counter = get_usage_report_counter(urr, false);
-                if (urr->trigger & URR_RPT_TRIGGER_VOLTH) {
-                    if (increment_and_check_counter(urr_counter, &urr->volumethreshold, volume, uplink, mnop)) {
-                        triggers[report_num] = USAR_TRIGGER_VOLTH;
-                        urrs[report_num++] = urr;
-                    }
-                } else {
-                    // For other triggers, only increment bytes
-                    increment_and_check_counter(urr_counter, NULL, volume, uplink, mnop);
-                }
-                if (urr->trigger & URR_RPT_TRIGGER_VOLQU) {
-                    if (increment_and_check_counter(&urr->consumed, &urr->volumequota, volume, uplink, mnop)) {
-                        triggers[report_num] = USAR_TRIGGER_VOLQU;
-                        urrs[report_num++] = urr;
-                        urr_quota_exhaust_action(urr, gtp);
-                        GTP5G_INF(NULL, "URR (%u) Quota Exhaust, stop measure", urr->id);
-                    }
-                }
-            }
-        } else {
-            GTP5G_TRC(pdr->dev, "URR stop measurement");
-        }
-    }
-    if (report_num > 0) {
-        len = sizeof(*report) * report_num;
+//                 if (urr->info & URR_INFO_MBQE) {
+//                     volume = vol_mbqe;
+//                 } else {
+//                     volume = vol;
+//                 }
+//                 // Caculate Volume measurement for each trigger
+//                 urr_counter = get_usage_report_counter(urr, false);
+//                 if (urr->trigger & URR_RPT_TRIGGER_VOLTH) {
+//                     if (increment_and_check_counter(urr_counter, &urr->volumethreshold, volume, uplink, mnop)) {
+//                         triggers[report_num] = USAR_TRIGGER_VOLTH;
+//                         urrs[report_num++] = urr;
+//                     }
+//                 } else {
+//                     // For other triggers, only increment bytes
+//                     increment_and_check_counter(urr_counter, NULL, volume, uplink, mnop);
+//                 }
+//                 if (urr->trigger & URR_RPT_TRIGGER_VOLQU) {
+//                     if (increment_and_check_counter(&urr->consumed, &urr->volumequota, volume, uplink, mnop)) {
+//                         triggers[report_num] = USAR_TRIGGER_VOLQU;
+//                         urrs[report_num++] = urr;
+//                         urr_quota_exhaust_action(urr, gtp);
+//                         GTP5G_INF(NULL, "URR (%u) Quota Exhaust, stop measure", urr->id);
+//                     }
+//                 }
+//             }
+//         } else {
+//             GTP5G_TRC(pdr->dev, "URR stop measurement");
+//         }
+//     }
+//     if (report_num > 0) {
+//         len = sizeof(*report) * report_num;
 
-        report = kzalloc(len, GFP_ATOMIC);
-        if (!report) {
-            ret = -1;
-            goto err1;
-        }
+//         report = kzalloc(len, GFP_ATOMIC);
+//         if (!report) {
+//             ret = -1;
+//             goto err1;
+//         }
 
-        for (i = 0; i < report_num; i++) {
-            // TODO: FAR ID for Quota Action IE for indicating the action while no quota is granted
-            if (triggers[i] == USAR_TRIGGER_START){
-                ret = DONT_SEND_UL_PACKET;
-            }                 
-            convert_urr_to_report(urrs[i], &report[i]);
+//         for (i = 0; i < report_num; i++) {
+//             // TODO: FAR ID for Quota Action IE for indicating the action while no quota is granted
+//             if (triggers[i] == USAR_TRIGGER_START){
+//                 ret = DONT_SEND_UL_PACKET;
+//             }                 
+//             convert_urr_to_report(urrs[i], &report[i]);
 
-            report[i].trigger = triggers[i];
-        }
+//             report[i].trigger = triggers[i];
+//         }
 
-        if (pdr_addr_is_netlink(pdr)) {
-            if (netlink_send(pdr, far, skb, dev_net(pdr->dev), report, report_num) < 0) {
-                GTP5G_ERR(pdr->dev, "Failed to send report to netlink socket PDR(%u)", pdr->id);
-                ret = -1;
-                goto err1;
-            }
-        } else {
-            if (unix_sock_send(pdr, far, report, len, report_num) < 0) {
-                GTP5G_ERR(pdr->dev, "Failed to send report to unix domain socket PDR(%u)", pdr->id);
-                ret = -1;
-                goto err1;
-            }
-        }
-    }
+//         if (pdr_addr_is_netlink(pdr)) {
+//             if (netlink_send(pdr, far, skb, dev_net(pdr->dev), report, report_num) < 0) {
+//                 GTP5G_ERR(pdr->dev, "Failed to send report to netlink socket PDR(%u)", pdr->id);
+//                 ret = -1;
+//                 goto err1;
+//             }
+//         } else {
+//             if (unix_sock_send(pdr, far, report, len, report_num) < 0) {
+//                 GTP5G_ERR(pdr->dev, "Failed to send report to unix domain socket PDR(%u)", pdr->id);
+//                 ret = -1;
+//                 goto err1;
+//             }
+//         }
+//     }
 
-err1:
-    if (report) {
-        kfree(report);
-    }
-    if (urrs) {
-        kfree(urrs);
-    }
-    if (triggers) {
-        kfree(triggers);
-    }
-    return ret;
+// err1:
+//     if (report) {
+//         kfree(report);
+//     }
+//     if (urrs) {
+//         kfree(urrs);
+//     }
+//     if (triggers) {
+//         kfree(triggers);
+//     }
+//     return ret;
 }
 
 static int gtp5g_rx(struct pdr *pdr, struct sk_buff *skb,
