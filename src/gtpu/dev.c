@@ -72,12 +72,16 @@ static int gtp5g_dev_init(struct net_device *dev)
 {
     struct gtp5g_dev *gtp = netdev_priv(dev);
 
+
     gtp->dev = dev;
 
     dev->tstats = netdev_alloc_pcpu_stats(struct pcpu_sw_netstats);
     if (!dev->tstats) {
         return -ENOMEM;
     }
+
+    dev->features |= NETIF_F_GRO;
+    dev->features |= NETIF_F_SG;
 
     return 0;
 }
@@ -99,32 +103,34 @@ static netdev_tx_t gtp5g_dev_xmit(struct sk_buff *skb, struct net_device *dev)
     unsigned int proto = ntohs(skb->protocol);
     struct gtp5g_pktinfo pktinfo;
     int ret = 0;
-    u64 rxVol = skb->len;
+    u64 rxVol;
 
-    /* Ensure there is sufficient headroom */
-    if (skb_cow_head(skb, dev->needed_headroom)) {
+    // 1. 快速路径：先检查协议
+    if (unlikely(proto != ETH_P_IP)) {
+        ret = -EOPNOTSUPP;
         goto tx_err;
     }
 
+    // 2. 批量预留空间
+    if (unlikely(skb_cow_head(skb, dev->needed_headroom))) {
+        goto tx_err;
+    }
+
+    rxVol = skb->len;
     skb_reset_inner_headers(skb);
 
-    /* PDR lookups in gtp5g_build_skb_*() need rcu read-side lock. 
-     * */
+    // 3. 缩小RCU锁的范围
     rcu_read_lock();
-    switch (proto) {
-    case ETH_P_IP:
-        ret = gtp5g_handle_skb_ipv4(skb, dev, &pktinfo);
-        update_usage_statistic(gtp, rxVol, skb->len, ret, SRC_INTF_CORE); // DL
-        break;
-    default:
-        ret = -EOPNOTSUPP;
-    }
+    ret = gtp5g_handle_skb_ipv4(skb, dev, &pktinfo);
     rcu_read_unlock();
 
-    if (ret < 0)
+    // 4. 将统计更新移到锁外
+    update_usage_statistic(gtp, rxVol, skb->len, ret, SRC_INTF_CORE);
+
+    if (unlikely(ret < 0))
         goto tx_err;
 
-    if (ret == PKT_FORWARDED)
+    if (likely(ret == PKT_FORWARDED))
         gtp5g_xmit_skb_ipv4(skb, &pktinfo);
 
     return NETDEV_TX_OK;
