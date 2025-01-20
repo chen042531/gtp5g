@@ -95,42 +95,42 @@ static void gtp5g_dev_uninit(struct net_device *dev)
  * */
 static netdev_tx_t gtp5g_dev_xmit(struct sk_buff *skb, struct net_device *dev)
 {
-    struct gtp5g_dev *gtp = netdev_priv(dev);
-    unsigned int proto = ntohs(skb->protocol);
-    struct gtp5g_pktinfo pktinfo;
-    int ret = 0;
-    u64 rxVol = skb->len;
+    // struct gtp5g_dev *gtp = netdev_priv(dev);
+    // unsigned int proto = ntohs(skb->protocol);
+    // struct gtp5g_pktinfo pktinfo;
+    // int ret = 0;
+//     u64 rxVol = skb->len;
 
-    /* Ensure there is sufficient headroom */
-    if (skb_cow_head(skb, dev->needed_headroom)) {
-        goto tx_err;
-    }
+//     /* Ensure there is sufficient headroom */
+//     if (skb_cow_head(skb, dev->needed_headroom)) {
+//         goto tx_err;
+//     }
 
-    skb_reset_inner_headers(skb);
+//     skb_reset_inner_headers(skb);
 
-    /* PDR lookups in gtp5g_build_skb_*() need rcu read-side lock. 
-     * */
-    rcu_read_lock();
-    switch (proto) {
-    case ETH_P_IP:
-        ret = gtp5g_handle_skb_ipv4(skb, dev, &pktinfo);
-        update_usage_statistic(gtp, rxVol, skb->len, ret, SRC_INTF_CORE); // DL
-        break;
-    default:
-        ret = -EOPNOTSUPP;
-    }
-    rcu_read_unlock();
+//     /* PDR lookups in gtp5g_build_skb_*() need rcu read-side lock. 
+//      * */
+//     rcu_read_lock();
+//     switch (proto) {
+//     case ETH_P_IP:
+//         ret = gtp5g_handle_skb_ipv4(skb, dev, &pktinfo);
+//         update_usage_statistic(gtp, rxVol, skb->len, ret, SRC_INTF_CORE); // DL
+//         break;
+//     default:
+//         ret = -EOPNOTSUPP;
+//     }
+//     rcu_read_unlock();
 
-    if (ret < 0)
-        goto tx_err;
+//     if (ret < 0)
+//         goto tx_err;
 
-    if (ret == PKT_FORWARDED)
-        gtp5g_xmit_skb_ipv4(skb, &pktinfo);
+//     if (ret == PKT_FORWARDED)
+//         gtp5g_xmit_skb_ipv4(skb, &pktinfo);
 
-    return NETDEV_TX_OK;
+//     return NETDEV_TX_OK;
 
-tx_err:
-    dev->stats.tx_errors++;
+// tx_err:
+//     dev->stats.tx_errors++;
     dev_kfree_skb(skb);
     return NETDEV_TX_OK;
 }
