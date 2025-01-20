@@ -5,7 +5,6 @@
 #include <linux/gtp.h>
 
 #include <net/ip.h>
-#include <net/route.h>
 #include <net/udp.h>
 #include <net/udp_tunnel.h>
 
@@ -942,7 +941,7 @@ static int gtp5g_drop_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     return PKT_DROPPED;
 }
 
-static inline __u8 ip_sock_rt_scope(const struct sock *sk)
+static inline __u8 ip_sock_rt_scope_tmp(const struct sock *sk)
 {
 	if (sock_flag(sk, SOCK_LOCALROUTE))
 		return RT_SCOPE_LINK;
@@ -959,7 +958,7 @@ static struct rtable *ip4_route_output_gtp(struct flowi4 *fl4,
 	fl4->daddr		= daddr;
 	fl4->saddr		= saddr;
 	fl4->flowi4_tos		= RT_TOS(inet_sk(sk)->tos);;
-	fl4->flowi4_scope	= ip_sock_rt_scope(sk);
+	fl4->flowi4_scope	= ip_sock_rt_scope_tmp(sk);
 	fl4->flowi4_proto	= sk->sk_protocol;
 
 	return ip_route_output_key(sock_net(sk), fl4);
