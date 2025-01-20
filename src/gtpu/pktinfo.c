@@ -255,8 +255,7 @@ void gtp5g_xmit_skb_ipv4(struct sk_buff *skb, struct gtp5g_pktinfo *pktinfo)
         0,
         pktinfo->gtph_port, 
         pktinfo->gtph_port,
-        !net_eq(sock_net(pktinfo->sk),
-				    dev_net(pktinfo->dev)), 
+        true, 
         true);
 }
 
