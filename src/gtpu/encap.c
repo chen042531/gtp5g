@@ -958,7 +958,6 @@ static struct rtable *ip4_route_output_gtp(struct flowi4 *fl4,
 	fl4->daddr		= daddr;
 	fl4->saddr		= saddr;
 	fl4->flowi4_tos		= RT_TOS(inet_sk(sk)->tos);;
-	fl4->flowi4_scope	= ip_sock_rt_scope_tmp(sk);
 	fl4->flowi4_proto	= sk->sk_protocol;
 
 	return ip_route_output_key(sock_net(sk), fl4);
