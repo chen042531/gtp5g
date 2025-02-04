@@ -560,7 +560,7 @@ static int unix_sock_send(struct pdr *pdr, struct far *far, void *buf, u32 len, 
     return rt;
 }
 
-bool increment_and_check_counter(struct VolumeMeasurement *volmeasure, struct Volume *volume, u64 vol, bool uplink, bool mnop){
+bool increment_and_check_counter(spinlock_t *lock, struct VolumeMeasurement *volmeasure, struct Volume *volume, u64 vol, bool uplink, bool mnop){
     if (!volmeasure) {
         return false;
     }
@@ -569,6 +569,7 @@ bool increment_and_check_counter(struct VolumeMeasurement *volmeasure, struct Vo
         return false;
     }
 
+    spin_lock(lock);
     if (mnop) {
         if (uplink) {
             volmeasure->uplinkPktNum++;
@@ -585,7 +586,8 @@ bool increment_and_check_counter(struct VolumeMeasurement *volmeasure, struct Vo
     }
 
     volmeasure->totalVolume = volmeasure->uplinkVolume + volmeasure->downlinkVolume;
-
+    spin_unlock(lock);
+    
     if (!volume) {
         return false;
     }
@@ -671,18 +673,18 @@ int update_urr_counter_and_send_report(struct pdr *pdr, struct far *far, u64 vol
                     volume = vol;
                 }
                 // Caculate Volume measurement for each trigger
-                urr_counter = get_usage_report_counter(urr, false);
+                urr_counter = &urr->bytes;
                 if (urr->trigger & URR_RPT_TRIGGER_VOLTH) {
-                    if (increment_and_check_counter(urr_counter, &urr->volumethreshold, volume, uplink, mnop)) {
+                    if (increment_and_check_counter(&urr->measure_lock, urr_counter, &urr->volumethreshold, volume, uplink, mnop)) {
                         triggers[report_num] = USAR_TRIGGER_VOLTH;
                         urrs[report_num++] = urr;
                     }
                 } else {
                     // For other triggers, only increment bytes
-                    increment_and_check_counter(urr_counter, NULL, volume, uplink, mnop);
+                    increment_and_check_counter(&urr->measure_lock, urr_counter, NULL, volume, uplink, mnop);
                 }
                 if (urr->trigger & URR_RPT_TRIGGER_VOLQU) {
-                    if (increment_and_check_counter(&urr->consumed, &urr->volumequota, volume, uplink, mnop)) {
+                    if (increment_and_check_counter(&urr->measure_lock, &urr->consumed, &urr->volumequota, volume, uplink, mnop)) {
                         triggers[report_num] = USAR_TRIGGER_VOLQU;
                         urrs[report_num++] = urr;
                         urr_quota_exhaust_action(urr, gtp);

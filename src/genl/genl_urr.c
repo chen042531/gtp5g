@@ -93,6 +93,7 @@ int gtp5g_genl_add_urr(struct sk_buff *skb, struct genl_info *info)
         goto end;
     }
 
+    spin_lock_init(&urr->measure_lock);
     urr->dev = gtp->dev;
     urr->start_time = ktime_get_real();
 
@@ -335,10 +336,9 @@ static int urr_fill(struct urr *urr, struct gtp5g_dev *gtp, struct genl_info *in
             // Clean bytes to make sure the bytes are counted after the start of service data flow
             // TODO: Should send the previous stroed bytes to CP first
             memset(&urr->bytes, 0, sizeof(struct VolumeMeasurement));
-            memset(&urr->bytes2, 0, sizeof(struct VolumeMeasurement));
         }
     }
-
+    
     if (info->attrs[GTP5G_URR_MEASUREMENT_PERIOD])
         urr->period = nla_get_u32(info->attrs[GTP5G_URR_MEASUREMENT_PERIOD]);
 
