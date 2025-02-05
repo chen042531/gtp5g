@@ -170,7 +170,7 @@ int gtp5g_genl_get_usage_report(struct sk_buff *skb, struct genl_info *info)
     convert_urr_to_report(urr, report, !urr->use_bytes2);
 
     // sleep for 1 millisecond to make sure the counter is updated
-    msleep(1);
+    // msleep(1);
 
     err = gtp5g_genl_fill_usage_report(skb_ack,
             NETLINK_CB(skb).portid,
