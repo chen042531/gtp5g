@@ -434,7 +434,6 @@ void convert_urr_to_report(struct urr *urr, struct usage_report *report, bool us
     struct VolumeMeasurement *urr_counter 
         = get_usage_report_counter(urr, use_bytes2);
     
-    printk("report: %d\n", use_bytes2);
     urr->end_time = ktime_get_real();
     *report = (struct usage_report ) {
                 urr->id,

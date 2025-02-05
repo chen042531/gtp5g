@@ -671,7 +671,6 @@ int update_urr_counter_and_send_report(struct pdr *pdr, struct far *far, u64 vol
                     volume = vol;
                 }
 
-                printk("write: %d\n", urr->use_bytes2);
                 // Caculate Volume measurement for each trigger
                 urr_counter = get_usage_report_counter(urr, urr->use_bytes2);
                 if (urr->trigger & URR_RPT_TRIGGER_VOLTH) {
