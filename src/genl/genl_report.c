@@ -256,9 +256,17 @@ int gtp5g_genl_get_multi_usage_reports(struct sk_buff *skb, struct genl_info *in
 
         // set the use_vol2 flag to the opposite value
         urr->use_vol2 = !urr->use_vol2;
-        // sleep for 1 millisecond to make sure the counter is updated
-        // before converting to the report
-        msleep(1);
+    }
+    // sleep for 1 millisecond to make sure the counter is updated
+    // before converting to the report
+    msleep(1);
+    for (i = 0; i < urr_num; i++) {
+        urr = find_urr_by_id(gtp, seid_urrs[i]->seid, seid_urrs[i]->urrid);
+        if (!urr) {
+            err =  -ENOENT;
+            goto fail;
+        }
+
         reports[i] = kzalloc(sizeof(struct usage_report), GFP_KERNEL);
         if (!reports[i]) {
             err =  -ENOMEM;
