@@ -159,7 +159,9 @@ int gtp5g_genl_get_usage_report(struct sk_buff *skb, struct genl_info *info)
     }
 
     // set the use_vol2 flag to the opposite value
-    urr->use_vol2 = !urr->use_vol2;
+    spin_lock(&urr->period_report_counter_lock);
+    change_current_period_report_counter(urr);
+    spin_unlock(&urr->period_report_counter_lock);
 
     report = kzalloc(sizeof(struct usage_report), GFP_KERNEL);
     if (!report) {
@@ -253,7 +255,9 @@ int gtp5g_genl_get_multi_usage_reports(struct sk_buff *skb, struct genl_info *in
         }
 
         // set the use_vol2 flag to the opposite value
-        urr->use_vol2 = !urr->use_vol2;
+        spin_lock(&urr->period_report_counter_lock);
+        change_current_period_report_counter(urr);
+        spin_unlock(&urr->period_report_counter_lock);
 
         reports[i] = kzalloc(sizeof(struct usage_report), GFP_KERNEL);
         if (!reports[i]) {
@@ -430,7 +434,7 @@ genlmsg_fail:
 void convert_urr_to_report(struct urr *urr, struct usage_report *report, bool use_vol2)
 {
     struct VolumeMeasurement *urr_counter 
-        = get_usage_report_counter(urr, use_vol2);
+        = get_period_report_counter(urr, use_vol2);
     
     urr->end_time = ktime_get_real();
     *report = (struct usage_report ) {

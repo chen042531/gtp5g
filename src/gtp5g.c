@@ -71,7 +71,7 @@ module_exit(gtp5g_fini);
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Yao-Wen Chang <yaowenowo@gmail.com>");
 MODULE_AUTHOR("Muthuraman <muthuramane.cs03g@g2.nctu.edu.tw>");
-MODULE_DESCRIPTION("Interface for 5G GTP encapsulated traffic");
+MODULE_DESCRIPTION(">>>> update counter Interface for 5G GTP encapsulated traffic");
 MODULE_VERSION(DRV_VERSION);
 MODULE_ALIAS_RTNL_LINK("gtp5g");
 MODULE_ALIAS_GENL_FAMILY("gtp5g");

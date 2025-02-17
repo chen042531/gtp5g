@@ -263,13 +263,8 @@ int urr_set_pdr(struct pdr *pdr, struct gtp5g_dev *gtp)
  For usage report => counter of the previous period
  For packet counting => counter of the current period 
 */  
-struct VolumeMeasurement *get_usage_report_counter(struct urr *urr, bool use_vol2)
+struct VolumeMeasurement *get_period_report_counter(struct urr *urr, bool use_vol2)
 {
-    // If the period is zero, always return the first counter.
-    if (urr->period == 0) {
-       return &urr->vol; 
-    }
-
     if (use_vol2) {
         return &urr->vol2;
     } else{
@@ -277,4 +272,9 @@ struct VolumeMeasurement *get_usage_report_counter(struct urr *urr, bool use_vol
     } 
 
     return &urr->vol;
+}
+
+void change_current_period_report_counter(struct urr *urr)
+{
+    urr->use_vol2 = !urr->use_vol2;
 }
