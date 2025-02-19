@@ -121,7 +121,7 @@ int gtp5g_genl_del_urr(struct sk_buff *skb, struct genl_info *info)
     u32 urr_id;
     struct sk_buff *skb_ack = NULL;
     int err = 0;
-    struct usage_report *report = NULL;
+    // struct usage_report *report = NULL;
 
     if (!info->attrs[GTP5G_LINK])
         return -EINVAL;
@@ -164,22 +164,22 @@ int gtp5g_genl_del_urr(struct sk_buff *skb, struct genl_info *info)
         goto fail;
     }
 
-    report = kzalloc(sizeof(struct usage_report), GFP_KERNEL);
-    if (!report) {
-        err = -ENOMEM;
-        goto fail;
-    }
+    // report = kzalloc(sizeof(struct usage_report), GFP_KERNEL);
+    // if (!report) {
+    //     err = -ENOMEM;
+    //     goto fail;
+    // }
 
-    // return current counter
-    convert_urr_to_report(urr, report, urr->use_vol2);
+    // // return current counter
+    // convert_urr_to_report(urr, report, urr->use_vol2);
 
-    err = gtp5g_genl_fill_usage_report(skb_ack,
-            NETLINK_CB(skb).portid,
-            info->snd_seq,
-            info->nlhdr->nlmsg_type,
-            report);
+    // err = gtp5g_genl_fill_usage_report(skb_ack,
+    //         NETLINK_CB(skb).portid,
+    //         info->snd_seq,
+    //         info->nlhdr->nlmsg_type,
+    //         report);
 
-    kfree(report);
+    // kfree(report);
 
 fail:
     if (err) {
