@@ -254,6 +254,24 @@ mismatch:
     return 0;
 }
 
+// This function checks whether an IP matches.  
+// It uses the source interface in the PDR to determine  
+// whether to compare the source address or destination address in the IP header.  
+// If a match is found, it returns True; otherwise, it returns False.
+bool ip_match(struct iphdr *iph, struct pdr *pdr)
+{
+    struct pdi *pdi = pdr->pdi;
+    if (!pdi)
+        return false;
+
+    if (is_uplink(pdr)) {
+        return pdi->ue_addr_ipv4->s_addr == iph->saddr;
+    } else {
+        return pdi->ue_addr_ipv4->s_addr == iph->daddr;
+    }
+    return false;
+}
+
 struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff *skb,
         unsigned int hdrlen, u32 teid, u8 type)
 {
@@ -261,8 +279,6 @@ struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff *skb,
     struct iphdr *outer_iph;
 #endif
     struct iphdr *iph;
-    __be32 *target_addr = NULL;
-    __be32 *source_addr = NULL;
     struct hlist_head *head;
     struct pdr *pdr;
     struct pdi *pdi;
@@ -276,9 +292,6 @@ struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff *skb,
     if (type == GTPV1_MSG_TYPE_TPDU) {
         if (!pskb_may_pull(skb, hdrlen + sizeof(struct iphdr)))
             return NULL;
-        iph = (struct iphdr *)(skb->data + hdrlen);
-        target_addr = (gtp->role == GTP5G_ROLE_UPF ? &iph->saddr : &iph->daddr);
-        source_addr = (gtp->role == GTP5G_ROLE_UPF ? &iph->daddr : &iph->saddr);
     }
 
     head = &gtp->i_teid_hash[u32_hashfn(teid) % gtp->hash_size];
@@ -306,11 +319,11 @@ struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff *skb,
                 continue;
     #endif
 #endif
-        if (pdi->ue_addr_ipv4)
-            if ((!(pdr->af == AF_INET)) || (
-                (!(target_addr && *target_addr == pdi->ue_addr_ipv4->s_addr)) &&
-                (!(source_addr && *source_addr == pdi->ue_addr_ipv4->s_addr))))
+        if (pdi->ue_addr_ipv4) {
+            iph = (struct iphdr *)(skb->data + hdrlen);
+            if ((!(pdr->af == AF_INET)) || (!ip_match(iph, pdr)))
                 continue;
+        }
 
         if (pdi->sdf)
             if (!sdf_filter_match(pdi->sdf, skb, hdrlen, GTP5G_SDF_FILTER_OUT))
