@@ -13,7 +13,24 @@
 #include "log.h"
 #include <linux/types.h>
 
-int qos_enable = 0; // set QoS disable as default value
+enum qos_enable_type {
+    QOS_DISABLE,
+    QOS_ENABLE,
+    QOS_ENABLE_UPLINK,
+    QOS_ENABLE_DOWNLINK,
+};
+
+int qos_enable = QOS_DISABLE; // set QoS disable as default value
+
+bool is_ul_qos_enabled()
+{
+    return qos_enable == QOS_ENABLE_UPLINK || qos_enable == QOS_ENABLE;
+}
+
+bool is_dl_qos_enabled()
+{
+    return qos_enable == QOS_ENABLE_DOWNLINK || qos_enable == QOS_ENABLE;
+}
 
 int get_qos_enable()
 {

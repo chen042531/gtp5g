@@ -114,6 +114,8 @@ void unix_sock_client_delete(struct pdr *);
 int unix_sock_client_new(struct pdr *);
 int unix_sock_client_update(struct pdr *, struct far *);
 
+bool is_ul_qos_enabled(void);
+bool is_dl_qos_enabled(void);
 int get_qos_enable(void);
 void set_qos_enable(int);
 

@@ -848,13 +848,17 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     if (qer_with_rate != NULL){
         if (is_uplink(pdr)) {
             tp = qer_with_rate->ul_policer;
+            if (is_ul_qos_enabled() && tp != NULL) {
+                color = policePacket(tp, volume_mbqe);
+            }
         } else if (is_downlink(pdr)) {
             tp = qer_with_rate->dl_policer;
+            if (is_dl_qos_enabled() && tp != NULL) {
+                color = policePacket(tp, volume_mbqe);
+            }
         }
     }
-    if (get_qos_enable() && tp != NULL) {
-        color = policePacket(tp, volume_mbqe);
-    }
+    
     if (color == Red) {
         volume = 0;
     } else {
@@ -1051,7 +1055,7 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     qer_with_rate = rcu_dereference(pdr->qer_with_rate);
     if (qer_with_rate != NULL)
         tp = qer_with_rate->dl_policer;
-    if (get_qos_enable() && tp != NULL) {
+    if (is_dl_qos_enabled() && tp != NULL) {
         color = policePacket(tp, volume_mbqe);
     }
     if (color == Red) {

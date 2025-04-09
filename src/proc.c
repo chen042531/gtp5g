@@ -282,7 +282,12 @@ static int gtp5g_urr_read(struct seq_file *s, void *v)
 static int gtp5g_qos_read(struct seq_file *s, void *v)
 {
     GTP5G_TRC(NULL, "gtp5g_qos_read");
-    seq_printf(s, "QoS Enable: %d\n", get_qos_enable());
+    seq_printf(s, "gtp5g qos enable range: 0~3\n");
+    seq_printf(s, "\t 0 -> Disable\n");
+    seq_printf(s, "\t 1 -> Enable\n");
+    seq_printf(s, "\t 2 -> Enable Uplink Only\n");
+    seq_printf(s, "\t 3 -> Enable Downlink Only\n");
+    seq_printf(s, "Current QoS Enable: %d\n", get_qos_enable());
     return 0;
 }
 
