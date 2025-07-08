@@ -154,6 +154,7 @@ int dev_hashtable_new(struct gtp5g_dev *gtp, int hsize)
 {
     int i;
 
+    printk("dev_hashtable_new");
     gtp->addr_hash = kvmalloc_array(hsize, sizeof(struct hlist_head),
         GFP_KERNEL);
     if (gtp->addr_hash == NULL)
@@ -224,7 +225,7 @@ int dev_hashtable_new(struct gtp5g_dev *gtp, int hsize)
         INIT_HLIST_HEAD(&gtp->related_bar_hash[i]);
         INIT_HLIST_HEAD(&gtp->related_urr_hash[i]);
     }
-
+    printk("dev_hashtable_new down");
     return 0;
 err10:
     kvfree(gtp->related_bar_hash);
