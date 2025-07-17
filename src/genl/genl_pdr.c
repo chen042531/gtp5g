@@ -32,13 +32,13 @@ static int gtp5g_genl_fill_pdr(struct sk_buff *, u32, u32, u32, struct pdr *);
 
 int gtp5g_genl_add_pdr(struct sk_buff *skb, struct genl_info *info)
 {
-    struct gtp5g_dev *gtp;
-    struct pdr *pdr;
-    int ifindex;
-    int netnsfd;
+    struct gtp5g_dev *gtp = NULL;
+    struct pdr *pdr = NULL;
+    int ifindex = 0;
+    int netnsfd = 0;
     u64 seid = 0;
-    u16 pdr_id;
-    int err;
+    u16 pdr_id = 0;
+    int err = 0;
 
     if (info->attrs[GTP5G_LINK]) {
         ifindex = nla_get_u32(info->attrs[GTP5G_LINK]);
@@ -146,12 +146,12 @@ int gtp5g_genl_add_pdr(struct sk_buff *skb, struct genl_info *info)
 
 int gtp5g_genl_del_pdr(struct sk_buff *skb, struct genl_info *info)
 {
-    struct gtp5g_dev *gtp;
-    struct pdr *pdr;
-    int ifindex;
-    int netnsfd;
+    struct gtp5g_dev *gtp = NULL;
+    struct pdr *pdr = NULL;
+    int ifindex = 0;
+    int netnsfd = 0;
     u64 seid = 0;
-    u16 pdr_id;
+    u16 pdr_id = 0;
 
     if (!info->attrs[GTP5G_LINK])
         return -EINVAL;
@@ -198,13 +198,13 @@ int gtp5g_genl_del_pdr(struct sk_buff *skb, struct genl_info *info)
 
 int gtp5g_genl_get_pdr(struct sk_buff *skb, struct genl_info *info)
 {
-    struct gtp5g_dev *gtp;
-    struct pdr *pdr;
-    int ifindex;
-    int netnsfd;
+    struct gtp5g_dev *gtp = NULL;
+    struct pdr *pdr = NULL;
+    int ifindex = 0;
+    int netnsfd = 0;
     u64 seid = 0;
-    u16 pdr_id;
-    struct sk_buff *skb_ack;
+    u16 pdr_id = 0;
+    struct sk_buff *skb_ack = NULL;
     int err;
 
     if (!info->attrs[GTP5G_LINK])
@@ -271,7 +271,7 @@ int gtp5g_genl_dump_pdr(struct sk_buff *skb, struct netlink_callback *cb)
      * args[2] : index of gtp5g pdr id
      * args[5] : set non-zero means it is finished
      */
-    struct gtp5g_dev *gtp;
+    struct gtp5g_dev *gtp = NULL;
     struct gtp5g_dev *last_gtp = (struct gtp5g_dev *)cb->args[0];
     struct net *net = sock_net(skb->sk);
     struct gtp5g_net *gn = net_generic(net, GTP5G_NET_ID());
@@ -279,7 +279,7 @@ int gtp5g_genl_dump_pdr(struct sk_buff *skb, struct netlink_callback *cb)
     int last_hash_entry_id = cb->args[1];
     int ret;
     u16 pdr_id = cb->args[2];
-    struct pdr *pdr;
+    struct pdr *pdr = NULL;
 
     if (cb->args[5])
         return 0;
@@ -328,7 +328,7 @@ int find_qer_id_in_pdr(struct pdr *pdr, u32 qer_id)
 
 static void set_pdr_qfi(struct pdr *pdr, struct gtp5g_dev *gtp){
     int i;
-    struct qer *qer;
+    struct qer *qer = NULL;
 
     // TS 38.415 QFI range {0..2^6-1}
     for (i = 0; i < pdr->qer_num; i++) {
@@ -404,8 +404,8 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
     int err;
     struct nlattr *hdr = nlmsg_attrdata(info->nlhdr, 0);
     int remaining = nlmsg_attrlen(info->nlhdr, 0);
-    struct far *far;
-    struct qer *qer;
+    struct far *far = NULL;
+    struct qer *qer = NULL;
     int i;
 
     pdr->seid = 0;
@@ -519,8 +519,8 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
 
 static int parse_pdi(struct pdr *pdr, struct nlattr *a)
 {
-    struct nlattr *attrs[GTP5G_PDI_ATTR_MAX + 1];
-    struct pdi *pdi;
+    struct nlattr *attrs[GTP5G_PDI_ATTR_MAX + 1] = {NULL};
+    struct pdi *pdi = NULL;
     int err;
     char ip_str[40];
 
@@ -567,8 +567,8 @@ static int parse_pdi(struct pdr *pdr, struct nlattr *a)
 
 static int parse_f_teid(struct pdi *pdi, struct nlattr *a)
 {
-    struct nlattr *attrs[GTP5G_F_TEID_ATTR_MAX + 1];
-    struct local_f_teid *f_teid;
+    struct nlattr *attrs[GTP5G_F_TEID_ATTR_MAX + 1] = {NULL};
+    struct local_f_teid *f_teid = NULL;
     int err;
 
     err = nla_parse_nested(attrs, GTP5G_F_TEID_ATTR_MAX, a, NULL, NULL);
@@ -597,8 +597,8 @@ static int parse_f_teid(struct pdi *pdi, struct nlattr *a)
 
 static int parse_sdf_filter(struct pdi *pdi, struct nlattr *a)
 {
-    struct nlattr *attrs[GTP5G_SDF_FILTER_ATTR_MAX + 1];
-    struct sdf_filter *sdf;
+    struct nlattr *attrs[GTP5G_SDF_FILTER_ATTR_MAX + 1] = {NULL};
+    struct sdf_filter *sdf = NULL;
     int err;
 
     err = nla_parse_nested(attrs, GTP5G_SDF_FILTER_ATTR_MAX, a, NULL, NULL);
@@ -660,8 +660,8 @@ static int parse_sdf_filter(struct pdi *pdi, struct nlattr *a)
 
 static int parse_ip_filter_rule(struct sdf_filter *sdf, struct nlattr *a)
 {
-    struct nlattr *attrs[GTP5G_FLOW_DESCRIPTION_ATTR_MAX + 1];
-    struct ip_filter_rule *rule;
+    struct nlattr *attrs[GTP5G_FLOW_DESCRIPTION_ATTR_MAX + 1] = {NULL};
+    struct ip_filter_rule *rule = NULL;
     int err;
     int i;
 
@@ -753,7 +753,7 @@ static int parse_ip_filter_rule(struct sdf_filter *sdf, struct nlattr *a)
 
 static int gtp5g_genl_fill_rule(struct sk_buff *skb, struct ip_filter_rule *rule)
 {
-    struct nlattr *nest_rule;
+    struct nlattr *nest_rule = NULL;
     int max_port_num = rule->sport_num;
     u32 *port_buf = NULL;
     int i;
@@ -817,7 +817,7 @@ genlmsg_fail:
 
 static int gtp5g_genl_fill_sdf(struct sk_buff *skb, struct sdf_filter *sdf)
 {
-    struct nlattr *nest_sdf;
+    struct nlattr *nest_sdf = NULL;
 
     nest_sdf = nla_nest_start(skb, GTP5G_PDI_SDF_FILTER);
     if (!nest_sdf)
@@ -851,7 +851,7 @@ static int gtp5g_genl_fill_sdf(struct sk_buff *skb, struct sdf_filter *sdf)
 
 static int gtp5g_genl_fill_f_teid(struct sk_buff *skb, struct local_f_teid *f_teid)
 {
-    struct nlattr *nest_f_teid;
+    struct nlattr *nest_f_teid = NULL;
 
     nest_f_teid = nla_nest_start(skb, GTP5G_PDI_F_TEID);
     if (!nest_f_teid)
@@ -868,7 +868,7 @@ static int gtp5g_genl_fill_f_teid(struct sk_buff *skb, struct local_f_teid *f_te
 
 static int gtp5g_genl_fill_pdi(struct sk_buff *skb, struct pdi *pdi)
 {
-    struct nlattr *nest_pdi;
+    struct nlattr *nest_pdi = NULL;
 
     nest_pdi = nla_nest_start(skb, GTP5G_PDR_PDI);
     if (!nest_pdi)

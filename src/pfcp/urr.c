@@ -82,11 +82,11 @@ void urr_update(struct urr *urr, struct gtp5g_dev *gtp)
 // TODO: FAR ID for Quota Action IE for indicating the action while no quota is granted
 void urr_quota_exhaust_action(struct urr *urr, struct gtp5g_dev *gtp)
 {
-    struct hlist_head *head;
-    struct pdr_node *pdr_node;
+    struct hlist_head *head = NULL;
+    struct pdr_node *pdr_node = NULL;
     char seid_urr_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
     u16 *actions = NULL, *pdrids = NULL;
-    struct far *far;
+    struct far *far = NULL;
 
     if (urr->quota_exhausted) {
         GTP5G_WAR(NULL, "URR (%u) quota was already exhausted\n", urr->id);
@@ -136,11 +136,11 @@ fail:
 
 void urr_reverse_quota_exhaust_action(struct urr *urr, struct gtp5g_dev *gtp)
 {
-    struct hlist_head *head;
-    struct pdr_node *pdr_node;
+    struct hlist_head *head = NULL;
+    struct pdr_node *pdr_node = NULL;
     char seid_urr_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
-    int i;
-    struct far *far;
+    int i = 0;
+    struct far *far = NULL;
 
     if (!urr->quota_exhausted) {
         GTP5G_WAR(NULL, "URR (%u) quota is not exhausted; should not reverse\n", urr->id);
@@ -175,7 +175,7 @@ void urr_reverse_quota_exhaust_action(struct urr *urr, struct gtp5g_dev *gtp)
 void urr_append(u64 seid, u32 urr_id, struct urr *urr, struct gtp5g_dev *gtp)
 {
     char seid_urr_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
-    u32 i;
+    u32 i = 0;
 
     seid_urr_id_to_hex_str(seid, urr_id, seid_urr_id_hexstr);
     i = str_hashfn(seid_urr_id_hexstr) % gtp->hash_size;
@@ -187,7 +187,7 @@ int urr_get_pdr_ids(u16 *ids, int n, struct urr *urr, struct gtp5g_dev *gtp)
     struct hlist_head *head;
     struct pdr_node *pdr_node;
     char seid_urr_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
-    int i;
+    int i = 0;
 
     seid_urr_id_to_hex_str(urr->seid, urr->id, seid_urr_id_hexstr);
     head = &gtp->related_urr_hash[str_hashfn(seid_urr_id_hexstr) % gtp->hash_size];
@@ -204,7 +204,7 @@ int urr_get_pdr_ids(u16 *ids, int n, struct urr *urr, struct gtp5g_dev *gtp)
 
 void del_related_urr_hash(struct gtp5g_dev *gtp, struct pdr *pdr)
 {
-    u32 i, j;
+    u32 i = 0, j = 0;
     struct pdr_node *pdr_node = NULL ;
     struct pdr_node *to_be_del = NULL ;
     char seid_urr_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
@@ -231,7 +231,7 @@ void del_related_urr_hash(struct gtp5g_dev *gtp, struct pdr *pdr)
 int urr_set_pdr(struct pdr *pdr, struct gtp5g_dev *gtp)
 {
     char seid_urr_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
-    u32 i, j;
+    u32 i = 0, j = 0;
     struct pdr_node *pdr_node = NULL;
 
     if (!pdr)

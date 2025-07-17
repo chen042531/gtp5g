@@ -25,8 +25,8 @@ static void qer_context_free(struct rcu_head *head)
 void qer_context_delete(struct qer *qer)
 {
     struct gtp5g_dev *gtp = netdev_priv(qer->dev);
-    struct hlist_head *head;
-    struct pdr_node *pdr_node;
+    struct hlist_head *head = NULL;
+    struct pdr_node *pdr_node = NULL;
     char seid_qer_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
 
     if (!qer)
@@ -49,8 +49,8 @@ void qer_context_delete(struct qer *qer)
 
 struct qer *find_qer_by_id(struct gtp5g_dev *gtp, u64 seid, u32 qer_id)
 {
-    struct hlist_head *head;
-    struct qer *qer;
+    struct hlist_head *head = NULL;
+    struct qer *qer = NULL;
     char seid_qer_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
 
     seid_qer_id_to_hex_str(seid, qer_id, seid_qer_id_hexstr);
@@ -65,8 +65,8 @@ struct qer *find_qer_by_id(struct gtp5g_dev *gtp, u64 seid, u32 qer_id)
 
 void qer_update(struct qer *qer, struct gtp5g_dev *gtp)
 {
-    struct pdr_node *pdr_node;
-    struct hlist_head *head;
+    struct pdr_node *pdr_node = NULL;
+    struct hlist_head *head = NULL;
     char seid_qer_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
 
     seid_qer_id_to_hex_str(qer->seid, qer->id, seid_qer_id_hexstr);
@@ -80,7 +80,7 @@ void qer_update(struct qer *qer, struct gtp5g_dev *gtp)
 
 void qer_append(u64 seid, u32 qer_id, struct qer *qer, struct gtp5g_dev *gtp)
 {
-    u32 i;
+    u32 i = 0;
     char seid_qer_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
 
     seid_qer_id_to_hex_str(seid, qer_id, seid_qer_id_hexstr);
@@ -90,9 +90,9 @@ void qer_append(u64 seid, u32 qer_id, struct qer *qer, struct gtp5g_dev *gtp)
 
 int qer_get_pdr_ids(u16 *ids, int n, struct qer *qer, struct gtp5g_dev *gtp)
 {
-    struct hlist_head *head;
-    struct pdr_node *pdr_node;
-    int i;
+    struct hlist_head *head = NULL;
+    struct pdr_node *pdr_node = NULL;
+    int i = 0;
     char seid_qer_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
 
     seid_qer_id_to_hex_str(qer->seid, qer->id, seid_qer_id_hexstr);
@@ -110,7 +110,7 @@ int qer_get_pdr_ids(u16 *ids, int n, struct qer *qer, struct gtp5g_dev *gtp)
 
 void del_related_qer_hash(struct gtp5g_dev *gtp, struct pdr *pdr)
 {
-    u32 i, j;
+    u32 i = 0, j = 0;
     struct pdr_node *pdr_node = NULL ;
     struct pdr_node *to_be_del = NULL ;
     char seid_qer_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
@@ -137,7 +137,7 @@ void del_related_qer_hash(struct gtp5g_dev *gtp, struct pdr *pdr)
 int qer_set_pdr(struct pdr *pdr, struct gtp5g_dev *gtp)
 {
     char seid_qer_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
-    u32 i, j;
+    u32 i = 0, j = 0;
     struct pdr_node *pdr_node = NULL;
 
     if (!pdr)
@@ -163,9 +163,9 @@ int qer_set_pdr(struct pdr *pdr, struct gtp5g_dev *gtp)
 void set_pdr_qer_with_rate_null(struct qer *qer_with_rate, struct gtp5g_dev *gtp)
 {
     char seid_qer_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
-    struct hlist_head *head;
-    struct pdr_node *pdr_node;
-    struct pdr *pdr;
+    struct hlist_head *head = NULL;
+    struct pdr_node *pdr_node = NULL;
+    struct pdr *pdr = NULL;
 
     seid_qer_id_to_hex_str(qer_with_rate->seid, qer_with_rate->id, seid_qer_id_hexstr);
     head = &gtp->related_qer_hash[str_hashfn(seid_qer_id_hexstr) % gtp->hash_size];

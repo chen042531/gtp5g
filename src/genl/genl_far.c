@@ -28,15 +28,15 @@ static int gtp5g_genl_fill_far(struct sk_buff *, u32, u32, u32, struct far *);
 
 int gtp5g_genl_add_far(struct sk_buff *skb, struct genl_info *info)
 {
-    struct gtp5g_dev *gtp;
-    struct far *far;
-    int ifindex;
-    int netnsfd;
-    u64 seid;
-    u32 far_id;
-    int err;
-    u8 flag;
-    struct gtp5g_emark_pktinfo epkt_info;
+    struct gtp5g_dev *gtp = NULL;
+    struct far *far = NULL;
+    int ifindex = 0;
+    int netnsfd = 0;
+    u64 seid = 0;
+    u32 far_id = 0;
+    int err = 0;
+    u8 flag = 0;
+    struct gtp5g_emark_pktinfo epkt_info = {0};
 
     if (!info->attrs[GTP5G_LINK])
         return -EINVAL;
@@ -157,12 +157,12 @@ int gtp5g_genl_add_far(struct sk_buff *skb, struct genl_info *info)
 
 int gtp5g_genl_del_far(struct sk_buff *skb, struct genl_info *info)
 {
-    struct gtp5g_dev *gtp;
-    struct far *far;
-    int ifindex;
-    int netnsfd;
-    u64 seid;
-    u32 far_id;
+    struct gtp5g_dev *gtp = NULL;
+    struct far *far = NULL;
+    int ifindex = 0;
+    int netnsfd = 0;
+    u64 seid = 0;
+    u32 far_id = 0;
 
 
     if (!info->attrs[GTP5G_LINK])
@@ -209,13 +209,13 @@ int gtp5g_genl_del_far(struct sk_buff *skb, struct genl_info *info)
 
 int gtp5g_genl_get_far(struct sk_buff *skb, struct genl_info *info)
 {
-    struct gtp5g_dev *gtp;
-    struct far *far;
-    int ifindex;
-    int netnsfd;
-    u64 seid;
-    u32 far_id;
-    struct sk_buff *skb_ack;
+    struct gtp5g_dev *gtp = NULL;
+    struct far *far = NULL;
+    int ifindex = 0;
+    int netnsfd = 0;
+    u64 seid = 0;
+    u32 far_id = 0;
+    struct sk_buff *skb_ack = NULL;
     int err;
 
     if (!info->attrs[GTP5G_LINK])
@@ -284,7 +284,7 @@ int gtp5g_genl_dump_far(struct sk_buff *skb, struct netlink_callback *cb)
      * args[2] : index of gtp5g far id
      * args[5] : set non-zero means it is finished
      */
-    struct gtp5g_dev *gtp;
+    struct gtp5g_dev *gtp = NULL;
     struct gtp5g_dev *last_gtp = (struct gtp5g_dev *)cb->args[0];
     struct net *net = sock_net(skb->sk);
     struct gtp5g_net *gn = net_generic(net, GTP5G_NET_ID());
@@ -292,7 +292,7 @@ int gtp5g_genl_dump_far(struct sk_buff *skb, struct netlink_callback *cb)
     int last_hash_entry_id = cb->args[1];
     int ret;
     u32 far_id = cb->args[2];
-    struct far *far;
+    struct far *far = NULL;
 
     if (cb->args[5])
         return 0;
@@ -335,7 +335,7 @@ static int header_creation_fill(struct forwarding_parameter *param,
                struct gtp5g_emark_pktinfo *epkt_info,
                uint8_t sendEndmarker)
 {
-    struct outer_header_creation *hdr_creation;
+    struct outer_header_creation *hdr_creation = NULL;
 
     if (!attrs[GTP5G_OUTER_HEADER_CREATION_DESCRIPTION] ||
             !attrs[GTP5G_OUTER_HEADER_CREATION_O_TEID] ||
@@ -406,8 +406,8 @@ static int forwarding_parameter_fill(struct forwarding_parameter *param,
                struct nlattr **attrs, u8 *flag,
                struct gtp5g_emark_pktinfo *epkt_info)
 {
-    struct nlattr *hdr_creation_attrs[GTP5G_OUTER_HEADER_CREATION_ATTR_MAX + 1];
-    struct forwarding_policy *fwd_policy;
+    struct nlattr *hdr_creation_attrs[GTP5G_OUTER_HEADER_CREATION_ATTR_MAX + 1] = {NULL};
+    struct forwarding_policy *fwd_policy = NULL;
     uint8_t sendEndmarker = 0;
     int err;
 
@@ -467,7 +467,7 @@ static int forwarding_parameter_fill(struct forwarding_parameter *param,
 static int far_fill(struct far *far, struct gtp5g_dev *gtp, struct genl_info *info,
         u8 *flag, struct gtp5g_emark_pktinfo *epkt_info)
 {
-    struct nlattr *attrs[GTP5G_FORWARDING_PARAMETER_ATTR_MAX + 1];
+    struct nlattr *attrs[GTP5G_FORWARDING_PARAMETER_ATTR_MAX + 1] = {NULL};
     int err;
     struct forwarding_parameter *fwd_param;
 

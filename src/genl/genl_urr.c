@@ -20,12 +20,12 @@ static int parse_volumeqouta(struct urr *urr, struct nlattr *a);
 
 int gtp5g_genl_add_urr(struct sk_buff *skb, struct genl_info *info)
 {
-    struct gtp5g_dev *gtp;
-    struct urr *urr;
-    int ifindex;
-    int netnsfd;
-    u64 seid;
-    u32 urr_id;
+    struct gtp5g_dev *gtp = NULL;
+    struct urr *urr = NULL;
+    int ifindex = 0;
+    int netnsfd = 0;
+    u64 seid = 0;
+    u32 urr_id = 0;
     int err = 0;
 
     if (!info->attrs[GTP5G_LINK])
@@ -113,12 +113,12 @@ end:
 
 int gtp5g_genl_del_urr(struct sk_buff *skb, struct genl_info *info)
 {
-    struct gtp5g_dev *gtp;
+    struct gtp5g_dev *gtp = NULL;
     struct urr *urr = NULL;
-    int ifindex;
-    int netnsfd;
-    u64 seid;
-    u32 urr_id;
+    int ifindex = 0;
+    int netnsfd = 0;
+    u64 seid = 0;
+    u32 urr_id = 0;
     struct sk_buff *skb_ack = NULL;
     int err = 0;
     struct usage_report *report = NULL;
@@ -197,12 +197,12 @@ fail:
 
 int gtp5g_genl_get_urr(struct sk_buff *skb, struct genl_info *info)
 {
-    struct gtp5g_dev *gtp;
-    struct urr *urr;
-    int ifindex;
-    int netnsfd;
-    u64 seid;
-    u32 urr_id;
+    struct gtp5g_dev *gtp = NULL;
+    struct urr *urr = NULL;
+    int ifindex = 0;
+    int netnsfd = 0;
+    u64 seid = 0;
+    u32 urr_id = 0;
     struct sk_buff *skb_ack = NULL;
     int err = 0;
 
@@ -274,7 +274,7 @@ int gtp5g_genl_dump_urr(struct sk_buff *skb, struct netlink_callback *cb)
      * args[2] : index of gtp5g urr id
      * args[5] : set non-zero means it is finished
      */
-    struct gtp5g_dev *gtp;
+    struct gtp5g_dev *gtp = NULL;
     struct gtp5g_dev *last_gtp = (struct gtp5g_dev *)cb->args[0];
     struct net *net = sock_net(skb->sk);
     struct gtp5g_net *gn = net_generic(net, GTP5G_NET_ID());
@@ -282,7 +282,7 @@ int gtp5g_genl_dump_urr(struct sk_buff *skb, struct netlink_callback *cb)
     int last_hash_entry_id = cb->args[1];
     int ret;
     u32 urr_id = cb->args[2];
-    struct urr *urr;
+    struct urr *urr = NULL;
 
     if (cb->args[5])
         return 0;
@@ -380,7 +380,7 @@ static int urr_fill(struct urr *urr, struct gtp5g_dev *gtp, struct genl_info *in
 
 static int parse_volumethreshold(struct urr *urr, struct nlattr *a)
 {
-    struct nlattr *attrs[GTP5G_URR_ATTR_MAX + 1];
+    struct nlattr *attrs[GTP5G_URR_ATTR_MAX + 1] = {NULL};
     int err;
 
     err = nla_parse_nested(attrs, GTP5G_URR_VOLUME_THRESHOLD_ATTR_MAX, a, NULL, NULL);
@@ -408,7 +408,7 @@ static int parse_volumethreshold(struct urr *urr, struct nlattr *a)
 
 static int parse_volumeqouta(struct urr *urr, struct nlattr *a)
 {
-    struct nlattr *attrs[GTP5G_URR_ATTR_MAX + 1];
+    struct nlattr *attrs[GTP5G_URR_ATTR_MAX + 1] = {NULL};
     int err;
 
     err = nla_parse_nested(attrs, GTP5G_URR_VOLUME_QUOTA_ATTR_MAX, a, NULL, NULL);
@@ -436,7 +436,7 @@ static int parse_volumeqouta(struct urr *urr, struct nlattr *a)
 
 static int gtp5g_genl_fill_volume_threshold(struct sk_buff *skb, struct Volume volumethreshold)
 {
-    struct nlattr *nest_volume_threshold;
+    struct nlattr *nest_volume_threshold = NULL;
 
     nest_volume_threshold = nla_nest_start(skb, GTP5G_URR_VOLUME_THRESHOLD);
     if (!nest_volume_threshold)
@@ -457,7 +457,7 @@ static int gtp5g_genl_fill_volume_threshold(struct sk_buff *skb, struct Volume v
 
 static int gtp5g_genl_fill_volume_quota(struct sk_buff *skb, struct Volume volumequota)
 {
-    struct nlattr *nest_volume_quota;
+    struct nlattr *nest_volume_quota = NULL;
 
     nest_volume_quota = nla_nest_start(skb, GTP5G_URR_VOLUME_QUOTA);
     if (!nest_volume_quota)

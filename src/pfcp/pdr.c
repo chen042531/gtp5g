@@ -33,8 +33,8 @@ static void seid_pdr_id_to_hex_str(u64 seid_int, u16 pdr_id, char *buff)
 static void pdr_context_free(struct rcu_head *head)
 {
     struct pdr *pdr = container_of(head, struct pdr, rcu_head);
-    struct pdi *pdi;
-    struct sdf_filter *sdf;
+    struct pdi *pdi = NULL;
+    struct sdf_filter *sdf = NULL;
 
     if (!pdr)
         return;
@@ -118,7 +118,7 @@ int unix_sock_client_new(struct pdr *pdr)
 {
     struct socket **psock = &pdr->sock_for_buf;
     struct sockaddr_un *addr = &pdr->addr_unix;
-    int err;
+    int err = 0;
 
     if (strlen(addr->sun_path) == 0) {
         return -EINVAL;
@@ -159,8 +159,8 @@ int unix_sock_client_update(struct pdr *pdr, struct far *far)
 
 struct pdr *find_pdr_by_id(struct gtp5g_dev *gtp, u64 seid, u16 pdr_id)
 {
-    struct hlist_head *head;
-    struct pdr *pdr;
+    struct hlist_head *head = NULL;
+    struct pdr *pdr = NULL;
     char seid_pdr_id[SEID_U32ID_HEX_STR_LEN] = {0};
 
     seid_pdr_id_to_hex_str(seid, pdr_id, seid_pdr_id);
@@ -180,7 +180,7 @@ static int ipv4_match(__be32 target_addr, __be32 ifa_addr, __be32 ifa_mask)
 
 static bool ports_match(struct range *match_list, int list_len, __be16 port)
 {
-    int i;
+    int i = 0;
 
     if (!list_len)
         return true;
@@ -196,9 +196,9 @@ static int sdf_filter_match(struct sdf_filter *sdf, struct sk_buff *skb,
         unsigned int hdrlen, u8 direction)
 {
     #define IP_PROTO_RESERVED 0xff
-    struct iphdr *iph;
-    struct ip_filter_rule *rule;
-    const __be16 *pptr;
+    struct iphdr *iph = NULL;
+    struct ip_filter_rule *rule = NULL;
+    const __be16 *pptr = NULL;
     __be16 _ports[2];
 
     if (!sdf)
@@ -276,12 +276,12 @@ struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff *skb,
         unsigned int hdrlen, u32 teid, u8 type)
 {
 #ifdef MATCH_IP
-    struct iphdr *outer_iph;
+    struct iphdr *outer_iph = NULL;
 #endif
-    struct iphdr *iph;
-    struct hlist_head *head;
-    struct pdr *pdr;
-    struct pdi *pdi;
+    struct iphdr *iph = NULL;
+    struct hlist_head *head = NULL;
+    struct pdr *pdr = NULL;
+    struct pdi *pdi = NULL;
 
     if (!gtp) {
         return NULL;
@@ -351,9 +351,9 @@ struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff *skb,
 struct pdr *pdr_find_by_ipv4(struct gtp5g_dev *gtp, struct sk_buff *skb,
         unsigned int hdrlen, __be32 addr)
 {
-    struct hlist_head *head;
-    struct pdr *pdr;
-    struct pdi *pdi;
+    struct hlist_head *head = NULL;
+    struct pdr *pdr = NULL;
+    struct pdi *pdi = NULL;
 
     head = &gtp->addr_hash[ipv4_hashfn(addr) % gtp->hash_size];
 
@@ -376,7 +376,7 @@ struct pdr *pdr_find_by_ipv4(struct gtp5g_dev *gtp, struct sk_buff *skb,
 
 void pdr_append(u64 seid, u16 pdr_id, struct pdr *pdr, struct gtp5g_dev *gtp)
 {
-    u32 i;
+    u32 i = 0;
     char seid_pdr_id_hexstr[SEID_U32ID_HEX_STR_LEN] = {0};
 
     seid_pdr_id_to_hex_str(seid, pdr_id, seid_pdr_id_hexstr);
@@ -386,11 +386,11 @@ void pdr_append(u64 seid, u16 pdr_id, struct pdr *pdr, struct gtp5g_dev *gtp)
 
 void pdr_update_hlist_table(struct pdr *pdr, struct gtp5g_dev *gtp)
 {
-    struct hlist_head *head;
-    struct pdr *ppdr;
-    struct pdr *last_ppdr;
-    struct pdi *pdi;
-    struct local_f_teid *f_teid;
+    struct hlist_head *head = NULL;
+    struct pdr *ppdr = NULL;
+    struct pdr *last_ppdr = NULL;
+    struct pdi *pdi = NULL;
+    struct local_f_teid *f_teid = NULL;
 
     if (!hlist_unhashed(&pdr->hlist_i_teid))
         hlist_del_rcu(&pdr->hlist_i_teid);

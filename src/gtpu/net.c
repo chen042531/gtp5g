@@ -6,7 +6,7 @@
 #include "net.h"
 #include "link.h"
 
-static unsigned int gtp5g_net_id __read_mostly;
+static unsigned int gtp5g_net_id __read_mostly = 0;
 
 static int __net_init gtp5g_net_init(struct net *net)
 {

@@ -3,7 +3,7 @@
 static int gtp5g_genl_fill_ver(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
         u32 type)
 {
-    void *genlh;
+    void *genlh = NULL;
 
     genlh = genlmsg_put(skb, snd_portid, snd_seq, &gtp5g_genl_family, 0, type);
     if (!genlh)
@@ -22,8 +22,8 @@ genlmsg_fail:
 
 int gtp5g_genl_get_version(struct sk_buff *skb, struct genl_info *info)
 {
-    struct sk_buff *skb_ack;
-    int err;
+    struct sk_buff *skb_ack = NULL;
+    int err = 0;
 
     skb_ack = genlmsg_new(NLMSG_GOODSIZE, GFP_ATOMIC);
     if (!skb_ack) {

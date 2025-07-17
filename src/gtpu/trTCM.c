@@ -44,7 +44,7 @@ TrafficPolicer* newTrafficPolicer(u64 kbitRate) {
 
 Color policePacket(TrafficPolicer* p, int pktLen) {
     u64 refillTokens = 0;
-    u64 tc, te = 0;
+    u64 tc = 0, te = 0;
     u64 elapsed = 0;
     u64 now = 0;
 

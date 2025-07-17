@@ -14,9 +14,9 @@
 #include "log.h"
 
 u64 network_and_transport_header_len(struct sk_buff *skb) {
-    u64 hdrlen;
-    struct iphdr *iph;
-    struct tcphdr *tcp;
+    u64 hdrlen = 0;
+    struct iphdr *iph = NULL;
+    struct tcphdr *tcp = NULL;
     
     iph = (struct iphdr *)skb->data;
     hdrlen = iph->ihl * 4;
@@ -41,8 +41,8 @@ u64 network_and_transport_header_len(struct sk_buff *skb) {
 }
 
 u64 ip4_rm_header(struct sk_buff *skb, unsigned int hdrlen) {
-    struct sk_buff *skb_copy, tmp;
-    u64 volume;
+    struct sk_buff *skb_copy = NULL, tmp;
+    u64 volume = 0;
 
     // To make sure cacaluting the len of skb will not move the data & len value 
     // of the original skb
@@ -66,9 +66,9 @@ struct rtable *ip4_find_route(struct sk_buff *skb, struct iphdr *iph,
     struct sock *sk, struct net_device *gtp_dev, 
     __be32 saddr, __be32 daddr, struct flowi4 *fl4)
 {
-    struct rtable *rt;
-    __be16 df;
-    int mtu;
+    struct rtable *rt = NULL;
+    __be16 df = 0;
+    int mtu = 0;
 
     memset(fl4, 0, sizeof(*fl4));
     fl4->flowi4_oif = sk->sk_bound_dev_if;
@@ -130,7 +130,7 @@ struct rtable *ip4_find_route_simple(struct sk_buff *skb,
     struct sock *sk, struct net_device *gtp_dev, 
     __be32 saddr, __be32 daddr, struct flowi4 *fl4)
 {
-    struct rtable *rt;
+    struct rtable *rt = NULL;
 
     memset(fl4, 0, sizeof(*fl4));
     fl4->flowi4_oif = sk->sk_bound_dev_if;
@@ -166,9 +166,9 @@ err:
 int ip_xmit(struct sk_buff *skb, struct sock *sk, struct net_device *gtp_dev) 
 {
     struct iphdr *iph = ip_hdr(skb);
-    struct flowi4 fl4;
-    struct rtable *rt;
-    __be32 src;
+    struct flowi4 fl4 = {0};
+    struct rtable *rt = NULL;
+    __be32 src = 0;
 
     rt = ip4_find_route_simple(skb, sk, gtp_dev, 0, iph->daddr, &fl4);
     if (IS_ERR(rt)) {
@@ -198,9 +198,9 @@ int ip_xmit(struct sk_buff *skb, struct sock *sk, struct net_device *gtp_dev)
 void gtp5g_fwd_emark_skb_ipv4(struct sk_buff *skb,
     struct net_device *dev, struct gtp5g_emark_pktinfo *epkt_info) 
 {
-    struct rtable *rt;
-    struct flowi4 fl4;
-    struct gtpv1_hdr *gtp1;
+    struct rtable *rt = NULL;
+    struct flowi4 fl4 = {0};
+    struct gtpv1_hdr *gtp1 = NULL;
 
     /* Reset all headers */
     skb_reset_transport_header(skb);

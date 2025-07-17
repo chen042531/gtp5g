@@ -71,15 +71,15 @@ static int gtp5g_newlink(struct net *src_net, struct net_device *dev,
 #endif
 {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6,15,0)
-    struct nlattr **data;
+    struct nlattr **data = NULL;
     data = params->data;
 #endif
-    struct gtp5g_dev *gtp;
-    struct gtp5g_net *gn;
-    struct sock *sk;
+    struct gtp5g_dev *gtp = NULL;
+    struct gtp5g_net *gn = NULL;
+    struct sock *sk = NULL;
     unsigned int role = GTP5G_ROLE_UPF;
-    u32 fd1;
-    int hashsize, err;
+    u32 fd1 = 0;
+    int hashsize = 0, err = 0;
 
     gtp = netdev_priv(dev);
 
@@ -181,7 +181,7 @@ struct rtnl_link_ops gtp5g_link_ops __read_mostly = {
 
 void gtp5g_link_all_del(struct list_head *dev_list)
 {
-    struct gtp5g_dev *gtp;
+    struct gtp5g_dev *gtp = NULL;
     LIST_HEAD(list);
 
     rtnl_lock();

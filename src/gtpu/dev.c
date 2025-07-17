@@ -16,8 +16,8 @@
 struct gtp5g_dev *gtp5g_find_dev(struct net *src_net, int ifindex, int netnsfd)
 {
     struct gtp5g_dev *gtp = NULL;
-    struct net_device *dev;
-    struct net *net;
+    struct net_device *dev = NULL;
+    struct net *net = NULL;
 
     /* Examine the link attributes and figure out which network namespace
      * we are talking about.
@@ -101,7 +101,7 @@ static netdev_tx_t gtp5g_dev_xmit(struct sk_buff *skb, struct net_device *dev)
 {
     struct gtp5g_dev *gtp = netdev_priv(dev);
     unsigned int proto = ntohs(skb->protocol);
-    struct gtp5g_pktinfo pktinfo;
+    struct gtp5g_pktinfo pktinfo = {0};
     int ret = 0;
     u64 rxVol = skb->len;
 
@@ -152,7 +152,7 @@ const struct net_device_ops gtp5g_netdev_ops = {
 
 int dev_hashtable_new(struct gtp5g_dev *gtp, int hsize)
 {
-    int i;
+    int i = 0;
 
     gtp->addr_hash = kmalloc_array(hsize, sizeof(struct hlist_head),
         GFP_KERNEL);
@@ -251,12 +251,12 @@ err1:
 
 void gtp5g_hashtable_free(struct gtp5g_dev *gtp)
 {
-    struct pdr *pdr;
-    struct far *far;
-    struct qer *qer;
-    struct bar *bar;
-    struct urr *urr;
-    int i;
+    struct pdr *pdr = NULL;
+    struct far *far = NULL;
+    struct qer *qer = NULL;
+    struct bar *bar = NULL;
+    struct urr *urr = NULL;
+    int i = 0;
 
     for (i = 0; i < gtp->hash_size; i++) {
         hlist_for_each_entry_rcu(far, &gtp->far_id_hash[i], hlist_id)

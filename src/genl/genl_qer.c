@@ -18,13 +18,13 @@ static int gtp5g_genl_fill_qer(struct sk_buff *, u32, u32, u32, struct qer *);
 
 int gtp5g_genl_add_qer(struct sk_buff *skb, struct genl_info *info)
 {
-    struct gtp5g_dev *gtp;
-    struct qer *qer;
-    int ifindex;
-    int netnsfd;
-    u64 seid;
-    u32 qer_id;
-    int err;
+    struct gtp5g_dev *gtp = NULL;
+    struct qer *qer = NULL;
+    int ifindex = 0;
+    int netnsfd = 0;
+    u64 seid = 0;
+    u32 qer_id = 0;
+    int err = 0;
 
     if (!info->attrs[GTP5G_LINK])
         return -EINVAL;
@@ -117,12 +117,12 @@ int gtp5g_genl_add_qer(struct sk_buff *skb, struct genl_info *info)
 
 int gtp5g_genl_del_qer(struct sk_buff *skb, struct genl_info *info)
 {
-    struct gtp5g_dev *gtp;
-    struct qer *qer;
-    int ifindex;
-    int netnsfd;
-    u64 seid;
-    u32 qer_id;
+    struct gtp5g_dev *gtp = NULL;
+    struct qer *qer = NULL;
+    int ifindex = 0;
+    int netnsfd = 0;
+    u64 seid = 0;
+    u32 qer_id = 0;
 
     if (!info->attrs[GTP5G_LINK])
         return -EINVAL;
@@ -176,14 +176,14 @@ int gtp5g_genl_del_qer(struct sk_buff *skb, struct genl_info *info)
 
 int gtp5g_genl_get_qer(struct sk_buff *skb, struct genl_info *info)
 {
-    struct gtp5g_dev *gtp;
-    struct qer *qer;
-    int ifindex;
-    int netnsfd;
-    u64 seid;
-    u32 qer_id;
-    struct sk_buff *skb_ack;
-    int err;
+    struct gtp5g_dev *gtp = NULL;
+    struct qer *qer = NULL;
+    int ifindex = 0;
+    int netnsfd = 0;
+    u64 seid = 0;
+    u32 qer_id = 0;
+    struct sk_buff *skb_ack = NULL;
+    int err = 0;
 
     if (!info->attrs[GTP5G_LINK])
         return -EINVAL;
@@ -250,7 +250,7 @@ int gtp5g_genl_dump_qer(struct sk_buff *skb, struct netlink_callback *cb)
      * args[2] : index of gtp5g qer id
      * args[5] : set non-zero means it is finished
      */
-    struct gtp5g_dev *gtp;
+    struct gtp5g_dev *gtp = NULL;
     struct gtp5g_dev *last_gtp = (struct gtp5g_dev *)cb->args[0];
     struct net *net = sock_net(skb->sk);
     struct gtp5g_net *gn = net_generic(net, GTP5G_NET_ID());
@@ -258,7 +258,7 @@ int gtp5g_genl_dump_qer(struct sk_buff *skb, struct netlink_callback *cb)
     int last_hash_entry_id = cb->args[1];
     int ret;
     u32 qer_id = cb->args[2];
-    struct qer *qer;
+    struct qer *qer = NULL;
 
     if (cb->args[5])
         return 0;
@@ -300,8 +300,8 @@ u64 concat_bit_rate(u32 highbit, u8 lowbit) {
 
 static int qer_fill(struct qer *qer, struct gtp5g_dev *gtp, struct genl_info *info)
 {
-    struct nlattr *mbr_param_attrs[GTP5G_QER_MBR_ATTR_MAX + 1];
-    struct nlattr *gbr_param_attrs[GTP5G_QER_GBR_ATTR_MAX + 1];
+    struct nlattr *mbr_param_attrs[GTP5G_QER_MBR_ATTR_MAX + 1] = {NULL};
+    struct nlattr *gbr_param_attrs[GTP5G_QER_GBR_ATTR_MAX + 1] = {NULL};
 
     qer->id = nla_get_u32(info->attrs[GTP5G_QER_ID]);
 

@@ -14,13 +14,13 @@ static int gtp5g_genl_fill_bar(struct sk_buff *, u32, u32, u32, struct bar *);
 
 int gtp5g_genl_add_bar(struct sk_buff *skb, struct genl_info *info)
 {
-    struct gtp5g_dev *gtp;
-    struct bar *bar;
-    int ifindex;
-    int netnsfd;
-    u64 seid;
-    u8 bar_id;
-    int err;
+    struct gtp5g_dev *gtp = NULL;
+    struct bar *bar = NULL;
+    int ifindex = 0;
+    int netnsfd = 0;
+    u64 seid = 0;
+    u8 bar_id = 0;
+    int err = 0;
 
     if (!info->attrs[GTP5G_LINK])
         return -EINVAL;
@@ -113,12 +113,12 @@ int gtp5g_genl_add_bar(struct sk_buff *skb, struct genl_info *info)
 
 int gtp5g_genl_del_bar(struct sk_buff *skb, struct genl_info *info)
 {
-    struct gtp5g_dev *gtp;
-    struct bar *bar;
-    int ifindex;
-    int netnsfd;
-    u64 seid;
-    u8 bar_id;
+    struct gtp5g_dev *gtp = NULL;
+    struct bar *bar = NULL;
+    int ifindex = 0;
+    int netnsfd = 0;
+    u64 seid = 0;
+    u8 bar_id = 0;
 
     if (!info->attrs[GTP5G_LINK])
         return -EINVAL;
@@ -164,14 +164,14 @@ int gtp5g_genl_del_bar(struct sk_buff *skb, struct genl_info *info)
 
 int gtp5g_genl_get_bar(struct sk_buff *skb, struct genl_info *info)
 {
-    struct gtp5g_dev *gtp;
-    struct bar *bar;
-    int ifindex;
-    int netnsfd;
-    u64 seid;
-    u8 bar_id;
-    struct sk_buff *skb_ack;
-    int err;
+    struct gtp5g_dev *gtp = NULL;
+    struct bar *bar = NULL;
+    int ifindex = 0;
+    int netnsfd = 0;
+    u64 seid = 0;
+    u8 bar_id = 0;
+    struct sk_buff *skb_ack = NULL;
+    int err = 0;
 
     if (!info->attrs[GTP5G_LINK])
         return -EINVAL;
@@ -238,7 +238,7 @@ int gtp5g_genl_dump_bar(struct sk_buff *skb, struct netlink_callback *cb)
      * args[2] : index of gtp5g bar id
      * args[5] : set non-zero means it is finished
      */
-    struct gtp5g_dev *gtp;
+    struct gtp5g_dev *gtp = NULL;
     struct gtp5g_dev *last_gtp = (struct gtp5g_dev *)cb->args[0];
     struct net *net = sock_net(skb->sk);
     struct gtp5g_net *gn = net_generic(net, GTP5G_NET_ID());

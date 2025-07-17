@@ -107,12 +107,12 @@ fail:
 
 int gtp5g_genl_get_usage_report(struct sk_buff *skb, struct genl_info *info)
 {
-    struct gtp5g_dev *gtp;
-    struct urr *urr;
-    int ifindex;
-    int netnsfd;
-    u64 seid;
-    u32 urr_id;
+    struct gtp5g_dev *gtp = NULL;
+    struct urr *urr = NULL;
+    int ifindex = 0;
+    int netnsfd = 0;
+    u64 seid = 0;
+    u32 urr_id = 0;
     struct sk_buff *skb_ack = NULL;
     int err = 0;
     struct usage_report *report = NULL;
@@ -190,16 +190,16 @@ fail:
 
 int gtp5g_genl_get_multi_usage_reports(struct sk_buff *skb, struct genl_info *info)
 {
-    struct gtp5g_dev *gtp;
+    struct gtp5g_dev *gtp = NULL;
     struct urr *urr = NULL;
-    int ifindex;
-    int netnsfd;
-    u32 urr_num, report_num = 0, i = 0;
+    int ifindex = 0;
+    int netnsfd = 0;
+    u32 urr_num = 0, report_num = 0, i = 0;
     struct sk_buff *skb_ack = NULL;
     int err = 0;
     struct nlattr *hdr = nlmsg_attrdata(info->nlhdr, 0);
     int remaining = nlmsg_attrlen(info->nlhdr, 0);
-    struct seid_urr **seid_urrs;
+    struct seid_urr **seid_urrs = NULL;
     struct usage_report **reports = NULL;
     struct VolumeMeasurement *urr_counter = NULL;
 
@@ -302,7 +302,7 @@ fail:
 
 static int gtp5g_genl_fill_volume_measurement(struct sk_buff *skb, struct VolumeMeasurement vol)
 {
-    struct nlattr *nest_volume_measurement;
+    struct nlattr *nest_volume_measurement = NULL;
 
     nest_volume_measurement = nla_nest_start(skb, GTP5G_UR_VOLUME_MEASUREMENT);
     if (!nest_volume_measurement)
@@ -330,7 +330,7 @@ static int gtp5g_genl_fill_volume_measurement(struct sk_buff *skb, struct Volume
 
 int gtp5g_genl_fill_ur(struct sk_buff *skb, struct usage_report *report)
 {
-    struct nlattr *nest_usage_report;
+    struct nlattr *nest_usage_report = NULL;
 
     nest_usage_report = nla_nest_start(skb, GTP5G_UR);
     if (!nest_usage_report)
@@ -359,7 +359,7 @@ int gtp5g_genl_fill_ur(struct sk_buff *skb, struct usage_report *report)
 
 static int parse_seid_urr(struct seid_urr *seid_urr, struct nlattr *a)
 {
-    struct nlattr *attrs[GTP5G_URR_ATTR_MAX + 1];
+    struct nlattr *attrs[GTP5G_URR_ATTR_MAX + 1] = {NULL};
     int err;
 
     if (!seid_urr) {
@@ -427,7 +427,7 @@ genlmsg_fail:
 
 void convert_urr_to_report(struct urr *urr, struct VolumeMeasurement *urr_counter, struct usage_report *report)
 {
-    struct VolumeMeasurement zeroVol;
+    struct VolumeMeasurement zeroVol = {0};
     if (urr_counter == NULL) {
         urr_counter = &zeroVol;
         memset(urr_counter, 0, sizeof(struct VolumeMeasurement));

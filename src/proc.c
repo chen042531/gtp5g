@@ -10,7 +10,7 @@
 
 #include "util.h"
 
-struct list_head proc_gtp5g_dev;
+struct list_head proc_gtp5g_dev = {0};
 struct proc_gtp5g_pdr {
     u16     id;
     u64     seid;
@@ -96,12 +96,12 @@ struct proc_dir_entry *proc_gtp5g_qer = NULL;
 struct proc_dir_entry *proc_gtp5g_urr = NULL;
 struct proc_dir_entry *proc_gtp5g_qos = NULL;
 struct proc_dir_entry *proc_gtp5g_seq = NULL;
-struct proc_gtp5g_pdr proc_pdr;
-struct proc_gtp5g_far proc_far;
-struct proc_gtp5g_qer proc_qer;
-struct proc_gtp5g_urr proc_urr;
-struct proc_gtp5g_qos proc_qos;
-struct proc_gtp5g_seq proc_seq;
+struct proc_gtp5g_pdr proc_pdr = {0};
+struct proc_gtp5g_far proc_far = {0};
+struct proc_gtp5g_qer proc_qer = {0};
+struct proc_gtp5g_urr proc_urr = {0};
+struct proc_gtp5g_qos proc_qos = {0};
+struct proc_gtp5g_seq proc_seq = {0};
 
 u64 proc_seid = 0;
 u16 proc_pdr_id = 0;
@@ -134,7 +134,7 @@ static ssize_t proc_dbg_write(struct file *filp, const char __user *buffer,
 {
     char buf[16];
     unsigned long buf_len = min(len, sizeof(buf) - 1);
-    int dbg;
+    int dbg = 0;
 
     if (copy_from_user(buf, buffer, buf_len)) {
         GTP5G_ERR(NULL, "Failed to read buffer: %s\n", buffer);
@@ -291,7 +291,7 @@ static ssize_t proc_qos_write(struct file *filp, const char __user *buffer,
 {
     char buf[16];
     unsigned long buf_len = min(len, sizeof(buf) - 1);
-    int qos_enable;
+    int qos_enable = 0;
 
     if (copy_from_user(buf, buffer, buf_len)) {
         GTP5G_ERR(NULL, "Failed to read buffer: %s\n", buffer);
@@ -324,7 +324,7 @@ static ssize_t proc_seq_write(struct file *filp, const char __user *buffer,
 {
     char buf[16];
     unsigned long buf_len = min(len, sizeof(buf) - 1);
-    int seq_enable;
+    int seq_enable = 0;
 
     if (copy_from_user(buf, buffer, buf_len)) {
         GTP5G_ERR(NULL, "Failed to read buffer: %s\n", buffer);
@@ -350,8 +350,8 @@ static ssize_t proc_pdr_write(struct file *filp, const char __user *buffer,
     char buf[128], dev_name[32];
     u8 found = 0;
     unsigned long buf_len = min(sizeof(buf) - 1, len);
-    struct pdr *pdr;
-    struct gtp5g_dev *gtp;
+    struct pdr *pdr = NULL;
+    struct gtp5g_dev *gtp = NULL;
 
     if (copy_from_user(buf, buffer, buf_len)) {
         GTP5G_ERR(NULL, "Failed to read buffer: %s\n", buf);
@@ -434,9 +434,9 @@ static ssize_t proc_far_write(struct file *filp, const char __user *buffer,
     char buf[128], dev_name[32];
     u8 found = 0;
     unsigned long buf_len = min(sizeof(buf) - 1, len);
-    struct far *far;
-    struct gtp5g_dev *gtp;
-    struct forwarding_parameter *fwd_param;
+    struct far *far = NULL;
+    struct gtp5g_dev *gtp = NULL;
+    struct forwarding_parameter *fwd_param = NULL;
 
     if (copy_from_user(buf, buffer, buf_len)) {
         GTP5G_ERR(NULL, "Failed to read buffer: %s\n", buf);
@@ -492,8 +492,8 @@ static ssize_t proc_qer_write(struct file *filp, const char __user *buffer,
     char buf[128], dev_name[32];
     u8 found = 0;
     unsigned long buf_len = min(sizeof(buf) - 1, len);
-    struct qer *qer;
-    struct gtp5g_dev *gtp;
+    struct qer *qer = NULL;
+    struct gtp5g_dev *gtp = NULL;
 
     if (copy_from_user(buf, buffer, buf_len)) {
         GTP5G_ERR(NULL, "Failed to read buffer: %s\n", buf);
@@ -540,8 +540,8 @@ static ssize_t proc_urr_write(struct file *filp, const char __user *buffer,
     char buf[128], dev_name[32];
     u8 found = 0;
     unsigned long buf_len = min(sizeof(buf) - 1, len);
-    struct urr *urr;
-    struct gtp5g_dev *gtp;
+    struct urr *urr = NULL;
+    struct gtp5g_dev *gtp = NULL;
 
     if (copy_from_user(buf, buffer, buf_len)) {
         GTP5G_ERR(NULL, "Failed to read buffer: %s\n", buf);

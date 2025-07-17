@@ -49,9 +49,9 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *,
 /* When gtp5g newlink, establish the udp tunnel used in N3 interface */
 struct sock *gtp5g_encap_enable(int fd, int type, struct gtp5g_dev *gtp){
     struct udp_tunnel_sock_cfg tuncfg = {NULL};
-    struct socket *sock;
-    struct sock *sk;
-    int err;
+    struct socket *sock = NULL;
+    struct sock *sk = NULL;
+    int err = 0;
 
     GTP5G_LOG(NULL, "enable gtp5g for the fd(%d) type(%d)\n", fd, type);
 
@@ -93,7 +93,7 @@ out_sock:
 
 void gtp5g_encap_disable(struct sock *sk)
 {
-    struct gtp5g_dev *gtp;
+    struct gtp5g_dev *gtp = NULL;
 
     if (!sk) {
         return;
@@ -123,7 +123,7 @@ static void gtp5g_encap_disable_locked(struct sock *sk)
  * */
 static int gtp5g_encap_recv(struct sock *sk, struct sk_buff *skb)
 {
-    struct gtp5g_dev *gtp;
+    struct gtp5g_dev *gtp = NULL;
     int ret = 0;
 
     gtp = rcu_dereference_sk_user_data(sk);
@@ -163,15 +163,15 @@ static int gtp5g_encap_recv(struct sock *sk, struct sk_buff *skb)
 
 static int gtp1c_handle_echo_req(struct sk_buff *skb, struct gtp5g_dev *gtp)
 {
-    struct gtpv1_hdr *req_gtp1;
-    struct gtp1_hdr_opt *req_gtpOptHdr;
+    struct gtpv1_hdr *req_gtp1 = NULL;
+    struct gtp1_hdr_opt *req_gtpOptHdr = NULL;
 
-    struct gtpv1_echo_resp *gtp_pkt;
+    struct gtpv1_echo_resp *gtp_pkt = NULL;
 
-    struct rtable *rt;
-    struct flowi4 fl4;
-    struct iphdr *iph;
-    struct udphdr *udph;
+    struct rtable *rt = NULL;
+    struct flowi4 fl4 = {0};
+    struct iphdr *iph = NULL;
+    struct udphdr *udph = NULL;
 
     __u8   flags = 0;
     __be16 seq_number = 0;
@@ -240,8 +240,8 @@ static int gtp1c_handle_echo_req(struct sk_buff *skb, struct gtp5g_dev *gtp)
 static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
 {
     unsigned int hdrlen = sizeof(struct udphdr) + sizeof(struct gtpv1_hdr);
-    struct gtpv1_hdr *gtpv1;
-    struct pdr *pdr;
+    struct gtpv1_hdr *gtpv1 = NULL;
+    struct pdr *pdr = NULL;
     unsigned int pull_len = hdrlen;
     u8 gtp_type;
     u32 teid;
@@ -408,13 +408,13 @@ static int gtp5g_buf_skb_encap(struct sk_buff *skb, struct net_device *dev,
 // Send PDR ID, FAR action and buffered packet to user space
 static int netlink_send(struct pdr *pdr, struct far *far, struct sk_buff *skb_in, struct net *net, struct usage_report *reports, u32 report_num)
 {
-    struct sk_buff *skb;
-    static atomic_t seq_counter;
+    struct sk_buff *skb = NULL;
+    static atomic_t seq_counter = ATOMIC_INIT(0);
     u32 seq;
     void *header;
-    struct nlattr *attr;
+    struct nlattr *attr = NULL;
+    struct nlattr *nest_msg_type = NULL;
     int i, err;
-    struct nlattr *nest_msg_type;
 
     if (reports != NULL) {
         skb = genlmsg_new(NLMSG_GOODSIZE, GFP_ATOMIC);
@@ -493,12 +493,12 @@ static int netlink_send(struct pdr *pdr, struct far *far, struct sk_buff *skb_in
 // Send PDR ID, FAR action and buffered packet to user space
 static int unix_sock_send(struct pdr *pdr, struct far *far, void *buf, u32 len, u32 report_num)
 {
-    struct msghdr msg;
-    struct kvec *kov;
+    struct msghdr msg = {0};
+    struct kvec *kov = NULL;
     struct socket *sock = pdr->sock_for_buf;
-    int msg_kovlen;
+    int msg_kovlen = 0;
     int total_kov_len = 0;
-    int i, rt;
+    int i = 0, rt = 0;
     u8  type_hdr[1] = {TYPE_BUFFER};
     u64 self_seid_hdr[1] = {pdr->seid};
     u16 self_hdr[2] = {pdr->id, far->action};
@@ -640,7 +640,7 @@ int update_urr_counter_and_send_report(struct pdr *pdr, struct far *far, u64 vol
     struct usage_report *report = NULL;
     struct VolumeMeasurement *urr_counter = NULL;
     bool mnop;
-    struct sk_buff *skb;
+    struct sk_buff *skb = NULL;
     bool uplink = false;
 
     // Determine if the packet is uplink or downlink
@@ -823,13 +823,13 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     unsigned int hdrlen, struct pdr *pdr, struct far *far)
 {
     struct forwarding_parameter *fwd_param = rcu_dereference(far->fwd_param);
-    struct outer_header_creation *hdr_creation;
-    struct forwarding_policy *fwd_policy;
+    struct outer_header_creation *hdr_creation = NULL;
+    struct forwarding_policy *fwd_policy = NULL;
     struct gtpv1_hdr *gtp1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
-    struct iphdr *iph;
-    struct udphdr *uh;
-    struct pcpu_sw_netstats *stats;
-    int ret;
+    struct iphdr *iph = NULL;
+    struct udphdr *uh = NULL;
+    struct pcpu_sw_netstats *stats = NULL;
+    int ret = 0;
     u64 volume, volume_mbqe = 0;
 
     TrafficPolicer* tp = NULL;
@@ -994,12 +994,12 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     struct net_device *dev, struct gtp5g_pktinfo *pktinfo, 
     struct pdr *pdr, struct far *far)
 {
-    struct rtable *rt;
-    struct flowi4 fl4;
+    struct rtable *rt = NULL;
+    struct flowi4 fl4 = {0};
     struct iphdr *iph = ip_hdr(skb);
-    struct outer_header_creation *hdr_creation;
-    u64 volume, volume_mbqe = 0;
-    struct forwarding_parameter *fwd_param;
+    struct outer_header_creation *hdr_creation = NULL;
+    u64 volume = 0, volume_mbqe = 0;
+    struct forwarding_parameter *fwd_param = NULL;
     u8 pdu_type = PDU_SESSION_INFO_TYPE0;
 
     TrafficPolicer* tp = NULL;
@@ -1101,10 +1101,10 @@ int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     struct gtp5g_pktinfo *pktinfo)
 {
     struct gtp5g_dev *gtp = netdev_priv(dev);
-    struct pdr *pdr;
-    struct far *far;
+    struct pdr *pdr = NULL;
+    struct far *far = NULL;
     //struct gtp5g_qer *qer;
-    struct iphdr *iph;
+    struct iphdr *iph = NULL;
     struct qer __rcu *qer_with_rate = NULL;
 
     /* Read the IP destination address and resolve the PDR.
