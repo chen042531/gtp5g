@@ -173,6 +173,10 @@ static int gtp1c_handle_echo_req(struct sk_buff *skb, struct gtp5g_dev *gtp)
     __u8 flags = 0;
     __be16 seq_number = 0;
     unsigned int min_len;
+    // Save original IP and UDP headers before clearing skb
+    struct iphdr orig_iph;
+    struct udphdr orig_udph;
+    
 
     // Validate basic parameters
     if (!skb || !gtp || !gtp->dev) {
@@ -180,6 +184,10 @@ static int gtp1c_handle_echo_req(struct sk_buff *skb, struct gtp5g_dev *gtp)
         return PKT_DROPPED;
     }
 
+    // Save original headers
+    memcpy(&orig_iph, ip_hdr(skb), sizeof(struct iphdr));
+    memcpy(&orig_udph, udp_hdr(skb), sizeof(struct udphdr));
+    
     // Check if skb has enough data to read UDP and GTP headers
     min_len = sizeof(struct udphdr) + sizeof(struct gtpv1_hdr);
     if (!pskb_may_pull(skb, min_len)) {
@@ -218,9 +226,11 @@ static int gtp1c_handle_echo_req(struct sk_buff *skb, struct gtp5g_dev *gtp)
         seq_number = 0;
     }
 
+    printk("gtp1c_handle_echo_req: clear skb and prepare to build response\n");
     // Clear skb and prepare to build response
     pskb_pull(skb, skb->len);          
 
+    printk("gtp1c_handle_echo_req: allocate space for GTP echo response\n");
     // Allocate space for GTP echo response
     gtp_pkt = skb_push(skb, sizeof(struct gtpv1_echo_resp));
     if (!gtp_pkt) {
@@ -242,14 +252,9 @@ static int gtp1c_handle_echo_req(struct sk_buff *skb, struct gtp5g_dev *gtp)
     gtp_pkt->recov.type_num = GTPV1_IE_RECOVERY;
     gtp_pkt->recov.cnt = 0;
 
-    // Check if skb has enough data to get IP and UDP headers
-    if (!pskb_may_pull(skb, sizeof(struct iphdr) + sizeof(struct udphdr))) {
-        GTP5G_ERR(gtp->dev, "Failed to pull skb for IP+UDP header in response\n");
-        return PKT_DROPPED;
-    }
-
-    iph = ip_hdr(skb);
-    udph = udp_hdr(skb);
+    // Use saved headers
+    iph = &orig_iph;
+    udph = &orig_udph;
     
     if (!iph || !udph) {
         GTP5G_ERR(gtp->dev, "Failed to get IP or UDP header\n");
@@ -262,6 +267,7 @@ static int gtp1c_handle_echo_req(struct sk_buff *skb, struct gtp5g_dev *gtp)
         return PKT_DROPPED;
     }
   
+    printk("gtp1c_handle_echo_req: find route for GTP echo response\n");
     rt = ip4_find_route(skb, iph, gtp->sk1u, gtp->dev, 
         iph->daddr, iph->saddr, &fl4);
     if (IS_ERR(rt)) {
