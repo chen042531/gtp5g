@@ -36,6 +36,9 @@ u64 ip4_rm_header(struct sk_buff *skb, unsigned int hdrlen);
 struct rtable *ip4_find_route(struct sk_buff *, struct iphdr *,
         struct sock *, struct net_device *,
         __be32, __be32, struct flowi4 *);
+struct rtable *ip4_route_output_gtp(struct flowi4 *fl4,
+        const struct sock *sk,
+        __be32 daddr, __be32 saddr);
 void gtp5g_fwd_emark_skb_ipv4(struct sk_buff *,
         struct net_device *, struct gtp5g_emark_pktinfo *);
 int ip_xmit(struct sk_buff *, struct sock *, struct net_device *);

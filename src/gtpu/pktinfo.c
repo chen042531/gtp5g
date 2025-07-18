@@ -6,6 +6,8 @@
 #include <net/icmp.h>
 #include <net/udp_tunnel.h>
 #include <net/route.h>
+#include <net/inet_sock.h>
+
 
 #include "gtp.h"
 #include "far.h"
@@ -124,6 +126,20 @@ err_rt:
     ip_rt_put(rt);
 err:
     return ERR_PTR(-ENOENT);
+}
+
+struct rtable *ip4_route_output_gtp(struct flowi4 *fl4,
+    const struct sock *sk,
+    __be32 daddr, __be32 saddr)
+{
+    memset(fl4, 0, sizeof(*fl4));
+    fl4->flowi4_oif		= sk->sk_bound_dev_if;
+    fl4->daddr		= daddr;
+    fl4->saddr		= saddr;
+    fl4->flowi4_tos		= RT_TOS(inet_sk(sk)->tos) | sock_flag(sk, SOCK_LOCALROUTE);
+    fl4->flowi4_proto	= sk->sk_protocol;
+
+    return ip_route_output_key(sock_net(sk), fl4);
 }
 
 struct rtable *ip4_find_route_simple(struct sk_buff *skb,
