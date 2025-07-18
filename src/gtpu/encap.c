@@ -188,11 +188,18 @@ static int gtp1c_handle_echo_req(struct sk_buff *skb, struct gtp5g_dev *gtp)
         seq_number = 0;
     }
 
-    pskb_pull(skb, skb->len);          
-
+    if (skb->len > 0) {
+        pskb_pull(skb, skb->len);
+    }
     gtp_pkt = skb_push(skb, sizeof(struct gtpv1_echo_resp));
     if (!gtp_pkt) {
-        GTP5G_ERR(gtp->dev, "can not construct GTP Echo Response\n");
+        GTP5G_ERR(gtp->dev, "Failed to allocate GTP echo response header\n");
+        return PKT_DROPPED;
+    }
+
+    if (!rt || !gtp->sk1u || !skb) {
+        GTP5G_ERR(gtp->dev, "Invalid parameters: rt=%p, sk1u=%p, skb=%p\n", 
+              rt, gtp->sk1u, skb);
         return PKT_DROPPED;
     }
     memset(gtp_pkt, 0, sizeof(struct gtpv1_echo_resp));
@@ -221,6 +228,12 @@ static int gtp1c_handle_echo_req(struct sk_buff *skb, struct gtp5g_dev *gtp)
     if (IS_ERR(rt)) {
         GTP5G_ERR(gtp->dev, "no route for GTP echo response from %pI4\n", 
         &iph->saddr);
+        return PKT_DROPPED;
+    }
+
+    if (!rt || !gtp->sk1u || !skb) {
+        GTP5G_ERR(gtp->dev, "Invalid parameters: rt=%p, sk1u=%p, skb=%p\n", 
+              rt, gtp->sk1u, skb);
         return PKT_DROPPED;
     }
 

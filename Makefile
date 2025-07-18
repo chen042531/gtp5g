@@ -32,7 +32,7 @@ else
 	DEPMOD := true
 endif
 
-MY_CFLAGS += -g -DDEBUG $(RHEL8FLAG)
+MY_CFLAGS += -g -DDEBUG $(RHEL8FLAG) -fno-strict-aliasing -O2 -Wall -Wextra
 # MY_CFLAGS += -DMATCH_IP # match IP address(in F-TEID) or not
 ccflags-y += -Wno-misleading-indentation -Wuninitialized
 CC += ${MY_CFLAGS}
