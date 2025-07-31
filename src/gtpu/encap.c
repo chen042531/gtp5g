@@ -247,7 +247,8 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
     u32 teid;
     int rt = 0;
     u64 rxVol = skb->len - sizeof(struct udphdr); // exclude UDP header of GTP packet
-
+    struct iphdr *iph;
+    
     if (!pskb_may_pull(skb, pull_len)) {
         GTP5G_ERR(gtp->dev, "Failed to pull skb length %#x\n", pull_len);
         rt = PKT_DROPPED;
@@ -342,7 +343,10 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
 
     pdr = pdr_find_by_gtp1u(gtp, skb, hdrlen, teid, gtp_type);
     if (!pdr) {
-        GTP5G_ERR(gtp->dev, "No PDR match this skb : teid[%x]\n", ntohl(teid));
+        iph = (struct iphdr *)(skb->data + hdrlen);
+        GTP5G_ERR(gtp->dev, 
+            "No PDR match this skb : teid[%x] src[%pI4] dst[%pI4]\n", 
+                ntohl(teid), &iph->saddr, &iph->daddr);
         rt = PKT_DROPPED;
         goto end;
     }
@@ -780,7 +784,8 @@ static int gtp5g_rx(struct pdr *pdr, struct sk_buff *skb,
     struct far *far = rcu_dereference(pdr->far);
 
     if (!far) {
-        GTP5G_ERR(pdr->dev, "FAR not exists for PDR(%u)\n", pdr->id);
+        GTP5G_ERR(pdr->dev, 
+            "FAR not exists for Sess(%llu) PDR(%u)\n", pdr->seid, pdr->id);
         goto out;
     }
 
