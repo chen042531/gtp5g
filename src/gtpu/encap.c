@@ -164,6 +164,18 @@ static int gtp5g_encap_recv(struct sock *sk, struct sk_buff *skb)
     return ret;
 }
 
+void *skb_pull_data(struct sk_buff *skb, size_t len)
+{
+	void *data = skb->data;
+
+	if (skb->len < len)
+		return NULL;
+
+	skb_pull(skb, len);
+
+	return data;
+}
+
 static int gtp1c_handle_echo_req(struct sk_buff *skb, struct gtp5g_dev *gtp)
 {
     struct gtpv1_hdr *req_gtp1;
@@ -187,7 +199,7 @@ static int gtp1c_handle_echo_req(struct sk_buff *skb, struct gtp5g_dev *gtp)
     // iph = ip_hdr(skb);
     // udph = udp_hdr(skb);
     
-    printk("handle echo req\n");
+    printk("handle echo req22\n");
     req_gtp1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
     
     flags = req_gtp1->flags;
@@ -209,7 +221,7 @@ static int gtp1c_handle_echo_req(struct sk_buff *skb, struct gtp5g_dev *gtp)
     
     // Clear the entire skb content to prepare for new GTP echo response
     // WARNING: After this call, skb->len = 0 and headers become invalid
-    pskb_pull(skb, sizeof(struct gtpv1_hdr) + 
+    skb_pull_data(skb, sizeof(struct gtpv1_hdr) + 
         sizeof(struct gtp1_hdr_opt) + sizeof(struct udphdr));
     
     // Allocate space for the new GTP echo response packet
@@ -248,7 +260,7 @@ static int gtp1c_handle_echo_req(struct sk_buff *skb, struct gtp5g_dev *gtp)
     // Use saved port information and route information
     udp_tunnel_xmit_skb(rt, gtp->sk1u, skb,
                         fl4.saddr, fl4.daddr,
-                        0, // Use default TOS value
+                        iph->tos,
                         ip4_dst_hoplimit(&rt->dst),
                         0,
                         htons(GTP1U_PORT), htons(GTP1U_PORT),
