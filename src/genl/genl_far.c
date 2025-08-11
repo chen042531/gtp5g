@@ -1,6 +1,8 @@
 #include <linux/module.h>
 #include <linux/etherdevice.h>
 #include <net/genetlink.h>
+#include <linux/workqueue.h>
+#include <linux/timer.h>
 
 #include "common.h"
 #include "dev.h"
@@ -9,10 +11,56 @@
 #include "far.h"
 #include "pktinfo.h"
 #include "api_version.h"
+#include "log.h"
 
 #include <linux/rculist.h>
 #include <net/netns/generic.h>
 #include "net.h"
+
+/* Data structure for delayed End Marker transmission */
+struct delayed_emark_work {
+    struct delayed_work dwork;
+    struct sk_buff *skb;
+    struct net_device *dev;
+    struct gtp5g_emark_pktinfo epkt_info;
+};
+
+/* Worker function for delayed End Marker transmission */
+static void delayed_emark_worker(struct work_struct *work)
+{
+    struct delayed_emark_work *emark_work = container_of(to_delayed_work(work), struct delayed_emark_work, dwork);
+    
+    gtp5g_fwd_emark_skb_ipv4(emark_work->skb, emark_work->dev, &emark_work->epkt_info);
+    
+    kfree(emark_work);
+}
+
+/* Function to schedule delayed End Marker transmission */
+static void schedule_delayed_emark(struct sk_buff *skb, struct net_device *dev, 
+                                  struct gtp5g_emark_pktinfo *epkt_info, unsigned long delay_ms)
+{
+    struct delayed_emark_work *emark_work;
+    
+    emark_work = kzalloc(sizeof(*emark_work), GFP_KERNEL);
+    if (!emark_work) {
+        GTP5G_ERR(dev, "Failed to allocate delayed emark work\n");
+        dev_kfree_skb(skb);
+        return;
+    }
+    
+    /* Copy data */
+    emark_work->skb = skb;
+    emark_work->dev = dev;
+    memcpy(&emark_work->epkt_info, epkt_info, sizeof(*epkt_info));
+    
+    /* Initialize delayed work queue */
+    INIT_DELAYED_WORK(&emark_work->dwork, delayed_emark_worker);
+    
+    /* Schedule delayed execution of work queue */
+    schedule_delayed_work(&emark_work->dwork, msecs_to_jiffies(delay_ms));
+    
+    GTP5G_INF(dev, "Scheduled delayed End Marker to be sent in %lu ms\n", delay_ms);
+}
 
 static int header_creation_fill(struct forwarding_parameter *,
                 struct nlattr **, u8 *,
@@ -106,7 +154,9 @@ int gtp5g_genl_add_far(struct sk_buff *skb, struct genl_info *info)
             }
             skb_reserve(skb, 2);
             skb->protocol = eth_type_trans(skb, gtp->dev);
-            gtp5g_fwd_emark_skb_ipv4(skb, gtp->dev, &epkt_info);
+            
+            /* Schedule delayed End Marker transmission with 3 second delay */
+            schedule_delayed_emark(skb, gtp->dev, &epkt_info, 3000);
         }
         rcu_read_unlock();
         rtnl_unlock();
