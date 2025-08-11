@@ -163,92 +163,144 @@ static int gtp5g_encap_recv(struct sock *sk, struct sk_buff *skb)
 
 static int gtp1c_handle_echo_req(struct sk_buff *skb, struct gtp5g_dev *gtp)
 {
-    struct gtpv1_hdr *req_gtp1;
-    struct gtp1_hdr_opt *req_gtpOptHdr;
-
-    struct gtpv1_echo_resp *gtp_pkt;
-
-    struct rtable *rt;
-    struct flowi4 fl4;
-    struct iphdr *iph;
-    struct udphdr *udph;
-
-    __u8   flags = 0;
+    struct gtpv1_hdr *req_gtp1 = NULL;
+    struct gtp1_hdr_opt *req_gtpOptHdr = NULL;
+    struct gtpv1_echo_resp *gtp_pkt = NULL;
+    struct rtable *rt = NULL;
+    struct flowi4 fl4 = {0};
+    __u8 flags = 0;
     __be16 seq_number = 0;
+    unsigned int min_len;
+    
+    // Save original IP and UDP headers before any modification
+    struct iphdr orig_iph;
+    struct udphdr orig_udph;
+    
+    // Store addresses and ports for later use
+    __be32 saddr, daddr;
+    __be16 source, dest;
+    
+    // Create a new skb for the response instead of reusing the destroyed one
+    struct sk_buff *resp_skb = NULL;
 
-    __be32 saddr = 0, daddr = 0;
-    __be16 source = 0, dest = 0;
+    // Validate basic parameters
+    if (!skb || !gtp || !gtp->dev) {
+        GTP5G_ERR(NULL, "Invalid parameters: skb=%p, gtp=%p\n", skb, gtp);
+        return PKT_DROPPED;
+    }
+
+    // Save original headers and addresses BEFORE any skb modification
+    memcpy(&orig_iph, ip_hdr(skb), sizeof(struct iphdr));
+    memcpy(&orig_udph, udp_hdr(skb), sizeof(struct udphdr));
     
-    // Save original IP and UDP header information before modifying skb
-    // This prevents accessing invalid pointers after pskb_pull
-    iph = ip_hdr(skb);
-    udph = udp_hdr(skb);
+    // Store addresses and ports for routing and transmission
+    saddr = orig_iph.saddr;
+    daddr = orig_iph.daddr;
+    source = orig_udph.source;
+    dest = orig_udph.dest;
     
-    printk("handle echo req\n");
+    // Check if skb has enough data to read UDP and GTP headers
+    min_len = sizeof(struct udphdr) + sizeof(struct gtpv1_hdr);
+    if (!pskb_may_pull(skb, min_len)) {
+        GTP5G_ERR(gtp->dev, "Failed to pull skb for UDP+GTP header, len=%u, need=%u\n", 
+                  skb->len, min_len);
+        return PKT_DROPPED;
+    }
+
+    // Safely get GTP header
     req_gtp1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
-    
+    if (!req_gtp1) {
+        GTP5G_ERR(gtp->dev, "Failed to get GTP header\n");
+        return PKT_DROPPED;
+    }
+
     flags = req_gtp1->flags;
+    
+    // Check sequence number flag
     if (flags & GTPV1_HDR_FLG_SEQ) {
-        req_gtpOptHdr = (struct gtp1_hdr_opt *)(skb->data + sizeof(struct udphdr) 
-                                                       + sizeof(struct gtpv1_hdr));
+        // Need additional header length to read sequence number
+        min_len += sizeof(struct gtp1_hdr_opt);
+        if (!pskb_may_pull(skb, min_len)) {
+            GTP5G_ERR(gtp->dev, "Failed to pull skb for sequence number, len=%u, need=%u\n", 
+                      skb->len, min_len);
+            return PKT_DROPPED;
+        }
+        
+        req_gtpOptHdr = (struct gtp1_hdr_opt *)(skb->data + sizeof(struct udphdr) + sizeof(struct gtpv1_hdr));
+        if (!req_gtpOptHdr) {
+            GTP5G_ERR(gtp->dev, "Failed to get GTP optional header\n");
+            return PKT_DROPPED;
+        }
         seq_number = req_gtpOptHdr->seq_number;
     } else {
         GTP5G_ERR(gtp->dev, "GTP echo request shall bring sequence number\n");
         seq_number = 0;
     }
+
+    printk("gtp1c_handle_echo_req: create new skb for response\n");
     
-    // Store source and destination addresses and ports before destroying skb
-    // These values are needed for routing and UDP tunnel transmission
-    saddr = iph->saddr;
-    daddr = iph->daddr;
-    source = udph->source;
-    dest = udph->dest;
-    
-    // Clear the entire skb content to prepare for new GTP echo response
-    // WARNING: After this call, skb->len = 0 and headers become invalid
-    pskb_pull(skb, skb->len);
-    
-    // Allocate space for the new GTP echo response packet
-    gtp_pkt = skb_push(skb, sizeof(struct gtpv1_echo_resp));
-    if (!gtp_pkt) {
-        GTP5G_ERR(gtp->dev, "can not construct GTP Echo Response\n");
+    // CRITICAL FIX: Create a new skb instead of reusing the destroyed one
+    resp_skb = alloc_skb(sizeof(struct gtpv1_echo_resp), GFP_ATOMIC);
+    if (!resp_skb) {
+        GTP5G_ERR(gtp->dev, "Failed to allocate new skb for GTP echo response\n");
         return PKT_DROPPED;
     }
-    memset(gtp_pkt, 0, sizeof(struct gtpv1_echo_resp));
     
-    // Set GTP header fields for echo response
+    // Reserve space for the response packet
+    skb_reserve(resp_skb, sizeof(struct gtpv1_echo_resp));
+    
+    // Push the GTP echo response data
+    gtp_pkt = skb_push(resp_skb, sizeof(struct gtpv1_echo_resp));
+    if (!gtp_pkt) {
+        GTP5G_ERR(gtp->dev, "Failed to push GTP echo response data\n");
+        kfree_skb(resp_skb);
+        return PKT_DROPPED;
+    }
+    
+    memset(gtp_pkt, 0, sizeof(struct gtpv1_echo_resp));
+
+    /* Build GTP header */
     gtp_pkt->gtpv1_h.flags = GTPV1 | GTPV1_HDR_FLG_SEQ;
     gtp_pkt->gtpv1_h.type = GTPV1_MSG_TYPE_ECHO_RSP;
-    gtp_pkt->gtpv1_h.length = 
-        htons(sizeof(struct gtpv1_echo_resp) - sizeof(struct gtpv1_hdr));
+    gtp_pkt->gtpv1_h.length = htons(sizeof(struct gtpv1_echo_resp) - sizeof(struct gtpv1_hdr));
     gtp_pkt->gtpv1_h.tid = 0;
-    
-    // Set GTP extension header with sequence number from request
+
+    /* Build GTP optional header */
     gtp_pkt->gtpv1_opt_h.seq_number = seq_number;
-    
-    // Set recovery information element
+
+    /* Build GTP recovery information */
     gtp_pkt->recov.type_num = GTPV1_IE_RECOVERY;
     gtp_pkt->recov.cnt = 0;
-    
-    // Find route using saved address information
-    // Note: iph parameter is NULL since skb headers are no longer valid
-    rt = ip4_find_route(skb, NULL, gtp->sk1u, gtp->dev, daddr, saddr, &fl4);
-    if (IS_ERR(rt)) {
-        GTP5G_ERR(gtp->dev, "no route for GTP echo response from %pI4\n", &saddr);
+
+    // Check if gtp->sk1u is valid
+    if (!gtp->sk1u) {
+        GTP5G_ERR(gtp->dev, "GTP socket is NULL\n");
+        kfree_skb(resp_skb);
         return PKT_DROPPED;
     }
+  
+    printk("gtp1c_handle_echo_req: find route for GTP echo response\n");
     
-    // Transmit the GTP echo response using UDP tunnel
-    // Use saved port information and route information
-    udp_tunnel_xmit_skb(rt, gtp->sk1u, skb,
-                        fl4.saddr, fl4.daddr,
-                        0, // Use default TOS value
-                        ip4_dst_hoplimit(&rt->dst),
-                        0,
-                        dest, source, // Use saved destination and source ports
-                        !net_eq(sock_net(gtp->sk1u), dev_net(gtp->dev)),
-                        false);
+    // Use the saved IP header structure for route lookup
+    rt = ip4_find_route(resp_skb, &orig_iph, gtp->sk1u, gtp->dev, daddr, saddr, &fl4);
+    if (IS_ERR(rt)) {
+        GTP5G_ERR(gtp->dev, "no route for GTP echo response from %pI4\n", &saddr);
+        kfree_skb(resp_skb);
+        return PKT_DROPPED;
+    }
+
+    printk("gtp1c_handle_echo_req: send response packet\n");
     
+    // Send response packet using the NEW skb and stored port information
+    udp_tunnel_xmit_skb(rt, gtp->sk1u, resp_skb,
+                    fl4.saddr, fl4.daddr,
+                    0, // Use default TOS
+                    ip4_dst_hoplimit(&rt->dst),
+                    0,
+                    dest, source, // Use stored destination and source ports
+                    !net_eq(sock_net(gtp->sk1u), dev_net(gtp->dev)),
+                    false);
+
     return PKT_FORWARDED;
 }
 
