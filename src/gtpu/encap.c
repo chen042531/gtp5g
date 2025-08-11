@@ -45,6 +45,9 @@ static int unix_sock_send(struct pdr *, struct far *, void *, u32, u32);
 static int gtp5g_fwd_skb_ipv4(struct sk_buff *, 
     struct net_device *, struct gtp5g_pktinfo *, 
     struct pdr *, struct far *);
+static struct rtable *find_ip4_route(struct flowi4 *fl4,
+    const struct sock *sk,
+    __be32 daddr, __be32 saddr);
 
 /* When gtp5g newlink, establish the udp tunnel used in N3 interface */
 struct sock *gtp5g_encap_enable(int fd, int type, struct gtp5g_dev *gtp){
@@ -171,69 +174,87 @@ static int gtp1c_handle_echo_req(struct sk_buff *skb, struct gtp5g_dev *gtp)
     struct rtable *rt;
     struct flowi4 fl4;
     struct iphdr *iph;
-    struct udphdr *udph;
+    // struct udphdr *udph;
 
     __u8   flags = 0;
     __be16 seq_number = 0;
 
+    // __be32 saddr = 0, daddr = 0;
+    // __be16 source = 0, dest = 0;
+    
+    // Save original IP and UDP header information before modifying skb
+    // This prevents accessing invalid pointers after pskb_pull
+    // iph = ip_hdr(skb);
+    // udph = udp_hdr(skb);
+    
+    printk("handle echo req\n");
     req_gtp1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
-
+    
     flags = req_gtp1->flags;
     if (flags & GTPV1_HDR_FLG_SEQ) {
-         req_gtpOptHdr = (struct gtp1_hdr_opt *)(skb->data + sizeof(struct udphdr) 
-                                                            + sizeof(struct gtpv1_hdr));
-         seq_number = req_gtpOptHdr->seq_number;
+        req_gtpOptHdr = (struct gtp1_hdr_opt *)(skb->data + sizeof(struct udphdr) 
+                                                       + sizeof(struct gtpv1_hdr));
+        seq_number = req_gtpOptHdr->seq_number;
     } else {
         GTP5G_ERR(gtp->dev, "GTP echo request shall bring sequence number\n");
         seq_number = 0;
     }
-
-    pskb_pull(skb, skb->len);          
-
+    
+    // // Store source and destination addresses and ports before destroying skb
+    // // These values are needed for routing and UDP tunnel transmission
+    // saddr = iph->saddr;
+    // daddr = iph->daddr;
+    // source = udph->source;
+    // dest = udph->dest;
+    
+    // Clear the entire skb content to prepare for new GTP echo response
+    // WARNING: After this call, skb->len = 0 and headers become invalid
+    pskb_pull(skb, sizeof(struct gtpv1_hdr) + 
+        sizeof(struct gtp1_hdr_opt) + sizeof(struct udphdr));
+    
+    // Allocate space for the new GTP echo response packet
     gtp_pkt = skb_push(skb, sizeof(struct gtpv1_echo_resp));
     if (!gtp_pkt) {
         GTP5G_ERR(gtp->dev, "can not construct GTP Echo Response\n");
         return PKT_DROPPED;
     }
     memset(gtp_pkt, 0, sizeof(struct gtpv1_echo_resp));
-
-    /* gtp header*/
+    
+    // Set GTP header fields for echo response
     gtp_pkt->gtpv1_h.flags = GTPV1 | GTPV1_HDR_FLG_SEQ;
     gtp_pkt->gtpv1_h.type = GTPV1_MSG_TYPE_ECHO_RSP;
-    gtp_pkt->gtpv1_h.length =
+    gtp_pkt->gtpv1_h.length = 
         htons(sizeof(struct gtpv1_echo_resp) - sizeof(struct gtpv1_hdr));
     gtp_pkt->gtpv1_h.tid = 0;
-
-    /* gtp opt header*/
+    
+    // Set GTP extension header with sequence number from request
     gtp_pkt->gtpv1_opt_h.seq_number = seq_number;
-
-    /* gtp recovery*/
+    
+    // Set recovery information element
     gtp_pkt->recov.type_num = GTPV1_IE_RECOVERY;
     gtp_pkt->recov.cnt = 0;
 
     iph = ip_hdr(skb);
-    udph = udp_hdr(skb);
-  
-    rt = ip4_find_route(skb, iph, gtp->sk1u, gtp->dev, 
-        iph->daddr ,
-        iph->saddr, 
-        &fl4);
+    
+    // Find route using saved address information
+    // Note: iph parameter is NULL since skb headers are no longer valid
+    rt = find_ip4_route(&fl4, gtp->sk1u, iph->saddr, iph->daddr);
     if (IS_ERR(rt)) {
-        GTP5G_ERR(gtp->dev, "no route for GTP echo response from %pI4\n", 
-        &iph->saddr);
+        GTP5G_ERR(gtp->dev, "no route for GTP echo response from %pI4\n", &iph->saddr);
         return PKT_DROPPED;
     }
-
+    
+    // Transmit the GTP echo response using UDP tunnel
+    // Use saved port information and route information
     udp_tunnel_xmit_skb(rt, gtp->sk1u, skb,
-                    fl4.saddr, fl4.daddr,
-                    iph->tos,
-                    ip4_dst_hoplimit(&rt->dst),
-                    0,
-                    udph->dest, udph->source,
-                    !net_eq(sock_net(gtp->sk1u),
-                        dev_net(gtp->dev)),
-                    false);
-
+                        fl4.saddr, fl4.daddr,
+                        0, // Use default TOS value
+                        ip4_dst_hoplimit(&rt->dst),
+                        0,
+                        htons(GTP1U_PORT), htons(GTP1U_PORT),
+                        !net_eq(sock_net(gtp->sk1u), dev_net(gtp->dev)),
+                        false);
+    
     return PKT_FORWARDED;
 }
 
