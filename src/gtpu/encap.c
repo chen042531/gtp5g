@@ -45,6 +45,9 @@ static int unix_sock_send(struct pdr *, struct far *, void *, u32, u32);
 static int gtp5g_fwd_skb_ipv4(struct sk_buff *, 
     struct net_device *, struct gtp5g_pktinfo *, 
     struct pdr *, struct far *);
+static struct rtable *find_ip4_route(struct flowi4 *fl4,
+    const struct sock *sk,
+    __be32 daddr, __be32 saddr);
 
 /* When gtp5g newlink, establish the udp tunnel used in N3 interface */
 struct sock *gtp5g_encap_enable(int fd, int type, struct gtp5g_dev *gtp){
@@ -161,6 +164,45 @@ static int gtp5g_encap_recv(struct sock *sk, struct sk_buff *skb)
     return ret;
 }
 
+void iptunnel_xmit2(struct sock *sk, struct rtable *rt, struct sk_buff *skb,
+    __be32 src, __be32 dst, __u8 proto,
+    __u8 tos, __u8 ttl, __be16 df, bool xnet)
+{
+    int pkt_len = skb->len - skb_inner_network_offset(skb);
+    struct net *net = dev_net(rt->dst.dev);
+    struct net_device *dev = skb->dev;
+    struct iphdr *iph;
+    int err;
+
+    printk("iptunnel_xmit211\n");
+    skb_scrub_packet(skb, xnet);
+
+    skb_clear_hash_if_not_l4(skb);
+    skb_dst_set(skb, &rt->dst);
+    memset(IPCB(skb), 0, sizeof(*IPCB(skb)));
+
+    /* Push down and install the IP header. */
+    skb_push(skb, sizeof(struct iphdr));
+    skb_reset_network_header(skb);
+
+    iph = ip_hdr(skb);
+
+
+    iph->version	=	4;
+    iph->ihl	=	sizeof(struct iphdr) >> 2;
+    iph->frag_off	=	ip_mtu_locked(&rt->dst) ? 0 : df;
+    iph->protocol	=	proto;
+    iph->tos	=	tos;
+    iph->daddr	=	dst;
+    iph->saddr	=	src;
+    iph->ttl	=	ttl;
+    __ip_select_ident(net, iph, skb_shinfo(skb)->gso_segs ?: 1);
+
+    printk("iptunnel_xmit222\n");
+    err = ip_local_out(net, sk, skb);
+    printk("iptunnel_xmit233\n");
+}
+
 static int gtp1c_handle_echo_req(struct sk_buff *skb, struct gtp5g_dev *gtp)
 {
     struct gtpv1_hdr *req_gtp1;
@@ -175,6 +217,8 @@ static int gtp1c_handle_echo_req(struct sk_buff *skb, struct gtp5g_dev *gtp)
 
     __u8   flags = 0;
     __be16 seq_number = 0;
+    struct udphdr *uh;
+
 
     req_gtp1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
 
@@ -223,16 +267,25 @@ static int gtp1c_handle_echo_req(struct sk_buff *skb, struct gtp5g_dev *gtp)
         &iph->saddr);
         return PKT_DROPPED;
     }
+    
 
-    udp_tunnel_xmit_skb(rt, gtp->sk1u, skb,
-                    fl4.saddr, fl4.daddr,
-                    iph->tos,
-                    ip4_dst_hoplimit(&rt->dst),
-                    0,
-                    udph->dest, udph->source,
-                    !net_eq(sock_net(gtp->sk1u),
-                        dev_net(gtp->dev)),
-                    false);
+	__skb_push(skb, sizeof(*uh));
+	skb_reset_transport_header(skb);
+	uh = udp_hdr(skb);
+
+	uh->dest = htons(GTP1U_PORT);
+	uh->source = htons(GTP1U_PORT);
+	uh->len = htons(skb->len);
+
+	memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
+
+	udp_set_csum(true, skb, fl4.saddr, fl4.daddr, skb->len);
+
+
+	iptunnel_xmit2(gtp->sk1u, rt, skb, fl4.saddr, 
+        fl4.daddr, IPPROTO_UDP, iph->tos, ip4_dst_hoplimit(&rt->dst), 
+        0, !net_eq(sock_net(gtp->sk1u), dev_net(gtp->dev)));
+        
 
     return PKT_FORWARDED;
 }
