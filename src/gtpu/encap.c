@@ -45,6 +45,7 @@ static int unix_sock_send(struct pdr *, struct far *, void *, u32, u32);
 static int gtp5g_fwd_skb_ipv4(struct sk_buff *, 
     struct net_device *, struct gtp5g_pktinfo *, 
     struct pdr *, struct far *);
+static struct sk_buff *build_gtp_echo_response(struct gtp5g_dev *gtp, __be16 seq_number);
 
 /* When gtp5g newlink, establish the udp tunnel used in N3 interface */
 struct sock *gtp5g_encap_enable(int fd, int type, struct gtp5g_dev *gtp){
@@ -161,12 +162,52 @@ static int gtp5g_encap_recv(struct sock *sk, struct sk_buff *skb)
     return ret;
 }
 
+static struct sk_buff *build_gtp_echo_response(struct gtp5g_dev *gtp, __be16 seq_number)
+{
+    struct gtpv1_echo_resp *gtp_pkt;
+    struct sk_buff *resp_skb;
+
+    resp_skb = __netdev_alloc_skb(gtp->dev, 52, GFP_KERNEL);
+    if (!resp_skb) {
+        return NULL;
+    }
+    skb_reserve(resp_skb, 2);
+    resp_skb->protocol = eth_type_trans(resp_skb, gtp->dev);
+
+    /* Reset all headers */
+    skb_reset_transport_header(resp_skb);
+    skb_reset_network_header(resp_skb);
+    skb_reset_mac_header(resp_skb);
+     
+    gtp_pkt = skb_push(resp_skb, sizeof(struct gtpv1_echo_resp));
+    if (!gtp_pkt) {
+        GTP5G_ERR(gtp->dev, "can not construct GTP Echo Response\n");
+        kfree_skb(resp_skb);
+        return NULL;
+    }
+    memset(gtp_pkt, 0, sizeof(struct gtpv1_echo_resp));
+
+    /* gtp header*/
+    gtp_pkt->gtpv1_h.flags = GTPV1 | GTPV1_HDR_FLG_SEQ;
+    gtp_pkt->gtpv1_h.type = GTPV1_MSG_TYPE_ECHO_RSP;
+    gtp_pkt->gtpv1_h.length =
+        htons(sizeof(struct gtpv1_echo_resp) - sizeof(struct gtpv1_hdr));
+    gtp_pkt->gtpv1_h.tid = 0;
+
+    /* gtp opt header*/
+    gtp_pkt->gtpv1_opt_h.seq_number = seq_number;
+
+    /* gtp recovery*/
+    gtp_pkt->recov.type_num = GTPV1_IE_RECOVERY;
+    gtp_pkt->recov.cnt = 0;
+
+    return resp_skb;
+}
+
 static int gtp1c_handle_echo_req(struct sk_buff *skb, struct gtp5g_dev *gtp)
 {
     struct gtpv1_hdr *req_gtp1;
     struct gtp1_hdr_opt *req_gtpOptHdr;
-
-    struct gtpv1_echo_resp *gtp_pkt;
 
     struct rtable *rt;
     struct flowi4 fl4;
@@ -194,38 +235,10 @@ static int gtp1c_handle_echo_req(struct sk_buff *skb, struct gtp5g_dev *gtp)
         seq_number = 0;
     }
 
-    resp_skb = __netdev_alloc_skb(gtp->dev, 52, GFP_KERNEL);
+    resp_skb = build_gtp_echo_response(gtp, seq_number);
     if (!resp_skb) {
         return PKT_DROPPED;
     }
-    skb_reserve(resp_skb, 2);
-    resp_skb->protocol = eth_type_trans(resp_skb, gtp->dev);
-
-    /* Reset all headers */
-    skb_reset_transport_header(resp_skb);
-    skb_reset_network_header(resp_skb);
-    skb_reset_mac_header(resp_skb);
-     
-    gtp_pkt = skb_push(resp_skb, sizeof(struct gtpv1_echo_resp));
-    if (!gtp_pkt) {
-        GTP5G_ERR(gtp->dev, "can not construct GTP Echo Response\n");
-        return PKT_DROPPED;
-    }
-    memset(gtp_pkt, 0, sizeof(struct gtpv1_echo_resp));
-
-    /* gtp header*/
-    gtp_pkt->gtpv1_h.flags = GTPV1 | GTPV1_HDR_FLG_SEQ;
-    gtp_pkt->gtpv1_h.type = GTPV1_MSG_TYPE_ECHO_RSP;
-    gtp_pkt->gtpv1_h.length =
-        htons(sizeof(struct gtpv1_echo_resp) - sizeof(struct gtpv1_hdr));
-    gtp_pkt->gtpv1_h.tid = 0;
-
-    /* gtp opt header*/
-    gtp_pkt->gtpv1_opt_h.seq_number = seq_number;
-
-    /* gtp recovery*/
-    gtp_pkt->recov.type_num = GTPV1_IE_RECOVERY;
-    gtp_pkt->recov.cnt = 0;
 
     
     rt = ip4_find_route(resp_skb, iph, gtp->sk1u, gtp->dev, 
