@@ -176,6 +176,12 @@ static int gtp1c_handle_echo_req(struct sk_buff *skb, struct gtp5g_dev *gtp)
     __u8   flags = 0;
     __be16 seq_number = 0;
 
+    struct sk_buff *resp_skb = NULL;
+
+    iph = ip_hdr(skb);
+    udph = udp_hdr(skb);
+
+    printk("gtp1c_handle_echo_req111>>>>>>6699\n");
     req_gtp1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
 
     flags = req_gtp1->flags;
@@ -188,9 +194,19 @@ static int gtp1c_handle_echo_req(struct sk_buff *skb, struct gtp5g_dev *gtp)
         seq_number = 0;
     }
 
-    pskb_pull(skb, skb->len);          
+    resp_skb = __netdev_alloc_skb(gtp->dev, 52, GFP_KERNEL);
+    if (!resp_skb) {
+        return PKT_DROPPED;
+    }
+    skb_reserve(resp_skb, 2);
+    resp_skb->protocol = eth_type_trans(resp_skb, gtp->dev);
 
-    gtp_pkt = skb_push(skb, sizeof(struct gtpv1_echo_resp));
+    /* Reset all headers */
+    skb_reset_transport_header(resp_skb);
+    skb_reset_network_header(resp_skb);
+    skb_reset_mac_header(resp_skb);
+     
+    gtp_pkt = skb_push(resp_skb, sizeof(struct gtpv1_echo_resp));
     if (!gtp_pkt) {
         GTP5G_ERR(gtp->dev, "can not construct GTP Echo Response\n");
         return PKT_DROPPED;
@@ -211,10 +227,8 @@ static int gtp1c_handle_echo_req(struct sk_buff *skb, struct gtp5g_dev *gtp)
     gtp_pkt->recov.type_num = GTPV1_IE_RECOVERY;
     gtp_pkt->recov.cnt = 0;
 
-    iph = ip_hdr(skb);
-    udph = udp_hdr(skb);
-  
-    rt = ip4_find_route(skb, iph, gtp->sk1u, gtp->dev, 
+    
+    rt = ip4_find_route(resp_skb, iph, gtp->sk1u, gtp->dev, 
         iph->daddr ,
         iph->saddr, 
         &fl4);
@@ -224,7 +238,7 @@ static int gtp1c_handle_echo_req(struct sk_buff *skb, struct gtp5g_dev *gtp)
         return PKT_DROPPED;
     }
 
-    udp_tunnel_xmit_skb(rt, gtp->sk1u, skb,
+    udp_tunnel_xmit_skb(rt, gtp->sk1u, resp_skb,
                     fl4.saddr, fl4.daddr,
                     iph->tos,
                     ip4_dst_hoplimit(&rt->dst),
@@ -234,6 +248,7 @@ static int gtp1c_handle_echo_req(struct sk_buff *skb, struct gtp5g_dev *gtp)
                         dev_net(gtp->dev)),
                     false);
 
+    printk("gtp1c_handle_echo_req222>>>>>>\n");
     return PKT_FORWARDED;
 }
 
