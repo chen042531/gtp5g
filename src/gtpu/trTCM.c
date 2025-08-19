@@ -48,7 +48,7 @@ Color policePacket(TrafficPolicer* p, int pktLen) {
     u64 elapsed = 0;
     u64 now = 0;
 
-    spin_lock(&p->lock); 
+    spin_lock_bh(&p->lock); 
 
     now = ktime_get_ns();
     elapsed = now - p->lastUpdate;
@@ -78,20 +78,20 @@ Color policePacket(TrafficPolicer* p, int pktLen) {
     if (p->tc >= pktLen) {
         p->tc = tc - pktLen;
         p->te = te;
-        spin_unlock(&p->lock); 
+        spin_unlock_bh(&p->lock); 
         return Green;
     }
 
     if (p->te >= pktLen) {
         p->tc = tc;
         p->te = te - pktLen;
-        spin_unlock(&p->lock); 
+        spin_unlock_bh(&p->lock); 
         return Yellow;
     }
 
     p->tc = tc;
     p->te = te;
 
-    spin_unlock(&p->lock); 
+    spin_unlock_bh(&p->lock); 
     return Red;
 }

@@ -275,8 +275,8 @@ struct VolumeMeasurement *get_and_switch_period_vol_counter(struct urr *urr)
 {
     bool vol_to_read = urr->use_vol2;
     // switch vol counter for next period to write
-    spin_lock(&urr->period_vol_counter_lock);
+    spin_lock_bh(&urr->period_vol_counter_lock);
     urr->use_vol2 = !urr->use_vol2;
-    spin_unlock(&urr->period_vol_counter_lock);
+    spin_unlock_bh(&urr->period_vol_counter_lock);
     return get_period_vol_counter(urr, vol_to_read);
 }

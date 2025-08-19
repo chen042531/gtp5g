@@ -622,10 +622,10 @@ static struct VolumeMeasurement *get_urr_counter_by_trigger(struct urr *urr, u32
 
 static inline void update_period_vol_counter(struct urr *urr, u64 vol, bool uplink, bool mnop) {
     struct VolumeMeasurement *urr_counter = NULL;
-    spin_lock(&urr->period_vol_counter_lock);
+    spin_lock_bh(&urr->period_vol_counter_lock);
     urr_counter = get_period_vol_counter(urr, urr->use_vol2);
     update_counter(urr_counter, vol, uplink, mnop);
-    spin_unlock(&urr->period_vol_counter_lock);
+    spin_unlock_bh(&urr->period_vol_counter_lock);
 }
 
 int update_urr_counter_and_send_report(struct pdr *pdr, struct far *far, u64 vol, u64 vol_mbqe) {
