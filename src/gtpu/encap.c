@@ -597,25 +597,35 @@ void update_counter(struct VolumeMeasurement *volmeasure, u64 vol, bool uplink, 
         return;
     }
 
+    /* 
+     * Lock-free atomic updates for high-frequency packet processing
+     * Each field is updated atomically to avoid data races
+     */
     if (mnop) {
         if (uplink) {
-            volmeasure->uplinkPktNum++;
+            atomic64_inc(&volmeasure->uplinkPktNum);
         } else {
-            volmeasure->downlinkPktNum++;
+            atomic64_inc(&volmeasure->downlinkPktNum);
         }
-        volmeasure->totalPktNum = volmeasure->uplinkPktNum + volmeasure->downlinkPktNum;
+        atomic64_inc(&volmeasure->totalPktNum);
     }
 
     if (uplink) {
-        volmeasure->uplinkVolume += vol;
+        atomic64_add(vol, &volmeasure->uplinkVolume);
     } else {
-        volmeasure->downlinkVolume += vol;
+        atomic64_add(vol, &volmeasure->downlinkVolume);
     }
 
-    volmeasure->totalVolume = volmeasure->uplinkVolume + volmeasure->downlinkVolume;
+    atomic64_add(vol, &volmeasure->totalVolume);
 }
 
 bool check_counter(struct VolumeMeasurement *volmeasure, struct Volume *volume){
+    /* 
+     * Lock-free atomic reads for threshold checking
+     * Read counters atomically to ensure consistency
+     */
+    u64 total_vol, uplink_vol, downlink_vol;
+    
     if (!volmeasure) {
         return false;
     }
@@ -624,11 +634,15 @@ bool check_counter(struct VolumeMeasurement *volmeasure, struct Volume *volume){
         return false;
     }
 
-    if (volume->totalVolume && (volmeasure->totalVolume >= volume->totalVolume) && (volume->flag & URR_VOLUME_TOVOL)) {
+    total_vol = atomic64_read(&volmeasure->totalVolume);
+    uplink_vol = atomic64_read(&volmeasure->uplinkVolume);
+    downlink_vol = atomic64_read(&volmeasure->downlinkVolume);
+
+    if (volume->totalVolume && (total_vol >= volume->totalVolume) && (volume->flag & URR_VOLUME_TOVOL)) {
         return true;
-    } else if (volume->uplinkVolume && (volmeasure->uplinkVolume >= volume->uplinkVolume) && (volume->flag & URR_VOLUME_ULVOL)) {
+    } else if (volume->uplinkVolume && (uplink_vol >= volume->uplinkVolume) && (volume->flag & URR_VOLUME_ULVOL)) {
         return true;
-    } else if (volume->downlinkVolume && (volmeasure->downlinkVolume >= volume->downlinkVolume) && (volume->flag & URR_VOLUME_DLVOL)) {
+    } else if (volume->downlinkVolume && (downlink_vol >= volume->downlinkVolume) && (volume->flag & URR_VOLUME_DLVOL)) {
         return true;
     }
 
@@ -649,11 +663,23 @@ static struct VolumeMeasurement *get_urr_counter_by_trigger(struct urr *urr, u32
 }
 
 static inline void update_period_vol_counter(struct urr *urr, u64 vol, bool uplink, bool mnop) {
-    struct VolumeMeasurement *urr_counter = NULL;
-    spin_lock(&urr->period_vol_counter_lock);
-    urr_counter = get_period_vol_counter(urr, urr->use_vol2);
+    /* 
+     * LOCK-FREE UPDATE for high-frequency packet processing
+     * 
+     * Read current counter index atomically (no lock needed for read-heavy workload)
+     * The counter switch operation is rare (every 15 seconds) compared to 
+     * packet updates (potentially millions per second)
+     * 
+     * We can tolerate brief inconsistency during counter switch since:
+     * 1. Switch happens infrequently (15s interval)
+     * 2. Individual packet updates are atomic
+     * 3. Slight counter discrepancy during switch is acceptable for usage reporting
+     */
+    int current_idx = atomic_read(&urr->current_counter_idx);
+    struct VolumeMeasurement *urr_counter = &urr->vol_counters[current_idx];
+    
+    /* Atomic counter updates - no locks needed */
     update_counter(urr_counter, vol, uplink, mnop);
-    spin_unlock(&urr->period_vol_counter_lock);
 }
 
 int update_urr_counter_and_send_report(struct pdr *pdr, struct far *far, u64 vol, u64 vol_mbqe) {

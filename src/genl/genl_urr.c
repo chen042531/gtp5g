@@ -93,7 +93,13 @@ int gtp5g_genl_add_urr(struct sk_buff *skb, struct genl_info *info)
         goto end;
     }
 
-    spin_lock_init(&urr->period_vol_counter_lock);
+    /* Initialize lock-free atomic counter */
+    atomic_set(&urr->current_counter_idx, 0);
+    
+    /* Initialize both volume counters to zero */
+    memset(&urr->vol_counters[0], 0, sizeof(struct VolumeMeasurement));
+    memset(&urr->vol_counters[1], 0, sizeof(struct VolumeMeasurement));
+    
     urr->dev = gtp->dev;
     urr->start_time = ktime_get_real();
 
@@ -170,7 +176,7 @@ int gtp5g_genl_del_urr(struct sk_buff *skb, struct genl_info *info)
         goto fail;
     }
 
-    urr_counter = get_period_vol_counter(urr, urr->use_vol2);
+    urr_counter = get_period_vol_counter(urr, atomic_read(&urr->current_counter_idx));
     convert_urr_to_report(urr, urr_counter, report);
 
     err = gtp5g_genl_fill_usage_report(skb_ack,
@@ -338,10 +344,10 @@ static int urr_fill(struct urr *urr, struct gtp5g_dev *gtp, struct genl_info *in
         urr->trigger = nla_get_u32(info->attrs[GTP5G_URR_REPORTING_TRIGGER]);
         if (urr->trigger & URR_RPT_TRIGGER_START) {
             // Clean vol to make sure the vol are counted after the start of service data flow
-            // TODO: Should send the previous stroed vol to CP first
-            // Clear periodic report counters vol1 and vol2.
-            memset(&urr->vol1, 0, sizeof(struct VolumeMeasurement));
-            memset(&urr->vol2, 0, sizeof(struct VolumeMeasurement));
+            // TODO: Should send the previous stored vol to CP first
+            // Clear periodic report counters - both vol_counters[0] and vol_counters[1].
+            memset(&urr->vol_counters[0], 0, sizeof(struct VolumeMeasurement));
+            memset(&urr->vol_counters[1], 0, sizeof(struct VolumeMeasurement));
             // Clear the threshold report counter.
             memset(&urr->vol_th, 0, sizeof(struct VolumeMeasurement));
         }

@@ -4,6 +4,7 @@
 #include <linux/kernel.h>
 #include <linux/rculist.h>
 #include <linux/net.h>
+#include <linux/atomic.h>
 
 #include "dev.h"
 
@@ -31,12 +32,12 @@
 #define USAR_TRIGGER_UPINT (1 << 21)
 
 struct VolumeMeasurement{
-    u64 totalVolume;
-    u64 uplinkVolume;
-    u64 downlinkVolume;
-    u64 totalPktNum;
-    u64 uplinkPktNum;
-    u64 downlinkPktNum;
+    atomic64_t totalVolume;
+    atomic64_t uplinkVolume;
+    atomic64_t downlinkVolume;
+    atomic64_t totalPktNum;
+    atomic64_t uplinkPktNum;
+    atomic64_t downlinkPktNum;
 }__attribute__((packed));
 
 struct usage_report {

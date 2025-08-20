@@ -4,6 +4,7 @@
 #include <linux/kernel.h>
 #include <linux/rculist.h>
 #include <linux/net.h>
+#include <linux/atomic.h>
 
 #include "dev.h"
 #include "report.h"
@@ -78,12 +79,10 @@ struct urr {
     struct Volume volumethreshold;
     struct Volume volumequota;
 
-    // For usage report volume measurement
+    // For usage report volume measurement - LOCK-FREE VERSION
     // TRIGGER_PERIO
-    spinlock_t period_vol_counter_lock;
-    bool use_vol2;
-    struct VolumeMeasurement vol1;
-    struct VolumeMeasurement vol2;
+    atomic_t current_counter_idx;  // 0 or 1, indicates which counter is active for writing
+    struct VolumeMeasurement vol_counters[2];  // Double buffering for lock-free access
     // TRIGGER_VOLQU
     struct VolumeMeasurement vol_qu;
     // TRIGGER_VOLTH
@@ -115,6 +114,6 @@ void urr_append(u64, u32, struct urr *, struct gtp5g_dev *);
 int urr_get_pdr_ids(u16 *, int, struct urr *, struct gtp5g_dev *);
 int urr_set_pdr(struct pdr *, struct gtp5g_dev *);
 void del_related_urr_hash(struct gtp5g_dev *, struct pdr *);
-struct VolumeMeasurement *get_period_vol_counter(struct urr *, bool);
+struct VolumeMeasurement *get_period_vol_counter(struct urr *, int);
 struct VolumeMeasurement *get_and_switch_period_vol_counter(struct urr *);
 #endif // __URR_H__

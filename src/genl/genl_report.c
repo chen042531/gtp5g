@@ -308,17 +308,17 @@ static int gtp5g_genl_fill_volume_measurement(struct sk_buff *skb, struct Volume
     if (!nest_volume_measurement)
         return -EMSGSIZE;
 
-    if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_TOVOL, vol.totalVolume , 0))
+    if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_TOVOL, atomic64_read(&vol.totalVolume), 0))
         return -EMSGSIZE;
-    if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_UVOL, vol.uplinkVolume, 0))
+    if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_UVOL, atomic64_read(&vol.uplinkVolume), 0))
         return -EMSGSIZE;
-    if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_DVOL, vol.downlinkVolume, 0))
+    if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_DVOL, atomic64_read(&vol.downlinkVolume), 0))
         return -EMSGSIZE;
-    if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_TOPACKET, vol.totalPktNum, 0))
+    if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_TOPACKET, atomic64_read(&vol.totalPktNum), 0))
         return -EMSGSIZE;
-    if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_UPACKET, vol.uplinkPktNum, 0))
+    if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_UPACKET, atomic64_read(&vol.uplinkPktNum), 0))
         return -EMSGSIZE;
-    if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_DPACKET, vol.downlinkPktNum, 0))
+    if (nla_put_u64_64bit(skb, GTP5G_UR_VOLUME_MEASUREMENT_DPACKET, atomic64_read(&vol.downlinkPktNum), 0))
         return -EMSGSIZE;
 
     nla_nest_end(skb, nest_volume_measurement);
