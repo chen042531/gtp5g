@@ -1,0 +1,93 @@
+#include <linux/atomic.h>
+#include <linux/types.h>  // For u64, u32, etc.
+
+struct VolumeMeasurement {
+    atomic64_t combined;  // 低 32 bits: bit 31 (overflow flag for volume), bits 0-30 (volume value)
+                          // 高 32 bits: bit 63 (overflow flag for pkt), bits 32-62 (pkt value)
+};
+
+static struct VolumeMeasurement vol_meas;
+
+// 初始化 (在 module init 中呼叫)
+static int __init my_module_init(void) {
+    atomic64_set(&vol_meas.combined, 0);
+    // 其他初始化...
+    return 0;
+}
+
+// 更新函數：使用 cmpxchg loop 來處理可能的 overflow，避免低位 overflow carry 到高位
+void update_period_vol_counter(u32 delta_volume, u32 delta_pkt) {
+    u64 old_val, new_val;
+    const u64 vol_max_before_overflow = 1ULL << 31;  // 0x80000000
+    const u32 vol_value_mask = 0x7FFFFFFF;           // bits 0-30
+    const u32 pkt_value_mask = 0x7FFFFFFF;           // bits 0-30 for pkt (shifted)
+
+    do {
+        old_val = atomic64_read(&vol_meas.combined);
+
+        // 提取 volume 的值和 flag
+        u32 vol_value = old_val & vol_value_mask;
+        u32 vol_flag = (old_val >> 31) & 1;
+
+        // 計算新 volume
+        u64 temp_vol = (u64)vol_value + delta_volume;
+        u32 new_vol_value = vol_value;
+        u32 new_vol_flag = vol_flag;
+        if (temp_vol >= vol_max_before_overflow) {
+            if (vol_flag) {
+                // 已 overflow 過，再次 overflow：飽和到最大值 (2^32 - 1)，或根據需求處理 (這裡飽和)
+                new_vol_value = 0x7FFFFFFF;  // 最大 31-bit 值
+                // 如果想歸 0：new_vol_value = 0; 但這會丟失數據，不符合 "數變多了"
+            } else {
+                // 第一次 overflow：設 flag=1，value = temp_vol - 2^31 (不歸 0，而是繼續累加 overflow 部分)
+                new_vol_flag = 1;
+                new_vol_value = temp_vol - vol_max_before_overflow;
+            }
+        } else {
+            new_vol_value = (u32)temp_vol;
+        }
+
+        // 提取 pkt 的值和 flag
+        u32 pkt_value = (old_val >> 32) & pkt_value_mask;
+        u32 pkt_flag = (old_val >> 63) & 1;
+
+        // 計算新 pkt
+        u64 temp_pkt = (u64)pkt_value + delta_pkt;
+        u32 new_pkt_value = pkt_value;
+        u32 new_pkt_flag = pkt_flag;
+        if (temp_pkt >= vol_max_before_overflow) {
+            if (pkt_flag) {
+                // 已 overflow 過，再次 overflow：飽和到最大值
+                new_pkt_value = 0x7FFFFFFF;
+            } else {
+                // 第一次 overflow：設 flag=1，value = temp_pkt - 2^31
+                new_pkt_flag = 1;
+                new_pkt_value = temp_pkt - vol_max_before_overflow;
+            }
+        } else {
+            new_pkt_value = (u32)temp_pkt;
+        }
+
+        // 建構新 u64 值
+        new_val = ((u64)new_pkt_flag << 63) |
+                  ((u64)new_pkt_value << 32) |
+                  ((u32)new_vol_flag << 31) |
+                  new_vol_value;
+
+    } while (atomic64_cmpxchg(&vol_meas.combined, old_val, new_val) != old_val);
+}
+
+// 讀取並清空函數：原子讀取並清空，讀取時計算實際值 (flag * 2^31 + value)
+void get_period_vol_counter(u64 *volume, u64 *pkt_num) {  // 使用 u64 來儲存實際值 (max 2^32 - 1)
+    u64 val = atomic64_xchg(&vol_meas.combined, 0);  // 原子讀取並清空
+
+    // 提取並計算 volume 實際值
+    u32 vol_value = val & 0x7FFFFFFF;
+    u32 vol_flag = (val >> 31) & 1;
+    *volume = ((u64)vol_flag << 31) + vol_value;
+
+    // 提取並計算 pkt 實際值
+    u32 pkt_value = (val >> 32) & 0x7FFFFFFF;
+    u32 pkt_flag = (val >> 63) & 1;
+    *pkt_num = ((u64)pkt_flag << 31) + pkt_value;
+}
