@@ -91,3 +91,67 @@ void get_period_vol_counter(u64 *volume, u64 *pkt_num) {  // 使用 u64 來儲�
     u32 pkt_flag = (val >> 63) & 1;
     *pkt_num = ((u64)pkt_flag << 31) + pkt_value;
 }
+
+
+///////////////////////////////////////
+///////////////////////////////////////
+///////////////////////////////////////
+
+
+#include <linux/module.h>
+#include <linux/atomic.h>
+
+static atomic64_t combined = ATOMIC64_INIT(0);
+
+void update_period_vol_counter(u32 delta_volume, u32 delta_pkt) {
+    u64 val = atomic64_read(&combined);
+    u32 volume = (u32)val;
+    u32 pkt_num = (u32)(val >> 32);
+
+    // 處理 volume (低 32-bit)
+    u32 vol_count = volume & 0x7FFFFFFF;
+    u32 vol_flag = volume >> 31;
+    if (delta_volume > 0x7FFFFFFF) delta_volume = 0x7FFFFFFF; // 限制 delta
+    vol_count += delta_volume;
+    if (vol_count > 0x7FFFFFFF) {
+        vol_count = 0;
+        vol_flag = 1;
+    }
+    volume = (vol_flag << 31) | vol_count;
+
+    // 處理 pkt_num (高 32-bit)
+    u32 pkt_count = pkt_num & 0x7FFFFFFF;
+    u32 pkt_flag = pkt_num >> 31;
+    if (delta_pkt > 0x7FFFFFFF) delta_pkt = 0x7FFFFFFF; // 限制 delta
+    pkt_count += delta_pkt;
+    if (pkt_count > 0x7FFFFFFF) {
+        pkt_count = 0;
+        pkt_flag = 1;
+    }
+    pkt_num = (pkt_flag << 31) | pkt_count;
+
+    // 更新
+    atomic64_set(&combined, ((u64)pkt_num << 32) | volume);
+}
+
+void get_period_vol_counter(u64 *volume, u64 *pkt_num) {
+    u64 val = atomic64_xchg(&combined, 0);
+    u32 volume_field = (u32)val;
+    u32 pkt_field = (u32)(val >> 32);
+
+    *volume = (volume_field & 0x7FFFFFFFULL) + ((volume_field & 0x80000000) ? 0x80000000ULL : 0);
+    *pkt_num = (pkt_field & 0x7FFFFFFFULL) + ((pkt_field & 0x80000000) ? 0x80000000ULL : 0);
+}
+
+static int __init my_module_init(void) {
+    atomic64_set(&combined, 0);
+    return 0;
+}
+
+static void __exit my_module_exit(void) {
+    // Cleanup
+}
+
+module_init(my_module_init);
+module_exit(my_module_exit);
+MODULE_LICENSE("GPL");
