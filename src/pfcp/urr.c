@@ -278,9 +278,9 @@ struct VolumeMeasurement *get_and_switch_period_vol_counter(struct urr *urr)
     // Reader: use retry loop to safely switch which buffer the writer should use
     // and read from the buffer that writer is NOT currently using
     do {
-        start = u64_stats_fetch_begin_irq(&urr->period_vol_counter_sync);
+        start = u64_stats_fetch_begin(&urr->period_vol_counter_sync);
         urr->use_vol2 = !urr->use_vol2; // Combine read and switch in one operation
-    } while (u64_stats_fetch_retry_irq(&urr->period_vol_counter_sync, start));
+    } while (u64_stats_fetch_retry(&urr->period_vol_counter_sync, start));
     
     // Return the buffer that writer was NOT using when we read vol_to_read
     return get_period_vol_counter(urr, !urr->use_vol2);
