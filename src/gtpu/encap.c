@@ -247,6 +247,14 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
     u32 teid;
     int rt = 0;
     u64 rxVol = skb->len - sizeof(struct udphdr); // exclude UDP header of GTP packet
+    struct iphdr *iph;
+    
+    // 获取外层IP头并打印source IP和destination IP
+    iph = ip_hdr(skb);
+    if (iph) {
+        printk(KERN_INFO "GTP5G: Outer IP - Source: %pI4, Destination: %pI4\n", 
+               &iph->saddr, &iph->daddr);
+    }
 
     if (!pskb_may_pull(skb, pull_len)) {
         GTP5G_ERR(gtp->dev, "Failed to pull skb length %#x\n", pull_len);
