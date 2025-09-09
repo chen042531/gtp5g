@@ -74,6 +74,8 @@ int gtp5g_genl_add_qer(struct sk_buff *skb, struct genl_info *info)
         err = qer_fill(qer, gtp, info);
         if (err) {
             qer_context_delete(qer);
+            rcu_read_unlock();
+            rtnl_unlock();
             return err;
         }
         return 0;
@@ -303,6 +305,28 @@ static int qer_fill(struct qer *qer, struct gtp5g_dev *gtp, struct genl_info *in
     struct nlattr *mbr_param_attrs[GTP5G_QER_MBR_ATTR_MAX + 1];
     struct nlattr *gbr_param_attrs[GTP5G_QER_GBR_ATTR_MAX + 1];
 
+    // Add NULL pointer checks
+    if (!qer) {
+        GTP5G_ERR(NULL, "qer_fill: qer is NULL");
+        return -EINVAL;
+    }
+    if (!gtp) {
+        GTP5G_ERR(NULL, "qer_fill: gtp is NULL");
+        return -EINVAL;
+    }
+    if (!info) {
+        GTP5G_ERR(NULL, "qer_fill: info is NULL");
+        return -EINVAL;
+    }
+    if (!info->attrs) {
+        GTP5G_ERR(NULL, "qer_fill: info->attrs is NULL");
+        return -EINVAL;
+    }
+    if (!info->attrs[GTP5G_QER_ID]) {
+        GTP5G_ERR(NULL, "qer_fill: GTP5G_QER_ID attribute is NULL");
+        return -EINVAL;
+    }
+
     qer->id = nla_get_u32(info->attrs[GTP5G_QER_ID]);
 
     if (info->attrs[GTP5G_QER_SEID])
@@ -318,6 +342,25 @@ static int qer_fill(struct qer *qer, struct gtp5g_dev *gtp, struct genl_info *in
     /* MBR */
     if (info->attrs[GTP5G_QER_MBR] &&
         !nla_parse_nested(mbr_param_attrs, GTP5G_QER_MBR_ATTR_MAX, info->attrs[GTP5G_QER_MBR], NULL, NULL)) {
+        
+        // Check required MBR attributes are present
+        if (!mbr_param_attrs[GTP5G_QER_MBR_UL_HIGH32]) {
+            GTP5G_ERR(NULL, "qer_fill: MBR UL_HIGH32 attribute is NULL");
+            return -EINVAL;
+        }
+        if (!mbr_param_attrs[GTP5G_QER_MBR_UL_LOW8]) {
+            GTP5G_ERR(NULL, "qer_fill: MBR UL_LOW8 attribute is NULL");
+            return -EINVAL;
+        }
+        if (!mbr_param_attrs[GTP5G_QER_MBR_DL_HIGH32]) {
+            GTP5G_ERR(NULL, "qer_fill: MBR DL_HIGH32 attribute is NULL");
+            return -EINVAL;
+        }
+        if (!mbr_param_attrs[GTP5G_QER_MBR_DL_LOW8]) {
+            GTP5G_ERR(NULL, "qer_fill: MBR DL_LOW8 attribute is NULL");
+            return -EINVAL;
+        }
+        
         qer->mbr.ul_high = nla_get_u32(mbr_param_attrs[GTP5G_QER_MBR_UL_HIGH32]);
         qer->mbr.ul_low  = nla_get_u8(mbr_param_attrs[GTP5G_QER_MBR_UL_LOW8]);
         qer->mbr.dl_high = nla_get_u32(mbr_param_attrs[GTP5G_QER_MBR_DL_HIGH32]);
@@ -325,13 +368,46 @@ static int qer_fill(struct qer *qer, struct gtp5g_dev *gtp, struct genl_info *in
 
         qer->ul_mbr = concat_bit_rate(qer->mbr.ul_high, qer->mbr.ul_low);
         qer->dl_mbr = concat_bit_rate(qer->mbr.dl_high, qer->mbr.dl_low);
+        
+        // Check newTrafficPolicer return values
         qer->ul_policer = newTrafficPolicer(qer->ul_mbr);
+        if (!qer->ul_policer) {
+            GTP5G_ERR(NULL, "qer_fill: Failed to create UL traffic policer");
+            return -ENOMEM;
+        }
+        
         qer->dl_policer = newTrafficPolicer(qer->dl_mbr);
+        if (!qer->dl_policer) {
+            GTP5G_ERR(NULL, "qer_fill: Failed to create DL traffic policer");
+            // Clean up UL policer before returning
+            kfree(qer->ul_policer);
+            qer->ul_policer = NULL;
+            return -ENOMEM;
+        }
     }
 
     /* GBR */
     if (info->attrs[GTP5G_QER_GBR] &&
         !nla_parse_nested(gbr_param_attrs, GTP5G_QER_GBR_ATTR_MAX, info->attrs[GTP5G_QER_GBR], NULL, NULL)) {
+        
+        // Check required GBR attributes are present
+        if (!gbr_param_attrs[GTP5G_QER_GBR_UL_HIGH32]) {
+            GTP5G_ERR(NULL, "qer_fill: GBR UL_HIGH32 attribute is NULL");
+            return -EINVAL;
+        }
+        if (!gbr_param_attrs[GTP5G_QER_GBR_UL_LOW8]) {
+            GTP5G_ERR(NULL, "qer_fill: GBR UL_LOW8 attribute is NULL");
+            return -EINVAL;
+        }
+        if (!gbr_param_attrs[GTP5G_QER_GBR_DL_HIGH32]) {
+            GTP5G_ERR(NULL, "qer_fill: GBR DL_HIGH32 attribute is NULL");
+            return -EINVAL;
+        }
+        if (!gbr_param_attrs[GTP5G_QER_GBR_DL_LOW8]) {
+            GTP5G_ERR(NULL, "qer_fill: GBR DL_LOW8 attribute is NULL");
+            return -EINVAL;
+        }
+        
         qer->gbr.ul_high = nla_get_u32(gbr_param_attrs[GTP5G_QER_GBR_UL_HIGH32]);
         qer->gbr.ul_low  = nla_get_u8(gbr_param_attrs[GTP5G_QER_GBR_UL_LOW8]);
         qer->gbr.dl_high = nla_get_u32(gbr_param_attrs[GTP5G_QER_GBR_DL_HIGH32]);
@@ -354,7 +430,12 @@ static int qer_fill(struct qer *qer, struct gtp5g_dev *gtp, struct genl_info *in
         qer->rcsr = nla_get_u8(info->attrs[GTP5G_QER_RCSR]);
 
     /* Update PDRs which has not linked to this QER */
-    qer_update(qer, gtp);
+    if (qer && gtp) {
+        qer_update(qer, gtp);
+    } else {
+        GTP5G_ERR(NULL, "qer_fill: Cannot update QER - qer or gtp is NULL");
+        return -EINVAL;
+    }
     return 0;
 }
 
