@@ -126,6 +126,7 @@ static int gtp5g_encap_recv(struct sock *sk, struct sk_buff *skb)
     struct gtp5g_dev *gtp;
     int ret = 0;
 
+    printk("gtp5g_encap_recv\n");
     gtp = rcu_dereference_sk_user_data(sk);
     if (!gtp) {
         return 1;
@@ -133,28 +134,35 @@ static int gtp5g_encap_recv(struct sock *sk, struct sk_buff *skb)
 
     switch (udp_sk(sk)->encap_type) {
     case UDP_ENCAP_GTP1U:
+        printk("UDP_ENCAP_GTP1U\n");
         ret = gtp1u_udp_encap_recv(gtp, skb);
         break;
     default:
+        printk("default\n");
         ret = -1; // Should not happen
     }
 
     switch (ret) {
     case PKT_TO_APP: // packet that gtp5g cannot handle
+        printk("PKT_TO_APP\n");
         GTP5G_TRC(gtp->dev, "Pass up to the process\n");
         break;
     case PKT_FORWARDED:
+        printk("PKT_FORWARDED\n");
         break;
     case PKT_DROPPED:
+        printk("PKT_DROPPED\n");
         GTP5G_TRC(gtp->dev, "GTP packet has been dropped\n");
         kfree_skb(skb);
         ret = 0;
         break;
     case PKT_DROPPED_AND_FREED:
+        printk("PKT_DROPPED_AND_FREED\n");
         GTP5G_TRC(gtp->dev, "GTP packet has been dropped and already freed\n");
         ret = 0;
         break;
     default:
+        printk(">>>> default\n");
         GTP5G_ERR(gtp->dev, "Unhandled return value from gtp1u_udp_encap_recv\n");
     }
 
