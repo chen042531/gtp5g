@@ -223,6 +223,8 @@ void gtp5g_fwd_emark_skb_ipv4(struct sk_buff *skb,
         return;
     }
 
+    /* Ensure UDP checksum is 0 */
+    skb->ip_summed = CHECKSUM_NONE;
     udp_tunnel_xmit_skb(rt, 
         epkt_info->sk, 
         skb,
@@ -234,17 +236,27 @@ void gtp5g_fwd_emark_skb_ipv4(struct sk_buff *skb,
         epkt_info->gtph_port, 
         epkt_info->gtph_port,
         true, 
-        true);
+        false);  /* disable UDP checksum */
 }
 
 void gtp5g_xmit_skb_ipv4(struct sk_buff *skb, struct gtp5g_pktinfo *pktinfo)
 {
     u8 tos = 0;
+    struct udphdr *uh;
+    
     if (pktinfo->hdr_creation == NULL) {
         tos = pktinfo->iph->tos;
     } else {
         tos = pktinfo->hdr_creation->tosTc;
     }
+    
+    /* Ensure UDP checksum is 0 and won't be recalculated */
+    uh = udp_hdr(skb);
+    if (uh) {
+        uh->check = 0;
+        skb->ip_summed = CHECKSUM_NONE;
+    }
+    
     udp_tunnel_xmit_skb(pktinfo->rt, 
         pktinfo->sk,
         skb,
@@ -256,7 +268,7 @@ void gtp5g_xmit_skb_ipv4(struct sk_buff *skb, struct gtp5g_pktinfo *pktinfo)
         pktinfo->gtph_port, 
         pktinfo->gtph_port,
         true, 
-        true);
+        false);  /* disable UDP checksum */
 }
 
 inline void gtp5g_set_pktinfo_ipv4(struct gtp5g_pktinfo *pktinfo,

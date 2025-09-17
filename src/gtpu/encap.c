@@ -77,6 +77,11 @@ struct sock *gtp5g_encap_enable(int fd, int type, struct gtp5g_dev *gtp){
     sk = sock->sk;
     sock_hold(sk);
 
+    /* Disable UDP checksum calculation for this socket */
+    udp_sk(sk)->no_check6_tx = 1;
+    udp_sk(sk)->no_check6_rx = 1;
+    inet_sk(sk)->hdrincl = 1;  /* Include headers */
+
     tuncfg.sk_user_data = gtp;
     tuncfg.encap_type = type;
     tuncfg.encap_rcv = gtp5g_encap_recv;
@@ -224,6 +229,8 @@ static int gtp1c_handle_echo_req(struct sk_buff *skb, struct gtp5g_dev *gtp)
         return PKT_DROPPED;
     }
 
+    /* Ensure UDP checksum is 0 */
+    skb->ip_summed = CHECKSUM_NONE;
     udp_tunnel_xmit_skb(rt, gtp->sk1u, skb,
                     fl4.saddr, fl4.daddr,
                     iph->tos,
@@ -887,6 +894,9 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
 
             uh = udp_hdr(skb);
             uh->check = 0;
+            
+            /* Tell kernel not to recalculate UDP checksum */
+            skb->ip_summed = CHECKSUM_NONE;
 
             if (pdr->urr_num != 0) {
                 ret = update_urr_counter_and_send_report(pdr, far, volume, volume_mbqe);
