@@ -29,6 +29,7 @@ static int gtp5g_genl_fill_sdf(struct sk_buff *, struct sdf_filter *);
 static int gtp5g_genl_fill_f_teid(struct sk_buff *, struct local_f_teid *);
 static int gtp5g_genl_fill_pdi(struct sk_buff *, struct pdi *);
 static int gtp5g_genl_fill_pdr(struct sk_buff *, u32, u32, u32, struct pdr *);
+static int parse_framed_routes(struct pdi *, struct nlattr *);
 
 int gtp5g_genl_add_pdr(struct sk_buff *skb, struct genl_info *info)
 {
@@ -562,6 +563,78 @@ static int parse_pdi(struct pdr *pdr, struct nlattr *a)
             return err;
     }
 
+    printk("GTP5G: %s - start parsing framed routes\n", __func__);
+    if (attrs[GTP5G_PDI_FRAMED_ROUTE]) {
+        printk("GTP5G: %s - Parsing framed routes\n", __func__);
+        err = parse_framed_routes(pdi, attrs[GTP5G_PDI_FRAMED_ROUTE]);
+        if (err)
+            return err;
+    }
+
+    return 0;
+}
+
+static int parse_framed_routes(struct pdi *pdi, struct nlattr *a)
+{
+    struct nlattr *route_attr;
+    int remaining;
+    int i = 0;
+    char **new_routes;
+    
+    printk("GTP5G: %s - start parsing framed routes\n", __func__);
+    // Count number of routes
+    remaining = nla_len(a);
+    nla_for_each_nested(route_attr, a, remaining) {
+        i++;
+    }
+    printk("GTP5G: %s - Number of framed routes: %d\n", __func__, i);
+    
+    if (i == 0)
+        return 0;
+    
+    // Allocate memory for string routes
+    new_routes = kzalloc(i * sizeof(char*), GFP_ATOMIC);
+    if (!new_routes)
+        return -ENOMEM;
+    
+    // Free old memory
+    if (pdi->framed_routes) {
+        int j;
+        for (j = 0; j < pdi->framed_route_num; j++) {
+            if (pdi->framed_routes[j])
+                kfree(pdi->framed_routes[j]);
+        }
+        kfree(pdi->framed_routes);
+    }
+ 
+    printk("GTP5G: %s - Allocated memory for framed routes\n", __func__);
+    pdi->framed_routes = new_routes;
+    pdi->framed_route_num = i;
+    printk("GTP5G: %s - Set framed routes and number of routes\n", __func__);
+    
+    // Parse each route (string values)
+    i = 0;
+    remaining = nla_len(a);
+    nla_for_each_nested(route_attr, a, remaining) {
+        int str_len = nla_len(route_attr);
+        pdi->framed_routes[i] = kzalloc(str_len + 1, GFP_ATOMIC);
+        if (!pdi->framed_routes[i]) {
+            // Clean up on error
+            int j;
+            for (j = 0; j < i; j++) {
+                kfree(pdi->framed_routes[j]);
+            }
+            kfree(pdi->framed_routes);
+            pdi->framed_routes = NULL;
+            pdi->framed_route_num = 0;
+            return -ENOMEM;
+        }
+        memcpy(pdi->framed_routes[i], nla_data(route_attr), str_len);
+        pdi->framed_routes[i][str_len] = '\0'; // Null terminate
+        printk("GTP5G: %s - Parsed framed route[%d]: '%s'\n", __func__, i, pdi->framed_routes[i]);
+        i++;
+    }
+    printk("GTP5G: %s - Parsed framed routes\n", __func__);
     return 0;
 }
 
@@ -869,6 +942,7 @@ static int gtp5g_genl_fill_f_teid(struct sk_buff *skb, struct local_f_teid *f_te
 static int gtp5g_genl_fill_pdi(struct sk_buff *skb, struct pdi *pdi)
 {
     struct nlattr *nest_pdi;
+    int i;
 
     nest_pdi = nla_nest_start(skb, GTP5G_PDR_PDI);
     if (!nest_pdi)
@@ -887,6 +961,20 @@ static int gtp5g_genl_fill_pdi(struct sk_buff *skb, struct pdi *pdi)
     if (pdi->sdf) {
         if (gtp5g_genl_fill_sdf(skb, pdi->sdf))
             return -EMSGSIZE;
+    }
+
+    // Fill framed routes
+    if (pdi->framed_routes && pdi->framed_route_num > 0) {
+        struct nlattr *nest_routes = nla_nest_start(skb, GTP5G_PDI_FRAMED_ROUTE);
+        if (!nest_routes)
+            return -EMSGSIZE;
+
+        for (i = 0; i < pdi->framed_route_num; i++) {
+            if (nla_put_string(skb, i + 1, pdi->framed_routes[i]))
+                return -EMSGSIZE;
+        }
+        
+        nla_nest_end(skb, nest_routes);
     }
 
     nla_nest_end(skb, nest_pdi);
