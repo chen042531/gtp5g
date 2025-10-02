@@ -1,4 +1,5 @@
 #include <linux/version.h>
+#include <linux/types.h>
 
 #include "dev.h"
 #include "link.h"
@@ -11,7 +12,8 @@
 #include "hash.h"
 #include "genl.h"
 #include "log.h"
-#include <linux/types.h>
+#include "util.h"
+
 
 int qos_enable = 0; // set QoS disable as default value
 
@@ -354,6 +356,14 @@ struct pdr *pdr_find_by_ipv4(struct gtp5g_dev *gtp, struct sk_buff *skb,
     struct hlist_head *head;
     struct pdr *pdr;
     struct pdi *pdi;
+
+    printk(KERN_INFO "GTP5G: %s - SKB is not NULL\n", __func__);
+    u32 mark = gtp5g_get_skb_routing_mark(skb);
+    if (mark != 0) {
+        printk(KERN_INFO, "mark is %#x \n", mark);
+    } else {
+        printk(KERN_INFO, "mark is 0 \n");
+    }
 
     head = &gtp->addr_hash[ipv4_hashfn(addr) % gtp->hash_size];
 

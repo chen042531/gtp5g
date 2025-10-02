@@ -17,6 +17,7 @@
 #include "qer.h"
 #include "urr.h"
 #include "report.h"
+#include "util.h"
 
 #include "genl.h"
 #include "genl_report.h"
@@ -863,8 +864,11 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     }
 
     if (fwd_param) {
-        if ((fwd_policy = fwd_param->fwd_policy))
+        if ((fwd_policy = fwd_param->fwd_policy)) {
+            u32 existing_mark = gtp5g_get_skb_routing_mark_with_info(skb, "Before setting FAR policy mark");
             skb->mark = fwd_policy->mark;
+            GTP5G_TRC(dev, "Updated SKB mark from 0x%x to 0x%x", existing_mark, fwd_policy->mark);
+        }
 
         if ((hdr_creation = fwd_param->hdr_creation)) {
             // Just modify the teid and packet dest ip
