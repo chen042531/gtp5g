@@ -59,6 +59,16 @@ static void pdr_context_free(struct rcu_head *head)
         if (pdr->urr_ids)
             kfree(pdr->urr_ids);
         
+        // Clean up framed route nodes
+        if (pdi->framed_route_nodes) {
+            int j;
+            for (j = 0; j < pdi->framed_route_num; j++) {
+                if (pdi->framed_route_nodes[j])
+                    kfree(pdi->framed_route_nodes[j]);
+            }
+            kfree(pdi->framed_route_nodes);
+        }
+        
         // Clean up framed routes
         if (pdi->framed_routes) {
             int j;
@@ -98,6 +108,9 @@ static void pdr_context_free(struct rcu_head *head)
 
 void pdr_context_delete(struct pdr *pdr)
 {
+    struct pdi *pdi;
+    int j;
+
     if (!pdr)
         return;
 
@@ -112,6 +125,17 @@ void pdr_context_delete(struct pdr *pdr)
 
     if (!hlist_unhashed(&pdr->hlist_framed_route))
         hlist_del_rcu(&pdr->hlist_framed_route);
+
+    // Delete all framed route nodes from hash table
+    pdi = pdr->pdi;
+    if (pdi && pdi->framed_route_nodes) {
+        for (j = 0; j < pdi->framed_route_num; j++) {
+            if (pdi->framed_route_nodes[j] && 
+                !hlist_unhashed(&pdi->framed_route_nodes[j]->hlist)) {
+                hlist_del_rcu(&pdi->framed_route_nodes[j]->hlist);
+            }
+        }
+    }
 
     call_rcu(&pdr->rcu_head, pdr_context_free);
 }
@@ -404,28 +428,33 @@ struct pdr *pdr_find_by_framed_route(struct gtp5g_dev *gtp, struct sk_buff *skb,
     struct hlist_head *head;
     struct pdr *pdr;
     struct pdi *pdi;
+    struct framed_route_node *node;
 
     if (!gtp || !framed_route)
         return NULL;
 
     head = &gtp->framed_route_hash[str_hashfn((char *)framed_route) % gtp->hash_size];
 
-    hlist_for_each_entry_rcu(pdr, head, hlist_framed_route) {
+    // First check framed_route_nodes (for all routes)
+    hlist_for_each_entry_rcu(node, head, hlist) {
+        if (!node->pdr || !node->route)
+            continue;
+
+        if (strcmp(node->route, framed_route) != 0)
+            continue;
+
+        pdr = node->pdr;
         pdi = pdr->pdi;
+        
         if (!pdi)
             continue;
 
-        if (!pdi->framed_routes || pdi->framed_route_num == 0)
-            continue;
-
-        // Check if the framed_route matches any of the PDR's framed routes
-        if (pdi->framed_routes[0] && strcmp(pdi->framed_routes[0], framed_route) == 0) {
-            if (pdi->sdf) {
-                if (!sdf_filter_match(pdi->sdf, skb, hdrlen, GTP5G_SDF_FILTER_OUT))
-                    continue;
-            }
-            return pdr;
+        if (pdi->sdf) {
+            if (!sdf_filter_match(pdi->sdf, skb, hdrlen, GTP5G_SDF_FILTER_OUT))
+                continue;
         }
+
+        return pdr;
     }
 
     return NULL;
@@ -441,13 +470,16 @@ void pdr_append(u64 seid, u16 pdr_id, struct pdr *pdr, struct gtp5g_dev *gtp)
     hlist_add_head_rcu(&pdr->hlist_id, &gtp->pdr_id_hash[i]);
 }
 
-void pdr_update_hlist_table(struct pdr *pdr, struct gtp5g_dev *gtp)
+void  (struct pdr *pdr, struct gtp5g_dev *gtp)
 {
     struct hlist_head *head;
     struct pdr *ppdr;
     struct pdr *last_ppdr;
     struct pdi *pdi;
     struct local_f_teid *f_teid;
+    struct framed_route_node *node;
+    struct framed_route_node *last_node;
+    int j;
 
     if (!hlist_unhashed(&pdr->hlist_i_teid))
         hlist_del_rcu(&pdr->hlist_i_teid);
@@ -461,6 +493,16 @@ void pdr_update_hlist_table(struct pdr *pdr, struct gtp5g_dev *gtp)
     pdi = pdr->pdi;
     if (!pdi)
         return;
+
+    // Delete old framed route nodes
+    if (pdi->framed_route_nodes) {
+        for (j = 0; j < pdi->framed_route_num; j++) {
+            if (pdi->framed_route_nodes[j] && 
+                !hlist_unhashed(&pdi->framed_route_nodes[j]->hlist)) {
+                hlist_del_rcu(&pdi->framed_route_nodes[j]->hlist);
+            }
+        }
+    }
 
     f_teid = pdi->f_teid;
     if (f_teid) {
@@ -489,19 +531,47 @@ void pdr_update_hlist_table(struct pdr *pdr, struct gtp5g_dev *gtp)
             hlist_add_head_rcu(&pdr->hlist_addr, head);
         else
             hlist_add_behind_rcu(&pdr->hlist_addr, &last_ppdr->hlist_addr);
-    } else if (pdi->framed_routes && pdi->framed_route_num > 0 && pdi->framed_routes[0]) {
-        last_ppdr = NULL;
-        head = &gtp->framed_route_hash[str_hashfn(pdi->framed_routes[0]) % gtp->hash_size];
-        hlist_for_each_entry_rcu(ppdr, head, hlist_framed_route) {
-            if (pdr->precedence > ppdr->precedence)
-                last_ppdr = ppdr;
-            else
-                break;
+    } else if (pdi->framed_routes && pdi->framed_route_num > 0) {
+        // Allocate nodes for all framed routes if not already allocated
+        if (!pdi->framed_route_nodes && pdi->framed_route_num > 0) {
+            pdi->framed_route_nodes = kzalloc(pdi->framed_route_num * sizeof(struct framed_route_node *), GFP_ATOMIC);
+            if (!pdi->framed_route_nodes)
+                return;
         }
-        if (!last_ppdr)
-            hlist_add_head_rcu(&pdr->hlist_framed_route, head);
-        else
-            hlist_add_behind_rcu(&pdr->hlist_framed_route, &last_ppdr->hlist_framed_route);
+
+        // Create and add hash nodes for each framed route
+        for (j = 0; j < pdi->framed_route_num; j++) {
+            if (!pdi->framed_routes[j])
+                continue;
+
+            // Allocate node if not exists
+            if (!pdi->framed_route_nodes[j]) {
+                pdi->framed_route_nodes[j] = kzalloc(sizeof(struct framed_route_node), GFP_ATOMIC);
+                if (!pdi->framed_route_nodes[j])
+                    continue;
+                pdi->framed_route_nodes[j]->pdr = pdr;
+                pdi->framed_route_nodes[j]->route = pdi->framed_routes[j];
+            }
+
+            // Add to hash table with precedence order
+            head = &gtp->framed_route_hash[str_hashfn(pdi->framed_routes[j]) % gtp->hash_size];
+            last_node = NULL;
+            
+            // Find the correct position based on precedence
+            hlist_for_each_entry_rcu(node, head, hlist) {
+                if (!node->pdr)
+                    continue;
+                if (pdr->precedence > node->pdr->precedence)
+                    last_node = node;
+                else
+                    break;
+            }
+            
+            if (!last_node)
+                hlist_add_head_rcu(&pdi->framed_route_nodes[j]->hlist, head);
+            else
+                hlist_add_behind_rcu(&pdi->framed_route_nodes[j]->hlist, &last_node->hlist);
+        }
     }
 }
 

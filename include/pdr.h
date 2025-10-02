@@ -44,6 +44,12 @@ struct sdf_filter {
 #define SRC_INTF_ACCESS 0
 #define SRC_INTF_CORE 1
 
+struct framed_route_node {
+    struct hlist_node hlist;
+    struct pdr *pdr;
+    char *route;                    // Pointer to the route string
+};
+
 struct pdi {
     u8 srcIntf;
     struct in_addr *ue_addr_ipv4;
@@ -51,6 +57,7 @@ struct pdi {
     struct sdf_filter *sdf;
     char **framed_routes;           // String route array
     u32 framed_route_num;           // Number of routes
+    struct framed_route_node **framed_route_nodes; // Hash nodes for each route
 };
 
 #define QER_ID_SIZE sizeof(u32)
