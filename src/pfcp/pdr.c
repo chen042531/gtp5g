@@ -58,6 +58,16 @@ static void pdr_context_free(struct rcu_head *head)
             kfree(pdr->qer_ids);
         if (pdr->urr_ids)
             kfree(pdr->urr_ids);
+        
+        // Clean up framed routes
+        if (pdi->framed_routes) {
+            int j;
+            for (j = 0; j < pdi->framed_route_num; j++) {
+                if (pdi->framed_routes[j])
+                    kfree(pdi->framed_routes[j]);
+            }
+            kfree(pdi->framed_routes);
+        }
 
         sdf = pdi->sdf;
         if (sdf) {
@@ -356,13 +366,14 @@ struct pdr *pdr_find_by_ipv4(struct gtp5g_dev *gtp, struct sk_buff *skb,
     struct hlist_head *head;
     struct pdr *pdr;
     struct pdi *pdi;
+    u32 mark;
 
-    printk(KERN_INFO "GTP5G: %s - SKB is not NULL\n", __func__);
-    u32 mark = gtp5g_get_skb_routing_mark(skb);
+    printk("GTP5G: %s - SKB is not NULL\n", __func__);
+    mark = gtp5g_get_skb_routing_mark(skb);
     if (mark != 0) {
-        printk(KERN_INFO, "mark is %#x \n", mark);
+        printk("mark is %#x \n", mark);
     } else {
-        printk(KERN_INFO, "mark is 0 \n");
+        printk("mark is 0 \n");
     }
 
     head = &gtp->addr_hash[ipv4_hashfn(addr) % gtp->hash_size];

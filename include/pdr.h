@@ -49,6 +49,8 @@ struct pdi {
     struct in_addr *ue_addr_ipv4;
     struct local_f_teid *f_teid;
     struct sdf_filter *sdf;
+    char **framed_routes;           // String route array
+    u32 framed_route_num;           // Number of routes
 };
 
 #define QER_ID_SIZE sizeof(u32)
