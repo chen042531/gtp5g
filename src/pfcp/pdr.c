@@ -110,6 +110,9 @@ void pdr_context_delete(struct pdr *pdr)
     if (!hlist_unhashed(&pdr->hlist_addr))
         hlist_del_rcu(&pdr->hlist_addr);
 
+    if (!hlist_unhashed(&pdr->hlist_framed_route))
+        hlist_del_rcu(&pdr->hlist_framed_route);
+
     call_rcu(&pdr->rcu_head, pdr_context_free);
 }
 
@@ -395,6 +398,39 @@ struct pdr *pdr_find_by_ipv4(struct gtp5g_dev *gtp, struct sk_buff *skb,
     return NULL;
 }
 
+struct pdr *pdr_find_by_framed_route(struct gtp5g_dev *gtp, struct sk_buff *skb,
+        unsigned int hdrlen, const char *framed_route)
+{
+    struct hlist_head *head;
+    struct pdr *pdr;
+    struct pdi *pdi;
+
+    if (!gtp || !framed_route)
+        return NULL;
+
+    head = &gtp->framed_route_hash[str_hashfn((char *)framed_route) % gtp->hash_size];
+
+    hlist_for_each_entry_rcu(pdr, head, hlist_framed_route) {
+        pdi = pdr->pdi;
+        if (!pdi)
+            continue;
+
+        if (!pdi->framed_routes || pdi->framed_route_num == 0)
+            continue;
+
+        // Check if the framed_route matches any of the PDR's framed routes
+        if (pdi->framed_routes[0] && strcmp(pdi->framed_routes[0], framed_route) == 0) {
+            if (pdi->sdf) {
+                if (!sdf_filter_match(pdi->sdf, skb, hdrlen, GTP5G_SDF_FILTER_OUT))
+                    continue;
+            }
+            return pdr;
+        }
+    }
+
+    return NULL;
+}
+
 void pdr_append(u64 seid, u16 pdr_id, struct pdr *pdr, struct gtp5g_dev *gtp)
 {
     u32 i;
@@ -418,6 +454,9 @@ void pdr_update_hlist_table(struct pdr *pdr, struct gtp5g_dev *gtp)
 
     if (!hlist_unhashed(&pdr->hlist_addr))
         hlist_del_rcu(&pdr->hlist_addr);
+
+    if (!hlist_unhashed(&pdr->hlist_framed_route))
+        hlist_del_rcu(&pdr->hlist_framed_route);
 
     pdi = pdr->pdi;
     if (!pdi)
@@ -450,6 +489,19 @@ void pdr_update_hlist_table(struct pdr *pdr, struct gtp5g_dev *gtp)
             hlist_add_head_rcu(&pdr->hlist_addr, head);
         else
             hlist_add_behind_rcu(&pdr->hlist_addr, &last_ppdr->hlist_addr);
+    } else if (pdi->framed_routes && pdi->framed_route_num > 0 && pdi->framed_routes[0]) {
+        last_ppdr = NULL;
+        head = &gtp->framed_route_hash[str_hashfn(pdi->framed_routes[0]) % gtp->hash_size];
+        hlist_for_each_entry_rcu(ppdr, head, hlist_framed_route) {
+            if (pdr->precedence > ppdr->precedence)
+                last_ppdr = ppdr;
+            else
+                break;
+        }
+        if (!last_ppdr)
+            hlist_add_head_rcu(&pdr->hlist_framed_route, head);
+        else
+            hlist_add_behind_rcu(&pdr->hlist_framed_route, &last_ppdr->hlist_framed_route);
     }
 }
 
