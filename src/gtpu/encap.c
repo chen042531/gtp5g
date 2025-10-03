@@ -1116,21 +1116,42 @@ int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     //struct gtp5g_qer *qer;
     struct iphdr *iph;
     struct qer __rcu *qer_with_rate = NULL;
+    u32 mark;
+    __be32 masked_daddr;
 
     /* Read the IP destination address and resolve the PDR.
      * Prepend PDR header with TEI/TID from PDR.
      */
     iph = ip_hdr(skb);
-    // Note: The role is used here to get the pdr hashtable key - ueIP.
-    // It will improve pdr lookup speed.
-    if (gtp->role == GTP5G_ROLE_UPF)
-        pdr = pdr_find_by_ipv4(gtp, skb, 0, iph->daddr);
-    else
-        pdr = pdr_find_by_ipv4(gtp, skb, 0, iph->saddr);
 
-    if (!pdr) {
-        GTP5G_INF(dev, "no PDR found for %pI4, skip\n", &iph->daddr);
-        return -ENOENT;
+    mark = gtp5g_get_skb_routing_mark(skb);
+    if (mark != 0) {
+        // Use mark as netmask and apply to destination IP
+        __be32 netmask = htonl(mark);
+        masked_daddr = iph->daddr & netmask;
+        
+        printk("GTP5G: mark=0x%x, daddr=%pI4, mask=%pI4, masked_daddr=%pI4\n", 
+               mark, &iph->daddr, &netmask, &masked_daddr);
+        
+        // Try to find PDR by framed route using masked address
+        pdr = pdr_find_by_framed_route(gtp, skb, 0, masked_daddr);
+        
+        if (!pdr) {
+            printk("GTP5G: no PDR found by framed route for masked addr %pI4, try normal lookup\n", 
+                   &masked_daddr);
+        }
+    } else {
+        // Note: The role is used here to get the pdr hashtable key - ueIP.
+        // It will improve pdr lookup speed.
+        if (gtp->role == GTP5G_ROLE_UPF)
+            pdr = pdr_find_by_ipv4(gtp, skb, 0, iph->daddr);
+        else
+            pdr = pdr_find_by_ipv4(gtp, skb, 0, iph->saddr);
+        
+        if (!pdr) {
+            GTP5G_INF(dev, "no PDR found for %pI4, skip\n", &iph->daddr);
+            return -ENOENT;
+        }
     }
 
     /* TODO: QoS rule have to apply before apply FAR 
