@@ -1122,16 +1122,29 @@ int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     /* Read the IP destination address and resolve the PDR.
      * Prepend PDR header with TEI/TID from PDR.
      */
+    printk("GTP5G: %s - >>>> $$www$ start finding PDR by framed route\n", __func__);
     iph = ip_hdr(skb);
 
+    printk("GTP5G: %s - start finding PDR by framed route\n", __func__);
     mark = gtp5g_get_skb_routing_mark(skb);
     if (mark != 0) {
-        // Use mark as netmask and apply to destination IP
-        __be32 netmask = htonl(mark);
+        // Mark is the prefix length (e.g., 24 for /24), convert to netmask
+        __be32 netmask;
+        u32 mask_value;
+        
+        if (mark > 32)
+            mark = 32;  // Safety check
+        
+        if (mark == 0)
+            mask_value = 0;
+        else
+            mask_value = 0xFFFFFFFF << (32 - mark);
+        
+        netmask = htonl(mask_value);
         masked_daddr = iph->daddr & netmask;
         
-        printk("GTP5G: mark=0x%x, daddr=%pI4, mask=%pI4, masked_daddr=%pI4\n", 
-               mark, &iph->daddr, &netmask, &masked_daddr);
+        printk("GTP5G: mark=%u (/%u), daddr=%pI4, mask=%pI4, masked_daddr=%pI4\n", 
+               mark, mark, &iph->daddr, &netmask, &masked_daddr);
         
         // Try to find PDR by framed route using masked address
         pdr = pdr_find_by_framed_route(gtp, skb, 0, masked_daddr);
@@ -1153,6 +1166,7 @@ int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
             return -ENOENT;
         }
     }
+    
 
     /* TODO: QoS rule have to apply before apply FAR 
      * */
@@ -1162,28 +1176,28 @@ int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     //            __func__, __LINE__, qer->id, qer->qfi);
     //}
 
-    qer_with_rate = rcu_dereference(pdr->qer_with_rate);
-    far = rcu_dereference(pdr->far);
-    if (far) {
-        // One and only one of the DROP, FORW and BUFF flags shall be set to 1.
-        // The NOCP flag may only be set if the BUFF flag is set.
-        // The DUPL flag may be set with any of the DROP, FORW, BUFF and NOCP flags.
-        switch (far->action & FAR_ACTION_MASK) {
-        case FAR_ACTION_DROP:
-            return gtp5g_drop_skb_ipv4(skb, dev, pdr);
-        case FAR_ACTION_FORW:
-            if (pdr->ul_dl_gate & QER_DL_GATE_CLOSE) {
-                GTP5G_TRC(pdr->dev, "QER DL gate is closed, drop the packet");
-                return PKT_DROPPED;
-            }
-            return gtp5g_fwd_skb_ipv4(skb, dev, pktinfo, pdr, far);
-        case FAR_ACTION_BUFF:
-            return gtp5g_buf_skb_ipv4(skb, dev, pdr, far);
-        default:
-            GTP5G_ERR(dev, "Unspec apply action(%u) in FAR(%u) and related to PDR(%u)",
-                far->action, far->id, pdr->id);
-        }
-    }
+    // qer_with_rate = rcu_dereference(pdr->qer_with_rate);
+    // far = rcu_dereference(pdr->far);
+    // if (far) {
+    //     // One and only one of the DROP, FORW and BUFF flags shall be set to 1.
+    //     // The NOCP flag may only be set if the BUFF flag is set.
+    //     // The DUPL flag may be set with any of the DROP, FORW, BUFF and NOCP flags.
+    //     switch (far->action & FAR_ACTION_MASK) {
+    //     case FAR_ACTION_DROP:
+    //         return gtp5g_drop_skb_ipv4(skb, dev, pdr);
+    //     case FAR_ACTION_FORW:
+    //         if (pdr->ul_dl_gate & QER_DL_GATE_CLOSE) {
+    //             GTP5G_TRC(pdr->dev, "QER DL gate is closed, drop the packet");
+    //             return PKT_DROPPED;
+    //         }
+    //         return gtp5g_fwd_skb_ipv4(skb, dev, pktinfo, pdr, far);
+    //     case FAR_ACTION_BUFF:
+    //         return gtp5g_buf_skb_ipv4(skb, dev, pdr, far);
+    //     default:
+    //         GTP5G_ERR(dev, "Unspec apply action(%u) in FAR(%u) and related to PDR(%u)",
+    //             far->action, far->id, pdr->id);
+    //     }
+    // }
 
     return -ENOENT;
 }
