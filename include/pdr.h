@@ -48,6 +48,8 @@ struct framed_route_node {
     struct hlist_node hlist;
     struct pdr *pdr;
     char *route;                    // Pointer to the route string
+    __be32 network_addr;            // Network address (after masking)
+    __be32 netmask;                 // Network mask
 };
 
 struct pdi {
@@ -114,7 +116,7 @@ void pdr_context_delete(struct pdr *);
 struct pdr *find_pdr_by_id(struct gtp5g_dev *, u64, u16);
 struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *, struct sk_buff *, unsigned int, u32, u8);
 struct pdr *pdr_find_by_ipv4(struct gtp5g_dev *, struct sk_buff *, unsigned int, __be32);
-struct pdr *pdr_find_by_framed_route(struct gtp5g_dev *, struct sk_buff *, unsigned int, const char *);
+struct pdr *pdr_find_by_framed_route(struct gtp5g_dev *, struct sk_buff *, unsigned int, __be32);
 int find_qer_id_in_pdr(struct pdr *, u32);
 int find_urr_id_in_pdr(struct pdr *, u32);
 
