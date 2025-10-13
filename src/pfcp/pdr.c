@@ -123,9 +123,6 @@ void pdr_context_delete(struct pdr *pdr)
     if (!hlist_unhashed(&pdr->hlist_addr))
         hlist_del_rcu(&pdr->hlist_addr);
 
-    if (!hlist_unhashed(&pdr->hlist_framed_route))
-        hlist_del_rcu(&pdr->hlist_framed_route);
-
     // Delete all framed route nodes from hash table
     pdi = pdr->pdi;
     if (pdi && pdi->framed_route_nodes) {
@@ -551,9 +548,6 @@ void pdr_update_hlist_table(struct pdr *pdr, struct gtp5g_dev *gtp)
 
     if (!hlist_unhashed(&pdr->hlist_addr))
         hlist_del_rcu(&pdr->hlist_addr);
-
-    if (!hlist_unhashed(&pdr->hlist_framed_route))
-        hlist_del_rcu(&pdr->hlist_framed_route);
 
     pdi = pdr->pdi;
     if (!pdi)

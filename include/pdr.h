@@ -74,7 +74,6 @@ struct pdr {
     struct hlist_node hlist_id;
     struct hlist_node hlist_i_teid;
     struct hlist_node hlist_addr;
-    struct hlist_node hlist_framed_route;
 
     u64 seid;
     u16 id;
