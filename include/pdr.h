@@ -47,9 +47,7 @@ struct sdf_filter {
 struct framed_route_node {
     struct hlist_node hlist;
     struct pdr *pdr;
-    char *route;                    // Pointer to the route string
     __be32 network_addr;            // Network address (after masking)
-    __be32 netmask;                 // Network mask
 };
 
 struct pdi {

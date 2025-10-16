@@ -864,11 +864,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     }
 
     if (fwd_param) {
-        if ((fwd_policy = fwd_param->fwd_policy)) {
-            u32 existing_mark = gtp5g_get_skb_routing_mark_with_info(skb, "Before setting FAR policy mark");
-            skb->mark = fwd_policy->mark;
-            GTP5G_TRC(dev, "Updated SKB mark from 0x%x to 0x%x", existing_mark, fwd_policy->mark);
-        }
+        skb->mark = fwd_policy->mark;
 
         if ((hdr_creation = fwd_param->hdr_creation)) {
             // Just modify the teid and packet dest ip
@@ -1111,6 +1107,38 @@ static int gtp5g_buf_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     return PKT_TO_APP;
 }
 
+/**
+ * apply_prefix_mask_to_ipv4 - Apply prefix length mask to IPv4 address
+ * @ipaddr: The IPv4 address to mask
+ * @prefix_len: The prefix length (0-32)
+ * @masked_addr: Output pointer for the masked address
+ * 
+ * This function converts a prefix length (e.g., 24 for /24) to a netmask
+ * and applies it to the given IPv4 address.
+ */
+static void apply_prefix_mask_to_ipv4(__be32 ipaddr, u32 prefix_len, 
+                                      __be32 *masked_addr)
+{
+    __be32 netmask;
+    u32 mask_value;
+    
+    // Safety check: ensure prefix_len is within valid range
+    if (prefix_len > 32)
+        prefix_len = 32;
+    
+    // Convert prefix length to netmask
+    if (prefix_len == 0)
+        mask_value = 0;
+    else
+        mask_value = 0xFFFFFFFF << (32 - prefix_len);
+    
+    netmask = htonl(mask_value);
+    *masked_addr = ipaddr & netmask;
+    
+    printk("GTP5G: prefix_len=%u (/%u), ipaddr=%pI4, mask=%pI4, masked_addr=%pI4\n", 
+           prefix_len, prefix_len, &ipaddr, &netmask, masked_addr);
+}
+
 int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     struct gtp5g_pktinfo *pktinfo)
 {
@@ -1132,23 +1160,8 @@ int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     printk("GTP5G: %s - start finding PDR by framed route\n", __func__);
     mark = gtp5g_get_skb_routing_mark(skb);
     if (mark != 0) {
-        // Mark is the prefix length (e.g., 24 for /24), convert to netmask
-        __be32 netmask;
-        u32 mask_value;
-        
-        if (mark > 32)
-            mark = 32;  // Safety check
-        
-        if (mark == 0)
-            mask_value = 0;
-        else
-            mask_value = 0xFFFFFFFF << (32 - mark);
-        
-        netmask = htonl(mask_value);
-        masked_daddr = iph->daddr & netmask;
-        
-        printk("GTP5G: mark=%u (/%u), daddr=%pI4, mask=%pI4, masked_daddr=%pI4\n", 
-               mark, mark, &iph->daddr, &netmask, &masked_daddr);
+        // Apply prefix mask to destination address
+        apply_prefix_mask_to_ipv4(iph->daddr, mark, &masked_daddr);
         
         // Try to find PDR by framed route using masked address
         pdr = pdr_find_by_framed_route(gtp, skb, 0, masked_daddr);

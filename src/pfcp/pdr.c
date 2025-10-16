@@ -432,8 +432,9 @@ static int parse_framed_route_cidr(const char *route_str, __be32 *network_addr, 
     if (!slash_pos)
         return -EINVAL;
 
+    // Replace '/' with '\0' to split the string into two parts: IP address and prefix length
     *slash_pos = '\0';
-    slash_pos++;
+    slash_pos++;  // Move pointer to the start of prefix length string
 
     // Parse IP address
     ret = sscanf(route_copy, "%u.%u.%u.%u", &addr[0], &addr[1], &addr[2], &addr[3]);
@@ -632,9 +633,7 @@ void pdr_update_hlist_table(struct pdr *pdr, struct gtp5g_dev *gtp)
                     continue;
                 }
                 pdi->framed_route_nodes[j]->pdr = pdr;
-                pdi->framed_route_nodes[j]->route = pdi->framed_routes[j];
                 pdi->framed_route_nodes[j]->network_addr = network_addr;
-                pdi->framed_route_nodes[j]->netmask = netmask;
                 printk("GTP5G: allocated new framed_route_node[%d]\n", j);
             }
 
