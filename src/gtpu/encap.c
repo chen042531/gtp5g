@@ -1012,14 +1012,14 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     struct qer __rcu *qer_with_rate = NULL;
     
     if (!far) {
-        GTP5G_ERR(dev, "Unknown RAN address\n");
+        GTP5G_ERR(dev, "FAR not found\n");
         goto err;
     }
 
     fwd_param = rcu_dereference(far->fwd_param);
     if (!(fwd_param &&
         fwd_param->hdr_creation)) {
-        GTP5G_ERR(dev, "Unknown RAN address\n");
+        GTP5G_ERR(dev, "FAR forwarding parameters or header creation not configured\n");
         goto err;
     }
 
