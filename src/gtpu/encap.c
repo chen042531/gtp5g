@@ -17,6 +17,7 @@
 #include "qer.h"
 #include "urr.h"
 #include "report.h"
+#include "util.h"
 
 #include "genl.h"
 #include "genl_report.h"
@@ -863,8 +864,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     }
 
     if (fwd_param) {
-        if ((fwd_policy = fwd_param->fwd_policy))
-            skb->mark = fwd_policy->mark;
+        skb->mark = fwd_policy->mark;
 
         if ((hdr_creation = fwd_param->hdr_creation)) {
             // Just modify the teid and packet dest ip
@@ -888,6 +888,10 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
 
             uh = udp_hdr(skb);
             uh->check = 0;
+
+            // Reset checksum state after modifying headers
+            skb->ip_summed = CHECKSUM_NONE;
+            skb->csum_valid = 0;
 
             if (pdr->urr_num != 0) {
                 ret = update_urr_counter_and_send_report(pdr, far, volume, volume_mbqe);
@@ -1008,14 +1012,14 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     struct qer __rcu *qer_with_rate = NULL;
     
     if (!far) {
-        GTP5G_ERR(dev, "Unknown RAN address\n");
+        GTP5G_ERR(dev, "FAR not found\n");
         goto err;
     }
 
     fwd_param = rcu_dereference(far->fwd_param);
     if (!(fwd_param &&
         fwd_param->hdr_creation)) {
-        GTP5G_ERR(dev, "Unknown RAN address\n");
+        GTP5G_ERR(dev, "FAR forwarding parameters or header creation not configured\n");
         goto err;
     }
 
@@ -1103,6 +1107,38 @@ static int gtp5g_buf_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     return PKT_TO_APP;
 }
 
+/**
+ * apply_prefix_mask_to_ipv4 - Apply prefix length mask to IPv4 address
+ * @ipaddr: The IPv4 address to mask
+ * @prefix_len: The prefix length (0-32)
+ * @masked_addr: Output pointer for the masked address
+ * 
+ * This function converts a prefix length (e.g., 24 for /24) to a netmask
+ * and applies it to the given IPv4 address.
+ */
+static void apply_prefix_mask_to_ipv4(__be32 ipaddr, u32 prefix_len, 
+                                      __be32 *masked_addr)
+{
+    __be32 netmask;
+    u32 mask_value;
+    
+    // Safety check: ensure prefix_len is within valid range
+    if (prefix_len > 32)
+        prefix_len = 32;
+    
+    // Convert prefix length to netmask
+    if (prefix_len == 0)
+        mask_value = 0;
+    else
+        mask_value = 0xFFFFFFFF << (32 - prefix_len);
+    
+    netmask = htonl(mask_value);
+    *masked_addr = ipaddr & netmask;
+    
+    printk("GTP5G: prefix_len=%u (/%u), ipaddr=%pI4, mask=%pI4, masked_addr=%pI4\n", 
+           prefix_len, prefix_len, &ipaddr, &netmask, masked_addr);
+}
+
 int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     struct gtp5g_pktinfo *pktinfo)
 {
@@ -1112,22 +1148,42 @@ int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     //struct gtp5g_qer *qer;
     struct iphdr *iph;
     struct qer __rcu *qer_with_rate = NULL;
+    u32 mark;
+    __be32 masked_daddr;
 
     /* Read the IP destination address and resolve the PDR.
      * Prepend PDR header with TEI/TID from PDR.
      */
+    printk("GTP5G: %s - >>>> $$www$ start finding PDR by framed route\n", __func__);
     iph = ip_hdr(skb);
-    // Note: The role is used here to get the pdr hashtable key - ueIP.
-    // It will improve pdr lookup speed.
-    if (gtp->role == GTP5G_ROLE_UPF)
-        pdr = pdr_find_by_ipv4(gtp, skb, 0, iph->daddr);
-    else
-        pdr = pdr_find_by_ipv4(gtp, skb, 0, iph->saddr);
 
-    if (!pdr) {
-        GTP5G_INF(dev, "no PDR found for %pI4, skip\n", &iph->daddr);
-        return -ENOENT;
+    printk("GTP5G: %s - start finding PDR by framed route\n", __func__);
+    mark = gtp5g_get_skb_routing_mark(skb);
+    if (mark != 0) {
+        // Apply prefix mask to destination address
+        apply_prefix_mask_to_ipv4(iph->daddr, mark, &masked_daddr);
+        
+        // Try to find PDR by framed route using masked address
+        pdr = pdr_find_by_framed_route(gtp, skb, 0, masked_daddr);
+        
+        if (!pdr) {
+            printk("GTP5G: no PDR found by framed route for masked addr %pI4, try normal lookup\n", 
+                   &masked_daddr);
+        }
+    } else {
+        // Note: The role is used here to get the pdr hashtable key - ueIP.
+        // It will improve pdr lookup speed.
+        if (gtp->role == GTP5G_ROLE_UPF)
+            pdr = pdr_find_by_ipv4(gtp, skb, 0, iph->daddr);
+        else
+            pdr = pdr_find_by_ipv4(gtp, skb, 0, iph->saddr);
+        
+        if (!pdr) {
+            GTP5G_INF(dev, "no PDR found for %pI4, skip\n", &iph->daddr);
+            return -ENOENT;
+        }
     }
+    
 
     /* TODO: QoS rule have to apply before apply FAR 
      * */
@@ -1140,6 +1196,7 @@ int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     qer_with_rate = rcu_dereference(pdr->qer_with_rate);
     far = rcu_dereference(pdr->far);
     if (far) {
+        printk("GTP5G: %s - >>>>>>>> far is not NULL\n", __func__);
         // One and only one of the DROP, FORW and BUFF flags shall be set to 1.
         // The NOCP flag may only be set if the BUFF flag is set.
         // The DUPL flag may be set with any of the DROP, FORW, BUFF and NOCP flags.
