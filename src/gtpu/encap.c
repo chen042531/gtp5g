@@ -1165,11 +1165,6 @@ int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
         
         // Try to find PDR by framed route using masked address
         pdr = pdr_find_by_framed_route(gtp, skb, 0, masked_daddr);
-        
-        if (!pdr) {
-            printk("GTP5G: no PDR found by framed route for masked addr %pI4, try normal lookup\n", 
-                   &masked_daddr);
-        }
     } else {
         // Note: The role is used here to get the pdr hashtable key - ueIP.
         // It will improve pdr lookup speed.
@@ -1177,11 +1172,11 @@ int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
             pdr = pdr_find_by_ipv4(gtp, skb, 0, iph->daddr);
         else
             pdr = pdr_find_by_ipv4(gtp, skb, 0, iph->saddr);
-        
-        if (!pdr) {
-            GTP5G_INF(dev, "no PDR found for %pI4, skip\n", &iph->daddr);
-            return -ENOENT;
-        }
+    }
+    
+    if (!pdr) {
+        GTP5G_INF(dev, "no PDR found for %pI4, skip\n", &iph->daddr);
+        return -ENOENT;
     }
     
 
