@@ -214,6 +214,56 @@ static int ipv4_match(__be32 target_addr, __be32 ifa_addr, __be32 ifa_mask)
     return !((target_addr ^ ifa_addr) & ifa_mask);
 }
 
+// Forward declaration
+static int parse_framed_route_cidr(const char *route_str, __be32 *network_addr, __be32 *netmask);
+
+// Check if IP address matches any framed route in PDI
+static bool ip_match_framed_routes(struct iphdr *iph, struct pdr *pdr)
+{
+    struct pdi *pdi = pdr->pdi;
+    __be32 target_addr;
+    __be32 network_addr, netmask;
+    int j;
+    
+    if (!pdi || !pdi->framed_routes || pdi->framed_route_num == 0)
+        return false;
+    
+    // For uplink, check source IP; for downlink, check dest IP
+    if (is_uplink(pdr)) {
+        target_addr = iph->saddr;
+    } else {
+        target_addr = iph->daddr;
+    }
+    
+    printk("GTP5G: %s - target_addr=%pI4\n", __func__, &target_addr);
+    printk("GTP5G: %s - pdi->framed_route_num=%d\n", __func__, pdi->framed_route_num);
+    // Check each framed route
+    for (j = 0; j < pdi->framed_route_num; j++) {
+        if (!pdi->framed_routes[j])
+            continue;
+            
+        printk("GTP5G: %s - pdi->framed_routes[%d]=%s\n", __func__, j, pdi->framed_routes[j]);
+        // Parse CIDR to get network address and mask
+        if (parse_framed_route_cidr(pdi->framed_routes[j], &network_addr, &netmask) < 0)
+            continue;
+        
+        printk("GTP5G: %s - network_addr=%pI4, netmask=%pI4\n", __func__, &network_addr, &netmask);
+        // Check if target IP is in this network range
+        if (ipv4_match(target_addr, network_addr, netmask)) {
+            if (is_uplink(pdr)) {
+                GTP5G_INF(NULL, "Uplink: Framed route matched! PDR ID=%u, Source IP=%pI4, Framed Route=%s\n", 
+                          pdr->id, &target_addr, pdi->framed_routes[j]);
+            } else {
+                GTP5G_INF(NULL, "Downlink: Framed route matched! PDR ID=%u, Dest IP=%pI4, Framed Route=%s\n", 
+                          pdr->id, &target_addr, pdi->framed_routes[j]);
+            }
+            return true;
+        }
+    }
+    
+    return false;
+}
+
 static bool ports_match(struct range *match_list, int list_len, __be16 port)
 {
     int i;
@@ -363,9 +413,29 @@ struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff *skb,
         }
     #endif
 #endif
-        if (pdi->ue_addr_ipv4) {
-            iph = (struct iphdr *)(skb->data + hdrlen); // inner IP header
-            if ((!(pdr->af == AF_INET)) || (!ip_match(iph, pdr))) {
+        // Check UE IP address or framed routes
+        iph = (struct iphdr *)(skb->data + hdrlen); // inner IP header
+        if (pdr->af == AF_INET) {
+            bool ip_matched = false;
+            
+            // First try to match by ue_addr_ipv4
+            if (pdi->ue_addr_ipv4) {
+                printk("GTP5G: %s - ue_addr_ipv4=%pI4, iph->saddr=%pI4\n", __func__, pdi->ue_addr_ipv4, &iph->saddr);
+                if (ip_match(iph, pdr)) {
+                    ip_matched = true;
+                }
+            }
+            
+            // If ue_addr_ipv4 doesn't match, try framed routes
+            if (!ip_matched) {
+                printk("GTP5G: %s - ip_match_framed_routes\n", __func__);
+                if (ip_match_framed_routes(iph, pdr)) {
+                    ip_matched = true;
+                }
+            }
+            
+            // If neither matched, continue to next PDR
+            if (!ip_matched) {
                 continue;
             }
         }
