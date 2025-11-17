@@ -48,6 +48,7 @@ struct framed_route_node {
     struct hlist_node hlist;
     struct pdr *pdr;
     __be32 network_addr;            // Network address (after masking)
+    __be32 netmask;                 // Netmask for the framed route
 };
 
 struct pdi {
@@ -55,7 +56,6 @@ struct pdi {
     struct in_addr *ue_addr_ipv4;
     struct local_f_teid *f_teid;
     struct sdf_filter *sdf;
-    char **framed_routes;           // String route array
     u32 framed_route_num;           // Number of routes
     struct framed_route_node **framed_route_nodes; // Hash nodes for each route
 };
@@ -132,6 +132,21 @@ void set_seq_enable(int);
 
 bool is_uplink(struct pdr *);
 bool is_downlink(struct pdr *);
+int parse_framed_route_cidr(const char *route_str, __be32 *network_addr,
+                            __be32 *netmask);
+
+static inline u8 netmask_to_prefix(__be32 netmask)
+{
+    u32 mask = ntohl(netmask);
+    u8 prefix = 0;
+
+    while (mask & 0x80000000) {
+        prefix++;
+        mask <<= 1;
+    }
+
+    return prefix;
+}
 
 static inline bool pdr_addr_is_netlink(struct pdr *pdr)
 {

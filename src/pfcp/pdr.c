@@ -69,16 +69,6 @@ static void pdr_context_free(struct rcu_head *head)
             kfree(pdi->framed_route_nodes);
         }
         
-        // Clean up framed routes
-        if (pdi->framed_routes) {
-            int j;
-            for (j = 0; j < pdi->framed_route_num; j++) {
-                if (pdi->framed_routes[j])
-                    kfree(pdi->framed_routes[j]);
-            }
-            kfree(pdi->framed_routes);
-        }
-
         sdf = pdi->sdf;
         if (sdf) {
             if (sdf->rule) {
@@ -214,18 +204,15 @@ static int ipv4_match(__be32 target_addr, __be32 ifa_addr, __be32 ifa_mask)
     return !((target_addr ^ ifa_addr) & ifa_mask);
 }
 
-// Forward declaration
-static int parse_framed_route_cidr(const char *route_str, __be32 *network_addr, __be32 *netmask);
-
 // Check if IP address matches any framed route in PDI
 static bool ip_match_framed_routes(struct iphdr *iph, struct pdr *pdr)
 {
     struct pdi *pdi = pdr->pdi;
     __be32 target_addr;
-    __be32 network_addr, netmask;
+    struct framed_route_node *node;
     int j;
     
-    if (!pdi || !pdi->framed_routes || pdi->framed_route_num == 0)
+    if (!pdi || !pdi->framed_route_nodes || pdi->framed_route_num == 0)
         return false;
     
     // For uplink, check source IP; for downlink, check dest IP
@@ -239,23 +226,26 @@ static bool ip_match_framed_routes(struct iphdr *iph, struct pdr *pdr)
     printk("GTP5G: %s - pdi->framed_route_num=%d\n", __func__, pdi->framed_route_num);
     // Check each framed route
     for (j = 0; j < pdi->framed_route_num; j++) {
-        if (!pdi->framed_routes[j])
+        node = pdi->framed_route_nodes[j];
+        if (!node)
             continue;
             
-        printk("GTP5G: %s - pdi->framed_routes[%d]=%s\n", __func__, j, pdi->framed_routes[j]);
-        // Parse CIDR to get network address and mask
-        if (parse_framed_route_cidr(pdi->framed_routes[j], &network_addr, &netmask) < 0)
-            continue;
-        
-        printk("GTP5G: %s - network_addr=%pI4, netmask=%pI4\n", __func__, &network_addr, &netmask);
+        printk("GTP5G: %s - pdi->framed_route_nodes[%d]=%p\n", __func__, j, node);
+        printk("GTP5G: %s - network_addr=%pI4, netmask=%pI4\n", __func__,
+               &node->network_addr, &node->netmask);
         // Check if target IP is in this network range
-        if (ipv4_match(target_addr, network_addr, netmask)) {
+        if (ipv4_match(target_addr, node->network_addr, node->netmask)) {
+            char route_repr[40];
+            u8 prefix = netmask_to_prefix(node->netmask);
+
+            snprintf(route_repr, sizeof(route_repr), "%pI4/%u",
+                     &node->network_addr, prefix);
             if (is_uplink(pdr)) {
                 GTP5G_INF(NULL, "Uplink: Framed route matched! PDR ID=%u, Source IP=%pI4, Framed Route=%s\n", 
-                          pdr->id, &target_addr, pdi->framed_routes[j]);
+                          pdr->id, &target_addr, route_repr);
             } else {
                 GTP5G_INF(NULL, "Downlink: Framed route matched! PDR ID=%u, Dest IP=%pI4, Framed Route=%s\n", 
-                          pdr->id, &target_addr, pdi->framed_routes[j]);
+                          pdr->id, &target_addr, route_repr);
             }
             return true;
         }
@@ -481,7 +471,8 @@ struct pdr *pdr_find_by_ipv4(struct gtp5g_dev *gtp, struct sk_buff *skb,
 }
 
 // Parse CIDR format string (e.g., "192.168.1.0/24") to get network address and mask
-static int parse_framed_route_cidr(const char *route_str, __be32 *network_addr, __be32 *netmask)
+int parse_framed_route_cidr(const char *route_str, __be32 *network_addr,
+        __be32 *netmask)
 {
     char route_copy[64];
     char *slash_pos;
@@ -664,53 +655,26 @@ void pdr_update_hlist_table(struct pdr *pdr, struct gtp5g_dev *gtp)
     }
     
     // Process framed routes independently (can coexist with f_teid or ue_addr_ipv4)
-    if (pdi->framed_routes && pdi->framed_route_num > 0) {
-        printk("GTP5G: pdr_update_hlist_table - processing %u framed routes for PDR ID=%u\n", pdi->framed_route_num, pdr->id);
-        // Allocate nodes for all framed routes if not already allocated
-        if (!pdi->framed_route_nodes && pdi->framed_route_num > 0) {
-            pdi->framed_route_nodes = kzalloc(pdi->framed_route_num * sizeof(struct framed_route_node *), GFP_ATOMIC);
-            if (!pdi->framed_route_nodes)
-                return;
-        }
-
-        // Create and add hash nodes for each framed route
-        printk("GTP5G: pdr_update_hlist_table - processing %u framed routes for PDR ID=%u\n", 
+    if (pdi->framed_route_nodes && pdi->framed_route_num > 0) {
+        printk("GTP5G: pdr_update_hlist_table - processing %u framed route nodes for PDR ID=%u\n",
                pdi->framed_route_num, pdr->id);
-        
+
         for (j = 0; j < pdi->framed_route_num; j++) {
-            __be32 network_addr, netmask;
-            
-            if (!pdi->framed_routes[j]) {
-                printk("GTP5G: framed_route[%d] is NULL, skip\n", j);
+            struct framed_route_node *fr_node = pdi->framed_route_nodes[j];
+
+            if (!fr_node) {
+                printk("GTP5G: framed_route_node[%d] is NULL, skip\n", j);
                 continue;
             }
 
-            printk("GTP5G: processing framed_route[%d]: %s\n", j, pdi->framed_routes[j]);
+            fr_node->pdr = pdr;
 
-            // Parse CIDR format to get network address and mask
-            if (parse_framed_route_cidr(pdi->framed_routes[j], &network_addr, &netmask) < 0) {
-                printk("GTP5G: Failed to parse framed route: %s\n", pdi->framed_routes[j]);
-                continue;
-            }
+            if (!hlist_unhashed(&fr_node->hlist))
+                hlist_del_rcu(&fr_node->hlist);
 
-            printk("GTP5G: parsed - network_addr=%pI4, netmask=%pI4\n", &network_addr, &netmask);
-
-            // Allocate node if not exists
-            if (!pdi->framed_route_nodes[j]) {
-                pdi->framed_route_nodes[j] = kzalloc(sizeof(struct framed_route_node), GFP_ATOMIC);
-                if (!pdi->framed_route_nodes[j]) {
-                    printk("GTP5G: Failed to allocate framed_route_node[%d]\n", j);
-                    continue;
-                }
-                pdi->framed_route_nodes[j]->pdr = pdr;
-                pdi->framed_route_nodes[j]->network_addr = network_addr;
-                printk("GTP5G: allocated new framed_route_node[%d]\n", j);
-            }
-
-            // Add to hash table with precedence order, using network address as hash key
-            head = &gtp->framed_route_hash[ipv4_hashfn(network_addr) % gtp->hash_size];
+            head = &gtp->framed_route_hash[ipv4_hashfn(fr_node->network_addr) % gtp->hash_size];
             last_node = NULL;
-            
+
             // Find the correct position based on precedence
             hlist_for_each_entry_rcu(node, head, hlist) {
                 if (!node->pdr)
@@ -720,14 +684,14 @@ void pdr_update_hlist_table(struct pdr *pdr, struct gtp5g_dev *gtp)
                 else
                     break;
             }
-            
+
             if (!last_node)
-                hlist_add_head_rcu(&pdi->framed_route_nodes[j]->hlist, head);
+                hlist_add_head_rcu(&fr_node->hlist, head);
             else
-                hlist_add_behind_rcu(&pdi->framed_route_nodes[j]->hlist, &last_node->hlist);
-            
-            printk("GTP5G: added framed_route_node to hash table - PDR ID=%u, network_addr=%pI4\n", 
-                   pdr->id, &network_addr);
+                hlist_add_behind_rcu(&fr_node->hlist, &last_node->hlist);
+
+            printk("GTP5G: added framed_route_node to hash table - PDR ID=%u, network_addr=%pI4\n",
+                   pdr->id, &fr_node->network_addr);
         }
     }
 }
