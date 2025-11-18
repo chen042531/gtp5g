@@ -606,13 +606,13 @@ static int parse_framed_routes(struct pdr *pdr, struct pdi *pdi, struct nlattr *
     int i = 0;
     int err = 0;
 
-    printk("GTP5G: %s - start parsing framed routes\n", __func__);
+    printk("GTP5G: %s - PdrID=%u start parsing framed routes\n", __func__, pdr->id);
     // Count number of routes
     remaining = nla_len(a);
     nla_for_each_nested(route_attr, a, remaining) {
         route_cnt++;
     }
-    printk("GTP5G: %s - Number of framed routes: %d\n", __func__, route_cnt);
+    printk("GTP5G: %s - PdrID=%u Number of framed routes: %d\n", __func__, pdr->id, route_cnt);
 
     free_pdi_framed_route_nodes(pdi);
 

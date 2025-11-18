@@ -234,20 +234,41 @@ static bool ip_match_framed_routes(struct iphdr *iph, struct pdr *pdr)
         printk("GTP5G: %s - network_addr=%pI4, netmask=%pI4\n", __func__,
                &node->network_addr, &node->netmask);
         // Check if target IP is in this network range
+        {
+            __be32 xor_result = target_addr ^ node->network_addr;
+            __be32 masked_xor = xor_result & node->netmask;
+            printk("GTP5G: %s - target_addr=%pI4, network_addr=%pI4, netmask=%pI4\n",
+                   __func__, &target_addr, &node->network_addr, &node->netmask);
+            printk("GTP5G: %s - XOR result=%pI4, masked XOR=%pI4, match=%d\n",
+                   __func__, &xor_result, &masked_xor, (masked_xor == 0));
+        }
         if (ipv4_match(target_addr, node->network_addr, node->netmask)) {
             char route_repr[40];
             u8 prefix = netmask_to_prefix(node->netmask);
 
+            printk("GTP5G: %s - ipv4_match returned TRUE! Calculating prefix...\n", __func__);
+            printk("GTP5G: %s - netmask=%pI4, prefix=%u\n", __func__, &node->netmask, prefix);
+            
             snprintf(route_repr, sizeof(route_repr), "%pI4/%u",
                      &node->network_addr, prefix);
+            
+            printk("GTP5G: %s - route_repr=%s, is_uplink=%d\n", __func__, route_repr, is_uplink(pdr));
+            
             if (is_uplink(pdr)) {
+                printk("GTP5G: Uplink: Framed route matched! PDR ID=%u, Source IP=%pI4, Framed Route=%s\n", 
+                       pdr->id, &target_addr, route_repr);
                 GTP5G_INF(NULL, "Uplink: Framed route matched! PDR ID=%u, Source IP=%pI4, Framed Route=%s\n", 
                           pdr->id, &target_addr, route_repr);
             } else {
+                printk("GTP5G: Downlink: Framed route matched! PDR ID=%u, Dest IP=%pI4, Framed Route=%s\n", 
+                       pdr->id, &target_addr, route_repr);
                 GTP5G_INF(NULL, "Downlink: Framed route matched! PDR ID=%u, Dest IP=%pI4, Framed Route=%s\n", 
                           pdr->id, &target_addr, route_repr);
             }
+            printk("GTP5G: %s - Returning TRUE\n", __func__);
             return true;
+        } else {
+            printk("GTP5G: %s - ipv4_match returned FALSE for node[%d]\n", __func__, j);
         }
     }
     
@@ -431,11 +452,15 @@ struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff *skb,
         }
 
         if (pdi->sdf) {
+            printk("GTP5G: %s - Checking SDF filter for PDR ID=%u\n", __func__, pdr->id);
             if (!sdf_filter_match(pdi->sdf, skb, hdrlen, GTP5G_SDF_FILTER_OUT)) {
+                printk("GTP5G: %s - SDF filter match failed for PDR ID=%u, continue\n", __func__, pdr->id);
                 continue;
             }
+            printk("GTP5G: %s - SDF filter match passed for PDR ID=%u\n", __func__, pdr->id);
         }
 
+        printk("GTP5G: %s - Match PDR ID:%d\n", __func__, pdr->id);
         GTP5G_INF(NULL, "Match PDR ID:%d\n", pdr->id);
 
         return pdr;

@@ -794,16 +794,19 @@ static int gtp5g_rx(struct pdr *pdr, struct sk_buff *skb,
         // The DUPL flag may be set with any of the DROP, FORW, BUFF and NOCP flags.
         switch(far->action & FAR_ACTION_MASK) {
         case FAR_ACTION_DROP:
+            printk("GTP5G: %s - seid=%llu PdrID=%u FAR_ACTION_DROP\n", __func__, pdr->seid, pdr->id);
             rt = gtp5g_drop_skb_encap(skb, pdr->dev, pdr);
             break;
         case FAR_ACTION_FORW:
             if (pdr->ul_dl_gate & QER_UL_GATE_CLOSE) {
+                printk("GTP5G: %s - seid=%llu PdrID=%u QER UL gate is closed, drop the packet\n", __func__, pdr->seid, pdr->id);
                 GTP5G_TRC(pdr->dev, "QER UL gate is closed, drop the packet");
                 return PKT_DROPPED;
             }
             rt = gtp5g_fwd_skb_encap(skb, pdr->dev, hdrlen, pdr, far);
             break;
         case FAR_ACTION_BUFF:
+            printk("GTP5G: %s - seid=%llu PdrID=%u FAR_ACTION_BUFF\n", __func__, pdr->seid, pdr->id);
             rt = gtp5g_buf_skb_encap(skb, pdr->dev, hdrlen, pdr, far);
             break;
         default:
@@ -970,6 +973,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
         GTP5G_ERR(dev, "Uplink: Packet got dropped\n");
         return PKT_DROPPED_AND_FREED;
     }
+    printk("GTP5G: %s - seid=%llu PdrID=%u Packet forwarded\n", __func__, pdr->seid, pdr->id);
 
     return PKT_FORWARDED;
 }
