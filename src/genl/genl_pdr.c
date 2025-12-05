@@ -29,6 +29,7 @@ static int gtp5g_genl_fill_sdf(struct sk_buff *, struct sdf_filter *);
 static int gtp5g_genl_fill_f_teid(struct sk_buff *, struct local_f_teid *);
 static int gtp5g_genl_fill_pdi(struct sk_buff *, struct pdi *);
 static int gtp5g_genl_fill_pdr(struct sk_buff *, u32, u32, u32, struct pdr *);
+static int parse_framed_routes(struct pdr *, struct pdi *, struct nlattr *);
 
 int gtp5g_genl_add_pdr(struct sk_buff *skb, struct genl_info *info)
 {
@@ -562,7 +563,117 @@ static int parse_pdi(struct pdr *pdr, struct nlattr *a)
             return err;
     }
 
+    printk("GTP5G: %s - start parsing framed routes\n", __func__);
+    if (attrs[GTP5G_PDI_FRAMED_ROUTE]) {
+        printk("GTP5G: %s - Parsing framed routes\n", __func__);
+        err = parse_framed_routes(pdr, pdi, attrs[GTP5G_PDI_FRAMED_ROUTE]);
+        if (err)
+            return err;
+    }
+
     return 0;
+}
+
+static void free_pdi_framed_route_nodes(struct pdi *pdi)
+{
+    int j;
+
+    if (!pdi || !pdi->framed_route_nodes)
+        return;
+
+    for (j = 0; j < pdi->framed_route_num; j++) {
+        struct framed_route_node *node = pdi->framed_route_nodes[j];
+
+        if (!node)
+            continue;
+
+        if (!hlist_unhashed(&node->hlist))
+            hlist_del_rcu(&node->hlist);
+
+        kfree(node);
+    }
+
+    kfree(pdi->framed_route_nodes);
+    pdi->framed_route_nodes = NULL;
+    pdi->framed_route_num = 0;
+}
+
+static int parse_framed_routes(struct pdr *pdr, struct pdi *pdi, struct nlattr *a)
+{
+    struct nlattr *route_attr;
+    int remaining;
+    int route_cnt = 0;
+    int i = 0;
+    int err = 0;
+
+    printk("GTP5G: %s - PdrID=%u start parsing framed routes\n", __func__, pdr->id);
+    // Count number of routes
+    remaining = nla_len(a);
+    nla_for_each_nested(route_attr, a, remaining) {
+        route_cnt++;
+    }
+    printk("GTP5G: %s - PdrID=%u Number of framed routes: %d\n", __func__, pdr->id, route_cnt);
+
+    free_pdi_framed_route_nodes(pdi);
+
+    if (route_cnt == 0)
+        return 0;
+
+    pdi->framed_route_nodes = kzalloc(route_cnt * sizeof(struct framed_route_node *), GFP_ATOMIC);
+    if (!pdi->framed_route_nodes)
+        return -ENOMEM;
+    pdi->framed_route_num = route_cnt;
+
+    // Parse each route (string values -> network/mask)
+    remaining = nla_len(a);
+    nla_for_each_nested(route_attr, a, remaining) {
+        int str_len = nla_len(route_attr);
+        char *route_str;
+        struct framed_route_node *node;
+
+        route_str = kzalloc(str_len + 1, GFP_ATOMIC);
+        if (!route_str) {
+            err = -ENOMEM;
+            goto err_out;
+        }
+
+        memcpy(route_str, nla_data(route_attr), str_len);
+        route_str[str_len] = '\0'; // Null terminate
+
+        node = kzalloc(sizeof(*node), GFP_ATOMIC);
+        if (!node) {
+            kfree(route_str);
+            err = -ENOMEM;
+            goto err_out;
+        }
+
+        if (parse_framed_route_cidr(route_str, &node->network_addr,
+                                    &node->netmask) < 0) {
+            printk("GTP5G: %s - Failed to parse framed route: '%s'\n", __func__, route_str);
+            kfree(route_str);
+            kfree(node);
+            err = -EINVAL;
+            goto err_out;
+        }
+
+        kfree(route_str);
+
+        node->pdr = pdr;
+        INIT_HLIST_NODE(&node->hlist);
+
+        pdi->framed_route_nodes[i] = node;
+        printk("GTP5G: %s - Parsed framed route node[%d]: network=%pI4 netmask=%pI4 prefix=%u\n",
+               __func__, i, &node->network_addr, &node->netmask,
+               netmask_to_prefix(node->netmask));
+        i++;
+    }
+
+    printk("GTP5G: %s - Parsed framed routes\n", __func__);
+    return 0;
+
+err_out:
+    free_pdi_framed_route_nodes(pdi);
+    return err;
 }
 
 static int parse_f_teid(struct pdi *pdi, struct nlattr *a)
@@ -869,6 +980,7 @@ static int gtp5g_genl_fill_f_teid(struct sk_buff *skb, struct local_f_teid *f_te
 static int gtp5g_genl_fill_pdi(struct sk_buff *skb, struct pdi *pdi)
 {
     struct nlattr *nest_pdi;
+    int i;
 
     nest_pdi = nla_nest_start(skb, GTP5G_PDR_PDI);
     if (!nest_pdi)
@@ -887,6 +999,32 @@ static int gtp5g_genl_fill_pdi(struct sk_buff *skb, struct pdi *pdi)
     if (pdi->sdf) {
         if (gtp5g_genl_fill_sdf(skb, pdi->sdf))
             return -EMSGSIZE;
+    }
+
+    // Fill framed routes
+    if (pdi->framed_route_nodes && pdi->framed_route_num > 0) {
+        struct nlattr *nest_routes = nla_nest_start(skb, GTP5G_PDI_FRAMED_ROUTE);
+        if (!nest_routes)
+            return -EMSGSIZE;
+
+        for (i = 0; i < pdi->framed_route_num; i++) {
+            struct framed_route_node *node = pdi->framed_route_nodes[i];
+            char route_str[40];
+            int len;
+
+            if (!node)
+                continue;
+
+            len = snprintf(route_str, sizeof(route_str), "%pI4/%u",
+                           &node->network_addr, netmask_to_prefix(node->netmask));
+            if (len <= 0 || len >= sizeof(route_str))
+                return -EMSGSIZE;
+
+            if (nla_put_string(skb, i + 1, route_str))
+                return -EMSGSIZE;
+        }
+        
+        nla_nest_end(skb, nest_routes);
     }
 
     nla_nest_end(skb, nest_pdi);
