@@ -839,6 +839,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     struct forwarding_policy *fwd_policy;
     struct gtpv1_hdr *gtp1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
     struct iphdr *iph;
+    struct iphdr *iph_debug;
     struct udphdr *uh;
     struct pcpu_sw_netstats *stats;
     int ret;
@@ -976,6 +977,9 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
         GTP5G_TRC(pdr->dev, "Drop red packet");
         return PKT_DROPPED;
     }
+    // print src ip and dst ip
+    iph_debug = ip_hdr(skb);
+    PRINTK_TIME("gtp5g_fwd_skb_encap: src ip: %pI4, dst ip: %pI4\n", &iph_debug->saddr, &iph_debug->daddr);
     ret = netif_rx(skb);
     if (ret != NET_RX_SUCCESS) {
         GTP5G_ERR(dev, "Uplink: Packet got dropped\n");

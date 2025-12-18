@@ -264,6 +264,7 @@ static int sdf_filter_match(struct pdr *pdr, struct sk_buff *skb,
     if (!pdr || !pdr->pdi || !pdr->pdi->sdf)
         return 1;
 
+    PRINTK_TIME("===== sdf_filter_match: PDR ID: %u pktsrc: %pI4, pktdst: %pI4 =====\n", pdr->id, &iph->saddr, &iph->daddr);
     pdi = pdr->pdi;
     sdf = pdi->sdf;
 
@@ -282,6 +283,7 @@ static int sdf_filter_match(struct pdr *pdr, struct sk_buff *skb,
 
         // Check source and destination IP (with framed route support)
         if (is_uplink(pdr)) { // Uplink
+            PRINTK_TIME("===== sdf_filter_match: Uplink src: %pI4, dst: %pI4 =====\n", &iph->saddr, &iph->daddr);
             // Source: match rule OR framed routes
             if (!ip_match_with_framed_routes(iph->saddr, rule->src.s_addr, rule->smask.s_addr, pdi))
                 goto mismatch;
@@ -290,6 +292,7 @@ static int sdf_filter_match(struct pdr *pdr, struct sk_buff *skb,
             if (!ipv4_match(iph->daddr, rule->dest.s_addr, rule->dmask.s_addr))
                 goto mismatch;
         } else { // Downlink
+            PRINTK_TIME("===== sdf_filter_match: Downlink =====\n");
             // Source: exactly match rule
             if (!ipv4_match(iph->saddr, rule->src.s_addr, rule->smask.s_addr))
                 goto mismatch;
@@ -437,6 +440,7 @@ struct pdr *pdr_find_by_gtp1u(struct gtp5g_dev *gtp, struct sk_buff *skb,
             continue;
         }
 
+        PRINTK_TIME("===== pdr_find_by_gtp1u: FOUND PDR ID: %u =====\n", pdr->id);
         GTP5G_INF(NULL, "Match PDR ID:%d\n", pdr->id);
 
         return pdr;
@@ -538,12 +542,7 @@ struct pdr *pdr_find_by_framed_route(struct gtp5g_dev *gtp, struct sk_buff *skb,
 {
     struct hlist_head *head;
     struct pdr *pdr;
-    struct pdi *pdi;
     struct framed_route_node *node;
-    struct iphdr *iph;
-    __be32 ip_addr;
-    int j;
-    bool framed_route_matched = false;
 
     if (!gtp)
         return NULL;
@@ -559,50 +558,13 @@ struct pdr *pdr_find_by_framed_route(struct gtp5g_dev *gtp, struct sk_buff *skb,
             continue;
         }
 
+        pdr = node->pdr;
+
+        if (is_uplink(node->pdr)) 
+            continue;
         // Match by network address
         if (node->network_addr != masked_addr) {
             PRINTK_TIME("Network addr %pI4 != masked_addr %pI4\n", &node->network_addr, &masked_addr);
-            continue;
-        }
-
-        PRINTK_TIME("Found matching framed route node for addr %pI4, checking PDR: %u\n", &masked_addr, pdr->id);
-
-        pdr = node->pdr;
-        pdi = pdr->pdi;
-
-        if (!pdi) {
-            PRINTK_TIME("PDR ID %u: pdi is NULL\n", pdr->id);
-            continue;
-        }
-
-         // TODO: Move the value we check into first level
-        if (!(pdr->af == AF_INET)) {
-            PRINTK_TIME("  PDR ID %u: AF or UE addr mismatch\n", pdr->id);
-            continue;
-        }
-
-        iph = (struct iphdr *)(skb->data + hdrlen);
-        ip_addr = iph->daddr;
-        // Check framed routes
-        if (!pdi || !pdi->framed_route_nodes || pdi->framed_route_num == 0) {
-            PRINTK_TIME("PDR ID %u: no framed routes to check\n", pdr->id);
-            continue;
-        }
-
-        // Try to match against framed routes
-        for (j = 0; j < pdi->framed_route_num; j++) {
-            node = pdi->framed_route_nodes[j];
-            if (node && ipv4_match(ip_addr, node->network_addr, node->netmask)) {
-                PRINTK_TIME("IP %pI4 matches framed route %pI4/%pI4\n",
-                        &ip_addr, &node->network_addr, &node->netmask);
-                framed_route_matched = true;
-                break;
-            }
-        }
-
-        // If IP doesn't match any framed route, skip this PDR
-        if (!framed_route_matched) {
-            PRINTK_TIME("PDR ID %u: IP %pI4 not match any framed route\n", pdr->id, &ip_addr);
             continue;
         }
 
