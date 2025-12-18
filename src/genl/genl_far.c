@@ -13,6 +13,7 @@
 #include <linux/rculist.h>
 #include <net/netns/generic.h>
 #include "net.h"
+#include "log.h"
 
 static int header_creation_fill(struct forwarding_parameter *,
                 struct nlattr **, u8 *,
@@ -519,6 +520,30 @@ static int far_fill(struct far *far, struct gtp5g_dev *gtp, struct genl_info *in
 
     /* Update PDRs which has not linked to this FAR */
     far_update(far, gtp, flag, epkt_info);
+
+    // Debug print FAR information
+    PRINTK_TIME("===== FAR Configuration =====\n");
+    PRINTK_TIME("FAR ID: %u, SEID: %llu, Action: 0x%x\n", far->id, far->seid, far->action);
+
+    fwd_param = rcu_dereference(far->fwd_param);
+    if (fwd_param) {
+        PRINTK_TIME("Forwarding Parameters configured\n");
+        if (fwd_param->hdr_creation) {
+            struct outer_header_creation *hdr = fwd_param->hdr_creation;
+            PRINTK_TIME("  Header Creation - TEID: 0x%x, Peer Address: %pI4, Port: %u, Description: %u\n",
+                      ntohl(hdr->teid), &hdr->peer_addr_ipv4.s_addr, ntohs(hdr->port), hdr->description);
+            if (hdr->tosTc) {
+                PRINTK_TIME("  ToS/TC: 0x%x\n", hdr->tosTc);
+            }
+        }
+        if (fwd_param->fwd_policy) {
+            PRINTK_TIME("  Forwarding Policy: %s (mark: %u)\n",
+                      fwd_param->fwd_policy->identifier, fwd_param->fwd_policy->mark);
+        }
+    } else {
+        PRINTK_TIME("No Forwarding Parameters configured\n");
+    }
+    PRINTK_TIME("============================\n");
 
     return 0;
 }

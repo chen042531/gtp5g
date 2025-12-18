@@ -106,6 +106,11 @@ static netdev_tx_t gtp5g_dev_xmit(struct sk_buff *skb, struct net_device *dev)
     int ret = 0;
     u64 rxVol = skb->len;
 
+    //print source IP address and destination IP address
+    {
+        struct iphdr *iph = ip_hdr(skb);
+        PRINTK_TIME("gtp5g_dev_xmit: source IP address: %pI4, destination IP address: %pI4\n", &iph->saddr, &iph->daddr);
+    }
     /* Ensure there is sufficient headroom */
     if (skb_cow_head(skb, dev->needed_headroom)) {
         goto tx_err;

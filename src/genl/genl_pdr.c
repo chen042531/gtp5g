@@ -17,6 +17,7 @@
 #include "net.h"
 #include "util.h"
 #include "far.h"
+#include "log.h"
 
 static int pdr_fill(struct pdr *, struct gtp5g_dev *, struct genl_info *);
 static int parse_pdi(struct pdr *, struct nlattr *);
@@ -515,6 +516,67 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
     // Update hlist table
     pdr_update_hlist_table(pdr, gtp);
 
+    // Debug print PDR information
+    PRINTK_TIME("===== PDR Configuration =====\n");
+    PRINTK_TIME("PDR ID: %u, SEID: %llu, Precedence: %u\n", pdr->id, pdr->seid, pdr->precedence);
+    if (pdr->pdi && pdr->pdi->ue_addr_ipv4) {
+        PRINTK_TIME("UE Address (PDI): %pI4\n", &pdr->pdi->ue_addr_ipv4->s_addr);
+    }
+    if (pdr->pdi && pdr->pdi->f_teid) {
+        PRINTK_TIME("F-TEID - TEID: 0x%x, GTP-U Addr: %pI4\n",
+                  ntohl(pdr->pdi->f_teid->teid), &pdr->pdi->f_teid->gtpu_addr_ipv4.s_addr);
+    }
+    if (pdr->far_id) {
+        PRINTK_TIME("FAR ID: %u\n", *pdr->far_id);
+    }
+    if (pdr->outer_header_removal) {
+        PRINTK_TIME("Outer Header Removal: %u\n", *pdr->outer_header_removal);
+    }
+    PRINTK_TIME("Role Address (IPv4): %pI4\n", &pdr->role_addr_ipv4);
+    PRINTK_TIME("QER Count: %u, URR Count: %u\n", pdr->qer_num, pdr->urr_num);
+    for (i = 0; i < pdr->qer_num; i++) {
+        PRINTK_TIME("  QER ID[%d]: %u\n", i, pdr->qer_ids[i]);
+    }
+    for (i = 0; i < pdr->urr_num; i++) {
+        PRINTK_TIME("  URR ID[%d]: %u\n", i, pdr->urr_ids[i]);
+    }
+
+    // Print SDF filter if exists
+    if (pdr->pdi && pdr->pdi->sdf) {
+        struct sdf_filter *sdf = pdr->pdi->sdf;
+        PRINTK_TIME("SDF Filter configured:\n");
+        if (sdf->rule) {
+            struct ip_filter_rule *rule = sdf->rule;
+            PRINTK_TIME("  Action: %u, Direction: %u, Protocol: %u\n", rule->action, rule->direction, rule->proto);
+            PRINTK_TIME("  Src IP: %pI4, Src Mask: %pI4\n", &rule->src, &rule->smask);
+            PRINTK_TIME("  Dst IP: %pI4, Dst Mask: %pI4\n", &rule->dest, &rule->dmask);
+            if (rule->sport_num > 0) {
+                for (i = 0; i < rule->sport_num; i++) {
+                    PRINTK_TIME("    Src Port[%d]: %u-%u\n", (int)i, (u32)rule->sport[i].start, (u32)rule->sport[i].end);
+                }
+            }
+            if (rule->dport_num > 0) {
+                for (i = 0; i < rule->dport_num; i++) {
+                    PRINTK_TIME("    Dst Port[%d]: %u-%u\n", (int)i, (u32)rule->dport[i].start, (u32)rule->dport[i].end);
+                }
+            }
+        }
+        if (sdf->tos_traffic_class) {
+            PRINTK_TIME("  ToS/Traffic Class: 0x%x\n", *sdf->tos_traffic_class);
+        }
+        if (sdf->security_param_idx) {
+            PRINTK_TIME("  Security Parameter Index: 0x%x\n", *sdf->security_param_idx);
+        }
+        if (sdf->flow_label) {
+            PRINTK_TIME("  Flow Label: 0x%x\n", *sdf->flow_label);
+        }
+        if (sdf->bi_id) {
+            PRINTK_TIME("  SDF Filter ID: 0x%x\n", *sdf->bi_id);
+        }
+    }
+
+    PRINTK_TIME("==============================\n");
+
     return 0;
 }
 
@@ -563,9 +625,7 @@ static int parse_pdi(struct pdr *pdr, struct nlattr *a)
             return err;
     }
 
-    printk("GTP5G: %s - start parsing framed routes\n", __func__);
     if (attrs[GTP5G_PDI_FRAMED_ROUTE]) {
-        printk("GTP5G: %s - Parsing framed routes\n", __func__);
         err = parse_framed_routes(pdr, pdi, attrs[GTP5G_PDI_FRAMED_ROUTE]);
         if (err)
             return err;
@@ -606,13 +666,11 @@ static int parse_framed_routes(struct pdr *pdr, struct pdi *pdi, struct nlattr *
     int i = 0;
     int err = 0;
 
-    printk("GTP5G: %s - PdrID=%u start parsing framed routes\n", __func__, pdr->id);
     // Count number of routes
     remaining = nla_len(a);
     nla_for_each_nested(route_attr, a, remaining) {
         route_cnt++;
     }
-    printk("GTP5G: %s - PdrID=%u Number of framed routes: %d\n", __func__, pdr->id, route_cnt);
 
     free_pdi_framed_route_nodes(pdi);
 
@@ -649,7 +707,6 @@ static int parse_framed_routes(struct pdr *pdr, struct pdi *pdi, struct nlattr *
 
         if (parse_framed_route_cidr(route_str, &node->network_addr,
                                     &node->netmask) < 0) {
-            printk("GTP5G: %s - Failed to parse framed route: '%s'\n", __func__, route_str);
             kfree(route_str);
             kfree(node);
             err = -EINVAL;
@@ -662,13 +719,9 @@ static int parse_framed_routes(struct pdr *pdr, struct pdi *pdi, struct nlattr *
         INIT_HLIST_NODE(&node->hlist);
 
         pdi->framed_route_nodes[i] = node;
-        printk("GTP5G: %s - Parsed framed route node[%d]: network=%pI4 netmask=%pI4 prefix=%u\n",
-               __func__, i, &node->network_addr, &node->netmask,
-               netmask_to_prefix(node->netmask));
         i++;
     }
 
-    printk("GTP5G: %s - Parsed framed routes\n", __func__);
     return 0;
 
 err_out:

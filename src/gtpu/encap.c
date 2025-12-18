@@ -254,6 +254,11 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
     int rt = 0;
     u64 rxVol = skb->len - sizeof(struct udphdr); // exclude UDP header of GTP packet
 
+    // print skb src ip and dst ip
+    {
+        struct iphdr *iph = ip_hdr(skb);
+        PRINTK_TIME("gtp1u_udp_encap_recv: skb src ip: %pI4, dst ip: %pI4\n", &iph->saddr, &iph->daddr);
+    }
     if (!pskb_may_pull(skb, pull_len)) {
         GTP5G_ERR(gtp->dev, "Failed to pull skb length %#x\n", pull_len);
         rt = PKT_DROPPED;
@@ -1018,16 +1023,37 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     struct qer __rcu *qer_with_rate = NULL;
     
     if (!far) {
-        GTP5G_ERR(dev, "FAR not found\n");
+        PRINTK_TIME("[FORWARDING] FAR not found for PDR ID:%u\n", pdr->id);
         goto err;
     }
 
+    PRINTK_TIME("[FORWARDING] PDR ID:%u, FAR ID:%u - checking forwarding parameters\n", pdr->id, far->id);
+
     fwd_param = rcu_dereference(far->fwd_param);
-    if (!(fwd_param &&
-        fwd_param->hdr_creation)) {
-        GTP5G_ERR(dev, "FAR forwarding parameters or header creation not configured\n");
+    if (!fwd_param) {
+        PRINTK_TIME("[FORWARDING] FAR ID:%u has NO forwarding_parameter configured\n", far->id);
+        debug_print_pdr(pdr);
+        debug_print_far(far);
+        PRINTK_TIME("error: FAR fwd_param is NULL =========================\n");
         goto err;
     }
+
+    if (!fwd_param->hdr_creation) {
+        PRINTK_TIME("[FORWARDING] FAR ID:%u has NO header_creation in forwarding_parameter\n", far->id);
+        debug_print_pdr(pdr);
+        debug_print_far(far);
+        PRINTK_TIME("error: FAR hdr_creation is NULL =========================\n");
+        goto err;
+    }
+
+    PRINTK_TIME("[FORWARDING SUCCESS] FAR ID:%u - TEID:0x%x, Peer:%pI4, Port:%u\n",
+              far->id, ntohl(fwd_param->hdr_creation->teid),
+              &fwd_param->hdr_creation->peer_addr_ipv4.s_addr,
+              ntohs(fwd_param->hdr_creation->port));
+    PRINTK_TIME("success: forwarding params OK =========================\n");
+    debug_print_pdr(pdr);
+    debug_print_far(far);
+    PRINTK_TIME("success end =========================\n");
 
     hdr_creation = fwd_param->hdr_creation;
     rt = find_ip4_route(&fl4,
@@ -1140,9 +1166,6 @@ static void apply_prefix_mask_to_ipv4(__be32 ipaddr, u32 prefix_len,
     
     netmask = htonl(mask_value);
     *masked_addr = ipaddr & netmask;
-    
-    printk("GTP5G: prefix_len=%u (/%u), ipaddr=%pI4, mask=%pI4, masked_addr=%pI4\n", 
-           prefix_len, prefix_len, &ipaddr, &netmask, masked_addr);
 }
 
 int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
@@ -1160,30 +1183,37 @@ int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     /* Read the IP destination address and resolve the PDR.
      * Prepend PDR header with TEI/TID from PDR.
      */
-    printk("GTP5G: %s - >>>> $$www$ start finding PDR by framed route\n", __func__);
     iph = ip_hdr(skb);
 
-    printk("GTP5G: %s - start finding PDR by framed route\n", __func__);
     mark = gtp5g_get_skb_routing_mark(skb);
+    PRINTK_TIME("[DL PKT] src:%pI4 dst:%pI4 mark:%u\n", &iph->saddr, &iph->daddr, mark);
+
     if (mark != 0) {
+        PRINTK_TIME("gtp5g_handle_skb_ipv4: mark: %u\n", mark);
         // Apply prefix mask to destination address
         apply_prefix_mask_to_ipv4(iph->daddr, mark, &masked_daddr);
-        
+        PRINTK_TIME("[DL PKT] Using framed route lookup with masked_addr: %pI4\n", &masked_daddr);
+
         // Try to find PDR by framed route using masked address
         pdr = pdr_find_by_framed_route(gtp, skb, 0, masked_daddr);
     } else {
         // Note: The role is used here to get the pdr hashtable key - ueIP.
         // It will improve pdr lookup speed.
-        if (gtp->role == GTP5G_ROLE_UPF)
+        if (gtp->role == GTP5G_ROLE_UPF) {
+            PRINTK_TIME("[DL PKT] Looking for PDR by daddr (UPF role)\n");
             pdr = pdr_find_by_ipv4(gtp, skb, 0, iph->daddr);
-        else
+        } else {
+            PRINTK_TIME("[DL PKT] Looking for PDR by saddr (non-UPF role)\n");
             pdr = pdr_find_by_ipv4(gtp, skb, 0, iph->saddr);
+        }
     }
-    
+
     if (!pdr) {
-        GTP5G_INF(dev, "no PDR found for %pI4, skip\n", &iph->daddr);
+        PRINTK_TIME("[DL PKT] NO PDR found for dst:%pI4 src:%pI4 mark:%u\n", &iph->daddr, &iph->saddr, mark);
         return -ENOENT;
     }
+
+    PRINTK_TIME("[DL PKT] Found PDR ID:%u SEID:%llu\n", pdr->id, pdr->seid);
     
 
     /* TODO: QoS rule have to apply before apply FAR 
@@ -1197,7 +1227,6 @@ int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     qer_with_rate = rcu_dereference(pdr->qer_with_rate);
     far = rcu_dereference(pdr->far);
     if (far) {
-        printk("GTP5G: %s - >>>>>>>> far is not NULL\n", __func__);
         // One and only one of the DROP, FORW and BUFF flags shall be set to 1.
         // The NOCP flag may only be set if the BUFF flag is set.
         // The DUPL flag may be set with any of the DROP, FORW, BUFF and NOCP flags.
