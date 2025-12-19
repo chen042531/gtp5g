@@ -17,6 +17,7 @@
 #include "qer.h"
 #include "urr.h"
 #include "report.h"
+#include "util.h"
 
 #include "genl.h"
 #include "genl_report.h"
@@ -253,6 +254,11 @@ static int gtp1u_udp_encap_recv(struct gtp5g_dev *gtp, struct sk_buff *skb)
     int rt = 0;
     u64 rxVol = skb->len - sizeof(struct udphdr); // exclude UDP header of GTP packet
 
+    // print skb src ip and dst ip
+    {
+        struct iphdr *iph = ip_hdr(skb);
+        PRINTK_TIME("gtp1u_udp_encap_recv: skb src ip: %pI4, dst ip: %pI4\n", &iph->saddr, &iph->daddr);
+    }
     if (!pskb_may_pull(skb, pull_len)) {
         GTP5G_ERR(gtp->dev, "Failed to pull skb length %#x\n", pull_len);
         rt = PKT_DROPPED;
@@ -833,6 +839,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     struct forwarding_policy *fwd_policy;
     struct gtpv1_hdr *gtp1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
     struct iphdr *iph;
+    struct iphdr *iph_debug;
     struct udphdr *uh;
     struct pcpu_sw_netstats *stats;
     int ret;
@@ -970,6 +977,9 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
         GTP5G_TRC(pdr->dev, "Drop red packet");
         return PKT_DROPPED;
     }
+    // print src ip and dst ip
+    iph_debug = ip_hdr(skb);
+    PRINTK_TIME("gtp5g_fwd_skb_encap: src ip: %pI4, dst ip: %pI4\n", &iph_debug->saddr, &iph_debug->daddr);
     ret = netif_rx(skb);
     if (ret != NET_RX_SUCCESS) {
         GTP5G_ERR(dev, "Uplink: Packet got dropped\n");
@@ -1017,16 +1027,37 @@ static int gtp5g_fwd_skb_ipv4(struct sk_buff *skb,
     struct qer __rcu *qer_with_rate = NULL;
     
     if (!far) {
-        GTP5G_ERR(dev, "Unknown RAN address\n");
+        PRINTK_TIME("[FORWARDING] FAR not found for PDR ID:%u\n", pdr->id);
         goto err;
     }
 
+    PRINTK_TIME("[FORWARDING] PDR ID:%u, FAR ID:%u - checking forwarding parameters\n", pdr->id, far->id);
+
     fwd_param = rcu_dereference(far->fwd_param);
-    if (!(fwd_param &&
-        fwd_param->hdr_creation)) {
-        GTP5G_ERR(dev, "Unknown RAN address\n");
+    if (!fwd_param) {
+        PRINTK_TIME("[FORWARDING] FAR ID:%u has NO forwarding_parameter configured\n", far->id);
+        debug_print_pdr(pdr);
+        debug_print_far(far);
+        PRINTK_TIME("error: FAR fwd_param is NULL =========================\n");
         goto err;
     }
+
+    if (!fwd_param->hdr_creation) {
+        PRINTK_TIME("[FORWARDING] FAR ID:%u has NO header_creation in forwarding_parameter\n", far->id);
+        debug_print_pdr(pdr);
+        debug_print_far(far);
+        PRINTK_TIME("error: FAR hdr_creation is NULL =========================\n");
+        goto err;
+    }
+
+    PRINTK_TIME("[FORWARDING SUCCESS] FAR ID:%u - TEID:0x%x, Peer:%pI4, Port:%u\n",
+              far->id, ntohl(fwd_param->hdr_creation->teid),
+              &fwd_param->hdr_creation->peer_addr_ipv4.s_addr,
+              ntohs(fwd_param->hdr_creation->port));
+    PRINTK_TIME("success: forwarding params OK =========================\n");
+    debug_print_pdr(pdr);
+    debug_print_far(far);
+    PRINTK_TIME("success end =========================\n");
 
     hdr_creation = fwd_param->hdr_creation;
     rt = find_ip4_route(&fl4,
@@ -1112,6 +1143,35 @@ static int gtp5g_buf_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     return PKT_TO_APP;
 }
 
+/**
+ * apply_prefix_mask_to_ipv4 - Apply prefix length mask to IPv4 address
+ * @ipaddr: The IPv4 address to mask
+ * @prefix_len: The prefix length (0-32)
+ * @masked_addr: Output pointer for the masked address
+ * 
+ * This function converts a prefix length (e.g., 24 for /24) to a netmask
+ * and applies it to the given IPv4 address.
+ */
+static void apply_prefix_mask_to_ipv4(__be32 ipaddr, u32 prefix_len, 
+                                      __be32 *masked_addr)
+{
+    __be32 netmask;
+    u32 mask_value;
+    
+    // Safety check: ensure prefix_len is within valid range
+    if (prefix_len > 32)
+        prefix_len = 32;
+    
+    // Convert prefix length to netmask
+    if (prefix_len == 0)
+        mask_value = 0;
+    else
+        mask_value = 0xFFFFFFFF << (32 - prefix_len);
+    
+    netmask = htonl(mask_value);
+    *masked_addr = ipaddr & netmask;
+}
+
 int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     struct gtp5g_pktinfo *pktinfo)
 {
@@ -1121,22 +1181,44 @@ int gtp5g_handle_skb_ipv4(struct sk_buff *skb, struct net_device *dev,
     //struct gtp5g_qer *qer;
     struct iphdr *iph;
     struct qer __rcu *qer_with_rate = NULL;
+    u32 mark;
+    __be32 masked_daddr;
 
     /* Read the IP destination address and resolve the PDR.
      * Prepend PDR header with TEI/TID from PDR.
      */
     iph = ip_hdr(skb);
-    // Note: The role is used here to get the pdr hashtable key - ueIP.
-    // It will improve pdr lookup speed.
-    if (gtp->role == GTP5G_ROLE_UPF)
-        pdr = pdr_find_by_ipv4(gtp, skb, 0, iph->daddr);
-    else
-        pdr = pdr_find_by_ipv4(gtp, skb, 0, iph->saddr);
+
+    mark = gtp5g_get_skb_routing_mark(skb);
+    PRINTK_TIME("[DL PKT] src:%pI4 dst:%pI4 mark:%u\n", &iph->saddr, &iph->daddr, mark);
+
+    if (mark != 0) {
+        PRINTK_TIME("gtp5g_handle_skb_ipv4: mark: %u\n", mark);
+        // Apply prefix mask to destination address
+        apply_prefix_mask_to_ipv4(iph->daddr, mark, &masked_daddr);
+        PRINTK_TIME("[DL PKT] Using framed route lookup with masked_addr: %pI4\n", &masked_daddr);
+
+        // Try to find PDR by framed route using masked address
+        pdr = pdr_find_by_framed_route(gtp, skb, 0, masked_daddr);
+    } else {
+        // Note: The role is used here to get the pdr hashtable key - ueIP.
+        // It will improve pdr lookup speed.
+        if (gtp->role == GTP5G_ROLE_UPF) {
+            PRINTK_TIME("[DL PKT] Looking for PDR by daddr (UPF role)\n");
+            pdr = pdr_find_by_ipv4(gtp, skb, 0, iph->daddr);
+        } else {
+            PRINTK_TIME("[DL PKT] Looking for PDR by saddr (non-UPF role)\n");
+            pdr = pdr_find_by_ipv4(gtp, skb, 0, iph->saddr);
+        }
+    }
 
     if (!pdr) {
-        GTP5G_INF(dev, "no PDR found for %pI4, skip\n", &iph->daddr);
+        PRINTK_TIME("[DL PKT] NO PDR found for dst:%pI4 src:%pI4 mark:%u\n", &iph->daddr, &iph->saddr, mark);
         return -ENOENT;
     }
+
+    PRINTK_TIME("[DL PKT] Found PDR ID:%u SEID:%llu\n", pdr->id, pdr->seid);
+    
 
     /* TODO: QoS rule have to apply before apply FAR 
      * */
