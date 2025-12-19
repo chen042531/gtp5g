@@ -549,7 +549,9 @@ struct pdr *pdr_find_by_framed_route(struct gtp5g_dev *gtp, struct sk_buff *skb,
 
     head = &gtp->framed_route_hash[ipv4_hashfn(masked_addr) % gtp->hash_size];
 
-    // Search framed_route_nodes by masked network address
+    /* Search framed_route_nodes by masked network address.
+     * Only downlink PDRs are in this hash, so no need to check is_uplink().
+     */
     hlist_for_each_entry_rcu(node, head, hlist) {
         if (!node->pdr) {
             PRINTK_TIME("Framed route node has no PDR\n");
@@ -558,9 +560,7 @@ struct pdr *pdr_find_by_framed_route(struct gtp5g_dev *gtp, struct sk_buff *skb,
 
         pdr = node->pdr;
 
-        if (is_uplink(node->pdr)) 
-            continue;
-        // Match by network address
+        /* Match by network address */
         if (node->network_addr != masked_addr) {
             PRINTK_TIME("Network addr %pI4 != masked_addr %pI4\n", &node->network_addr, &masked_addr);
             continue;
@@ -649,14 +649,16 @@ void pdr_update_hlist_table(struct pdr *pdr, struct gtp5g_dev *gtp)
             hlist_add_behind_rcu(&pdr->hlist_addr, &last_ppdr->hlist_addr);
     }
     
-    // Process framed routes independently (can coexist with f_teid or ue_addr_ipv4)
-    if (pdi->framed_route_nodes && pdi->framed_route_num > 0) {
+    /* Only add downlink PDR's framed routes to hash table.
+     * Uplink PDRs don't need framed route hash lookup since they use
+     * i_teid_hash for matching. This reduces hash table size and collisions.
+     */
+    if (is_downlink(pdr) && pdi->framed_route_nodes && pdi->framed_route_num > 0) {
         for (j = 0; j < pdi->framed_route_num; j++) {
             struct framed_route_node *fr_node = pdi->framed_route_nodes[j];
 
-            if (!fr_node) {
+            if (!fr_node)
                 continue;
-            }
 
             fr_node->pdr = pdr;
 
@@ -666,7 +668,7 @@ void pdr_update_hlist_table(struct pdr *pdr, struct gtp5g_dev *gtp)
             head = &gtp->framed_route_hash[ipv4_hashfn(fr_node->network_addr) % gtp->hash_size];
             last_node = NULL;
 
-            // Find the correct position based on precedence
+            /* Find the correct position based on precedence */
             hlist_for_each_entry_rcu(node, head, hlist) {
                 if (!node->pdr)
                     continue;
