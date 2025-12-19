@@ -1,5 +1,6 @@
 #include <linux/version.h>
 #include <linux/types.h>
+#include <linux/inet.h>
 
 #include "dev.h"
 #include "link.h"
@@ -264,7 +265,6 @@ static int sdf_filter_match(struct pdr *pdr, struct sk_buff *skb,
     if (!pdr || !pdr->pdi || !pdr->pdi->sdf)
         return 1;
 
-    PRINTK_TIME("===== sdf_filter_match: PDR ID: %u pktsrc: %pI4, pktdst: %pI4 =====\n", pdr->id, &iph->saddr, &iph->daddr);
     pdi = pdr->pdi;
     sdf = pdi->sdf;
 
@@ -272,6 +272,8 @@ static int sdf_filter_match(struct pdr *pdr, struct sk_buff *skb,
         goto mismatch;
 
     iph = (struct iphdr *)(skb->data + hdrlen);
+
+    PRINTK_TIME("===== sdf_filter_match: PDR ID: %u pktsrc: %pI4, pktdst: %pI4 =====\n", pdr->id, &iph->saddr, &iph->daddr);
 
     if (sdf->rule) {
         rule = sdf->rule;
@@ -484,55 +486,51 @@ struct pdr *pdr_find_by_ipv4(struct gtp5g_dev *gtp, struct sk_buff *skb,
     return NULL;
 }
 
-// Parse CIDR format string (e.g., "192.168.1.0/24") to get network address and mask
+/* Parse CIDR format string (e.g., "192.168.1.0/24") to get network address and mask */
 int parse_framed_route_cidr(const char *route_str, __be32 *network_addr,
         __be32 *netmask)
 {
-    char route_copy[64];
-    char *slash_pos;
+    const char *slash_pos;
+    const char *end;
     int prefix_len;
-    u32 addr[4];
+    u8 ip[4];
     u32 mask;
     int ret;
+    int len;
 
     if (!route_str || !network_addr || !netmask)
         return -EINVAL;
 
-    // Copy string to avoid modifying original
-    strncpy(route_copy, route_str, sizeof(route_copy) - 1);
-    route_copy[sizeof(route_copy) - 1] = '\0';
-
-    // Find the slash
-    slash_pos = strchr(route_copy, '/');
+    /* Find the slash separator */
+    slash_pos = strchr(route_str, '/');
     if (!slash_pos)
         return -EINVAL;
 
-    // Replace '/' with '\0' to split the string into two parts: IP address and prefix length
-    *slash_pos = '\0';
-    slash_pos++;  // Move pointer to the start of prefix length string
-
-    // Parse IP address
-    ret = sscanf(route_copy, "%u.%u.%u.%u", &addr[0], &addr[1], &addr[2], &addr[3]);
-    if (ret != 4)
+    len = slash_pos - route_str;
+    if (len <= 0 || len > 15)  /* Max IPv4 string: "255.255.255.255" = 15 chars */
         return -EINVAL;
 
-    // Parse prefix length
-    ret = kstrtoint(slash_pos, 10, &prefix_len);
+    /* Parse IP address using kernel's in4_pton */
+    if (!in4_pton(route_str, len, ip, '/', &end) || end != slash_pos)
+        return -EINVAL;
+
+    /* Parse prefix length */
+    ret = kstrtoint(slash_pos + 1, 10, &prefix_len);
     if (ret < 0 || prefix_len < 0 || prefix_len > 32)
         return -EINVAL;
 
-    // Calculate network address
-    *network_addr = htonl((addr[0] << 24) | (addr[1] << 16) | (addr[2] << 8) | addr[3]);
+    /* Build network address in network byte order */
+    *network_addr = *(__be32 *)ip;
 
-    // Calculate netmask
+    /* Calculate netmask */
     if (prefix_len == 0)
         mask = 0;
     else
-        mask = 0xFFFFFFFF << (32 - prefix_len);
-    *netmask = htonl(mask);
+        mask = htonl(0xFFFFFFFF << (32 - prefix_len));
+    *netmask = mask;
 
-    // Apply mask to get network address
-    *network_addr = *network_addr & *netmask;
+    /* Apply mask to get network address */
+    *network_addr &= *netmask;
 
     return 0;
 }

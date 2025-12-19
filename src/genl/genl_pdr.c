@@ -661,71 +661,82 @@ static void free_pdi_framed_route_nodes(struct pdi *pdi)
 static int parse_framed_routes(struct pdr *pdr, struct pdi *pdi, struct nlattr *a)
 {
     struct nlattr *route_attr;
+    struct framed_route_node **nodes = NULL;
+    struct framed_route_node **new_nodes;
     int remaining;
-    int route_cnt = 0;
-    int i = 0;
+    int capacity = 4;  /* Initial capacity */
+    int count = 0;
     int err = 0;
-
-    // Count number of routes
-    remaining = nla_len(a);
-    nla_for_each_nested(route_attr, a, remaining) {
-        route_cnt++;
-    }
+    char route_buf[64];  /* Stack buffer for route string */
 
     free_pdi_framed_route_nodes(pdi);
 
-    if (route_cnt == 0)
-        return 0;
-
-    pdi->framed_route_nodes = kzalloc(route_cnt * sizeof(struct framed_route_node *), GFP_ATOMIC);
-    if (!pdi->framed_route_nodes)
+    nodes = kzalloc(capacity * sizeof(struct framed_route_node *), GFP_ATOMIC);
+    if (!nodes)
         return -ENOMEM;
-    pdi->framed_route_num = route_cnt;
 
-    // Parse each route (string values -> network/mask)
-    remaining = nla_len(a);
+    /* Single pass: parse routes and grow array as needed */
     nla_for_each_nested(route_attr, a, remaining) {
         int str_len = nla_len(route_attr);
-        char *route_str;
         struct framed_route_node *node;
 
-        route_str = kzalloc(str_len + 1, GFP_ATOMIC);
-        if (!route_str) {
-            err = -ENOMEM;
-            goto err_out;
+        /* Grow array if needed */
+        if (count >= capacity) {
+            int new_capacity = capacity * 2;
+            new_nodes = krealloc(nodes, new_capacity * sizeof(struct framed_route_node *), GFP_ATOMIC);
+            if (!new_nodes) {
+                err = -ENOMEM;
+                goto err_out;
+            }
+            memset(new_nodes + capacity, 0, (new_capacity - capacity) * sizeof(struct framed_route_node *));
+            nodes = new_nodes;
+            capacity = new_capacity;
         }
 
-        memcpy(route_str, nla_data(route_attr), str_len);
-        route_str[str_len] = '\0'; // Null terminate
+        /* Use stack buffer to avoid dynamic allocation for small strings */
+        if (str_len >= sizeof(route_buf)) {
+            err = -EINVAL;
+            goto err_out;
+        }
+        memcpy(route_buf, nla_data(route_attr), str_len);
+        route_buf[str_len] = '\0';
 
         node = kzalloc(sizeof(*node), GFP_ATOMIC);
         if (!node) {
-            kfree(route_str);
             err = -ENOMEM;
             goto err_out;
         }
 
-        if (parse_framed_route_cidr(route_str, &node->network_addr,
+        if (parse_framed_route_cidr(route_buf, &node->network_addr,
                                     &node->netmask) < 0) {
-            kfree(route_str);
             kfree(node);
             err = -EINVAL;
             goto err_out;
         }
 
-        kfree(route_str);
-
         node->pdr = pdr;
         INIT_HLIST_NODE(&node->hlist);
-
-        pdi->framed_route_nodes[i] = node;
-        i++;
+        nodes[count++] = node;
     }
 
+    if (count == 0) {
+        kfree(nodes);
+        return 0;
+    }
+
+    pdi->framed_route_nodes = nodes;
+    pdi->framed_route_num = count;
     return 0;
 
 err_out:
-    free_pdi_framed_route_nodes(pdi);
+    /* Clean up locally allocated nodes on error */
+    if (nodes) {
+        int j;
+        for (j = 0; j < count; j++) {
+            kfree(nodes[j]);
+        }
+        kfree(nodes);
+    }
     return err;
 }
 
