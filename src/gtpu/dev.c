@@ -155,57 +155,57 @@ int dev_hashtable_new(struct gtp5g_dev *gtp, int hsize)
 {
     int i;
 
-    gtp->addr_hash = kvmalloc_array(hsize, sizeof(struct hlist_head),
+    gtp->addr_hash = kmalloc_array(hsize, sizeof(struct hlist_head),
         GFP_KERNEL);
     if (gtp->addr_hash == NULL)
         return -ENOMEM;
 
-    gtp->i_teid_hash = kvmalloc_array(hsize, sizeof(struct hlist_head),
+    gtp->i_teid_hash = kmalloc_array(hsize, sizeof(struct hlist_head),
         GFP_KERNEL);
     if (gtp->i_teid_hash == NULL)
         goto err1;
 
-    gtp->pdr_id_hash = kvmalloc_array(hsize, sizeof(struct hlist_head),
+    gtp->pdr_id_hash = kmalloc_array(hsize, sizeof(struct hlist_head),
         GFP_KERNEL);
     if (gtp->pdr_id_hash == NULL)
         goto err2;
 
-    gtp->far_id_hash = kvmalloc_array(hsize, sizeof(struct hlist_head),
+    gtp->far_id_hash = kmalloc_array(hsize, sizeof(struct hlist_head),
         GFP_KERNEL);
     if (gtp->far_id_hash == NULL)
         goto err3;
 
-    gtp->qer_id_hash = kvmalloc_array(hsize, sizeof(struct hlist_head),
+    gtp->qer_id_hash = kmalloc_array(hsize, sizeof(struct hlist_head),
         GFP_KERNEL);
     if (gtp->qer_id_hash == NULL)
         goto err4;
 
-    gtp->bar_id_hash = kvmalloc_array(hsize, sizeof(struct hlist_head),
+    gtp->bar_id_hash = kmalloc_array(hsize, sizeof(struct hlist_head),
             GFP_KERNEL);
     if (!gtp->bar_id_hash)
         goto err5;
 
-    gtp->urr_id_hash = kvmalloc_array(hsize, sizeof(struct hlist_head),
+    gtp->urr_id_hash = kmalloc_array(hsize, sizeof(struct hlist_head),
             GFP_KERNEL);
     if (!gtp->urr_id_hash)
         goto err6;
 
-    gtp->related_far_hash = kvmalloc_array(hsize, sizeof(struct hlist_head),
+    gtp->related_far_hash = kmalloc_array(hsize, sizeof(struct hlist_head),
         GFP_KERNEL);
     if (gtp->related_far_hash == NULL)
         goto err7;
 
-    gtp->related_qer_hash = kvmalloc_array(hsize, sizeof(struct hlist_head),
+    gtp->related_qer_hash = kmalloc_array(hsize, sizeof(struct hlist_head),
         GFP_KERNEL);
     if (gtp->related_qer_hash == NULL)
         goto err8;
 
-    gtp->related_bar_hash = kvmalloc_array(hsize, sizeof(struct hlist_head),
+    gtp->related_bar_hash = kmalloc_array(hsize, sizeof(struct hlist_head),
             GFP_KERNEL);
     if (!gtp->related_bar_hash)
         goto err9;
 
-    gtp->related_urr_hash = kvmalloc_array(hsize, sizeof(struct hlist_head),
+    gtp->related_urr_hash = kmalloc_array(hsize, sizeof(struct hlist_head),
             GFP_KERNEL);
     if (!gtp->related_urr_hash)
         goto err10;
