@@ -30,6 +30,18 @@ struct framed_route_node {
     __be32 netmask;
 };
 
+/**
+ * struct framed_route_set - RCU-protected set of framed routes
+ * @rcu: RCU head for safe memory reclamation
+ * @num: Number of routes in the set
+ * @nodes: Array of pointers to framed route nodes
+ */
+struct framed_route_set {
+    struct rcu_head rcu;
+    u32 num;
+    struct framed_route_node *nodes[];
+};
+
 /*
  * ============================================================================
  * Inline Helper Functions

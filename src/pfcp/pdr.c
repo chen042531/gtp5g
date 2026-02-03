@@ -110,13 +110,138 @@ void pdr_context_delete(struct pdr *pdr)
 
     /* Remove all framed route nodes from hash table (don't free yet) */
     pdi = pdr->pdi;
-    if (pdi && pdi->framed_route_nodes) {
-        for (j = 0; j < pdi->framed_route_num; j++) {
-            framed_route_hash_del(pdi->framed_route_nodes[j]);
+    if (pdi && pdi->framed_routes) {
+        struct framed_route_set *set = rcu_dereference_protected(pdi->framed_routes, 1);
+        if (set) {
+            for (j = 0; j < set->num; j++) {
+                framed_route_hash_del(set->nodes[j]);
+            }
         }
     }
 
     call_rcu(&pdr->rcu_head, pdr_context_free);
+}
+
+// ... helper updates ...
+
+// This function checks whether an IP matches.
+// It uses the PDR direction to decide matching UE address
+// with the src address or dst address of receving packet.
+// If it is matched, it returns True; otherwise, it returns False.
+bool ip_match(struct iphdr *iph, struct pdr *pdr)
+{
+    struct pdi *pdi = pdr->pdi;
+    struct framed_route_node *node;
+    __be32 target_addr;
+    int j;
+    bool match = false;
+
+    if (!pdi)
+        return false;
+
+    // Determine target address based on PDR direction (uplink or downlink)
+    target_addr = is_uplink(pdr) ? iph->saddr : iph->daddr;
+
+    // First, try to match by ue_addr_ipv4
+    if (pdi->ue_addr_ipv4 && pdi->ue_addr_ipv4->s_addr == target_addr)
+        return true;
+
+    // If ue_addr_ipv4 doesn't match, check if target_addr is in framed route range
+    // Check each framed route
+    rcu_read_lock();
+    struct framed_route_set *set = rcu_dereference(pdi->framed_routes);
+    if (set) {
+        for (j = 0; j < set->num; j++) {
+            node = set->nodes[j];
+            if (!node)
+                continue;
+
+            // Check if target IP is in this network range
+            if (ipv4_match(target_addr, node->network_addr, node->netmask)) {
+                match = true;
+                break;
+            }
+        }
+    }
+    rcu_read_unlock();
+
+    return match;
+}
+
+// ...
+
+void pdr_update_hlist_table(struct pdr *pdr, struct gtp5g_dev *gtp)
+{
+    struct hlist_head *head;
+    struct pdr *ppdr;
+    struct pdr *last_ppdr;
+    struct pdi *pdi;
+    struct local_f_teid *f_teid;
+    struct framed_route_set *set;
+    int j;
+
+    if (!hlist_unhashed(&pdr->hlist_i_teid))
+        hlist_del_rcu(&pdr->hlist_i_teid);
+
+    if (!hlist_unhashed(&pdr->hlist_addr))
+        hlist_del_rcu(&pdr->hlist_addr);
+
+    pdi = pdr->pdi;
+    if (!pdi)
+        return;
+
+    /* Remove old framed route nodes from hash (Refactoring #4) */
+    set = rcu_dereference_protected(pdi->framed_routes, 1);
+    if (set) {
+        for (j = 0; j < set->num; j++)
+            framed_route_hash_del(set->nodes[j]);
+    }
+
+    f_teid = pdi->f_teid;
+    if (f_teid) {
+        last_ppdr = NULL;
+        head = &gtp->i_teid_hash[u32_hashfn(f_teid->teid) % gtp->hash_size];
+        hlist_for_each_entry_rcu(ppdr, head, hlist_i_teid) {
+            if (pdr->precedence > ppdr->precedence)
+                last_ppdr = ppdr;
+            else
+                break;
+        }
+        if (!last_ppdr)
+            hlist_add_head_rcu(&pdr->hlist_i_teid, head);
+        else
+            hlist_add_behind_rcu(&pdr->hlist_i_teid, &last_ppdr->hlist_i_teid);
+    } else if (pdi->ue_addr_ipv4) {
+        last_ppdr = NULL;
+        head = &gtp->addr_hash[u32_hashfn(pdi->ue_addr_ipv4->s_addr) % gtp->hash_size];
+        hlist_for_each_entry_rcu(ppdr, head, hlist_addr) {
+            if (pdr->precedence > ppdr->precedence)
+                last_ppdr = ppdr;
+            else
+                break;
+        }
+        if (!last_ppdr)
+            hlist_add_head_rcu(&pdr->hlist_addr, head);
+        else
+            hlist_add_behind_rcu(&pdr->hlist_addr, &last_ppdr->hlist_addr);
+    }
+
+    /*
+     * Add downlink PDR's framed routes to hash table (Refactoring #4).
+     * Uplink PDRs don't need framed route hash lookup since they use
+     * i_teid_hash for matching.
+     */
+    if (is_downlink(pdr) && set && set->num > 0) {
+        for (j = 0; j < set->num; j++) {
+            struct framed_route_node *fr_node = set->nodes[j];
+
+            if (!fr_node)
+                continue;
+
+            fr_node->pdr = pdr;
+            framed_route_hash_add(gtp, fr_node, pdr->precedence);
+        }
+    }
 }
 
 // Delete the AF_UNIX client

@@ -164,30 +164,56 @@ void framed_route_hash_del(struct framed_route_node *node)
         hlist_del_rcu(&node->hlist);
 }
 
-void framed_route_cleanup_pdi(struct pdi *pdi, bool use_rcu)
+static void framed_route_set_free_rcu(struct rcu_head *head)
 {
-    int j;
+    struct framed_route_set *set = container_of(head, struct framed_route_set, rcu);
+    int i;
 
-    if (!pdi || !pdi->framed_route_nodes)
-        return;
-
-    for (j = 0; j < pdi->framed_route_num; j++) {
-        struct framed_route_node *node = pdi->framed_route_nodes[j];
-
-        if (!node)
-            continue;
-
-        framed_route_hash_del(node);
-
-        if (use_rcu)
-            framed_route_node_free_rcu(node);
-        else
-            framed_route_node_free(node);
+    /* Free individual nodes */
+    for (i = 0; i < set->num; i++) {
+        if (set->nodes[i])
+            framed_route_node_free(set->nodes[i]);
     }
 
-    kfree(pdi->framed_route_nodes);
-    pdi->framed_route_nodes = NULL;
-    pdi->framed_route_num = 0;
+    kfree(set);
+}
+
+void framed_route_cleanup_pdi(struct pdi *pdi, bool use_rcu)
+{
+    struct framed_route_set *set;
+    int i;
+
+    if (!pdi)
+        return;
+
+    /* 
+     * Get the set. If use_rcu is true, we must replace it with NULL.
+     * If use_rcu is false (e.g. error path or PDR free), we can just access it.
+     */
+    if (use_rcu)
+        set = rcu_replace_pointer(pdi->framed_routes, NULL, true);
+    else
+        set = rcu_dereference_protected(pdi->framed_routes, 1);
+
+    if (!set)
+        return;
+
+    /* Remove hash entries for all nodes */
+    for (i = 0; i < set->num; i++) {
+        framed_route_hash_del(set->nodes[i]);
+    }
+
+    if (use_rcu) {
+        call_rcu(&set->rcu, framed_route_set_free_rcu);
+    } else {
+        /* Direct free */
+        for (i = 0; i < set->num; i++) {
+            if (set->nodes[i])
+                framed_route_node_free(set->nodes[i]);
+        }
+        kfree(set);
+        RCU_INIT_POINTER(pdi->framed_routes, NULL);
+    }
 }
 
 /*
@@ -207,18 +233,27 @@ bool ip_match_with_framed_routes(const __be32 ip_addr, const __be32 rule_addr,
         return true;
 
     /* If no exact match, check framed routes */
-    if (!pdi || !pdi->framed_route_nodes || pdi->framed_route_num == 0)
+    if (!pdi)
         return false;
 
-    for (j = 0; j < pdi->framed_route_num; j++) {
-        node = pdi->framed_route_nodes[j];
+    rcu_read_lock();
+    struct framed_route_set *set = rcu_dereference(pdi->framed_routes);
+    if (!set || set->num == 0) {
+        rcu_read_unlock();
+        return false;
+    }
+
+    for (j = 0; j < set->num; j++) {
+        node = set->nodes[j];
         if (node && ipv4_match(ip_addr, node->network_addr, node->netmask)) {
             GTP5G_TRC(NULL, "IP %pI4 matched framed route %pI4/%u\n",
                       &ip_addr, &node->network_addr,
                       netmask_to_prefix(node->netmask));
+            rcu_read_unlock();
             return true;
         }
     }
+    rcu_read_unlock();
 
     return false;
 }

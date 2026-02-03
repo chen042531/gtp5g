@@ -581,40 +581,43 @@ static int parse_pdi(struct pdr *pdr, struct nlattr *a)
 static int parse_framed_routes(struct pdr *pdr, struct pdi *pdi, struct nlattr *a)
 {
     struct nlattr *route_attr;
-    struct framed_route_node **nodes = NULL;
-    struct framed_route_node **new_nodes;
+    struct framed_route_set *set = NULL;
+    struct check_node_helper {
+        struct framed_route_node *node;
+    } *temp_nodes = NULL;
     int remaining;
-    int capacity = 4;  /* Initial capacity */
+    int capacity = 4;
     int count = 0;
     int err = 0;
-    char route_buf[64];  /* Stack buffer for route string */
+    int j;
+    char route_buf[64];
 
     /* Clean up existing framed routes using unified cleanup (use_rcu=true) */
     framed_route_cleanup_pdi(pdi, true);
 
-    nodes = kzalloc(capacity * sizeof(struct framed_route_node *), GFP_ATOMIC);
-    if (!nodes)
+    /* Allocate temporary array for parsing */
+    temp_nodes = kcalloc(capacity, sizeof(*temp_nodes), GFP_ATOMIC);
+    if (!temp_nodes)
         return -ENOMEM;
 
-    /* Single pass: parse routes and grow array as needed */
     nla_for_each_nested(route_attr, a, remaining) {
         int str_len = nla_len(route_attr);
         struct framed_route_node *node;
 
-        /* Grow array if needed */
         if (count >= capacity) {
             int new_capacity = capacity * 2;
-            new_nodes = krealloc(nodes, new_capacity * sizeof(struct framed_route_node *), GFP_ATOMIC);
-            if (!new_nodes) {
+            struct check_node_helper *new_temp;
+
+            new_temp = krealloc(temp_nodes, new_capacity * sizeof(*temp_nodes), GFP_ATOMIC);
+            if (!new_temp) {
                 err = -ENOMEM;
                 goto err_out;
             }
-            memset(new_nodes + capacity, 0, (new_capacity - capacity) * sizeof(struct framed_route_node *));
-            nodes = new_nodes;
+            memset(new_temp + capacity, 0, (new_capacity - capacity) * sizeof(*temp_nodes));
+            temp_nodes = new_temp;
             capacity = new_capacity;
         }
 
-        /* Use stack buffer to avoid dynamic allocation for small strings */
         if (str_len >= sizeof(route_buf)) {
             err = -EINVAL;
             goto err_out;
@@ -622,7 +625,6 @@ static int parse_framed_routes(struct pdr *pdr, struct pdi *pdi, struct nlattr *
         memcpy(route_buf, nla_data(route_attr), str_len);
         route_buf[str_len] = '\0';
 
-        /* Use unified allocation function (Refactoring #1) */
         node = framed_route_node_alloc();
         if (!node) {
             err = -ENOMEM;
@@ -637,26 +639,43 @@ static int parse_framed_routes(struct pdr *pdr, struct pdi *pdi, struct nlattr *
         }
 
         node->pdr = pdr;
-        nodes[count++] = node;
+        temp_nodes[count++].node = node;
     }
 
     if (count == 0) {
-        kfree(nodes);
+        kfree(temp_nodes);
         return 0;
     }
 
-    pdi->framed_route_nodes = nodes;
-    pdi->framed_route_num = count;
+    /* Allocate the RCU set of correct size */
+    set = kzalloc(sizeof(*set) + count * sizeof(struct framed_route_node *), GFP_ATOMIC);
+    if (!set) {
+        err = -ENOMEM;
+        goto err_out;
+    }
+
+    set->num = count;
+    for (j = 0; j < count; j++) {
+        set->nodes[j] = temp_nodes[j].node;
+    }
+
+    kfree(temp_nodes);
+
+    /* Assign to PDI with RCU barrier */
+    rcu_assign_pointer(pdi->framed_routes, set);
+    
     return 0;
 
 err_out:
-    /* Clean up locally allocated nodes on error (Refactoring #1) */
-    if (nodes) {
-        int j;
-        for (j = 0; j < count; j++)
-            framed_route_node_free(nodes[j]);
-        kfree(nodes);
+    if (temp_nodes) {
+        for (j = 0; j < count; j++) {
+            if (temp_nodes[j].node)
+                framed_route_node_free(temp_nodes[j].node);
+        }
+        kfree(temp_nodes);
     }
+    if (set)
+        kfree(set);
     return err;
 }
 
@@ -986,29 +1005,41 @@ static int gtp5g_genl_fill_pdi(struct sk_buff *skb, struct pdi *pdi)
     }
 
     // Fill framed routes
-    if (pdi->framed_route_nodes && pdi->framed_route_num > 0) {
-        struct nlattr *nest_routes = nla_nest_start(skb, GTP5G_PDI_FRAMED_ROUTE);
-        if (!nest_routes)
-            return -EMSGSIZE;
-
-        for (i = 0; i < pdi->framed_route_num; i++) {
-            struct framed_route_node *node = pdi->framed_route_nodes[i];
-            char route_str[40];
-            int len;
-
-            if (!node)
-                continue;
-
-            len = snprintf(route_str, sizeof(route_str), "%pI4/%u",
-                           &node->network_addr, netmask_to_prefix(node->netmask));
-            if (len <= 0 || len >= sizeof(route_str))
-                return -EMSGSIZE;
-
-            if (nla_put_string(skb, i + 1, route_str))
-                return -EMSGSIZE;
-        }
+    if (pdi->framed_routes) {
+        struct framed_route_set *set;
         
-        nla_nest_end(skb, nest_routes);
+        rcu_read_lock();
+        set = rcu_dereference(pdi->framed_routes);
+        if (set && set->num > 0) {
+            struct nlattr *nest_routes = nla_nest_start(skb, GTP5G_PDI_FRAMED_ROUTE);
+            if (!nest_routes) {
+                rcu_read_unlock();
+                return -EMSGSIZE;
+            }
+
+            for (i = 0; i < set->num; i++) {
+                struct framed_route_node *node = set->nodes[i];
+                char route_str[40];
+                int len;
+
+                if (!node)
+                    continue;
+
+                len = snprintf(route_str, sizeof(route_str), "%pI4/%u",
+                               &node->network_addr, netmask_to_prefix(node->netmask));
+                if (len <= 0 || len >= sizeof(route_str)) {
+                    rcu_read_unlock();
+                    return -EMSGSIZE;
+                }
+
+                if (nla_put_string(skb, i + 1, route_str)) {
+                    rcu_read_unlock();
+                    return -EMSGSIZE;
+                }
+            }
+            nla_nest_end(skb, nest_routes);
+        }
+        rcu_read_unlock();
     }
 
     nla_nest_end(skb, nest_pdi);

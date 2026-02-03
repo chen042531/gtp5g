@@ -54,8 +54,7 @@ struct pdi {
     struct in_addr *ue_addr_ipv4;
     struct local_f_teid *f_teid;
     struct sdf_filter *sdf;
-    u32 framed_route_num;           /* Number of framed routes */
-    struct framed_route_node **framed_route_nodes; /* Hash nodes for each route */
+    struct framed_route_set __rcu *framed_routes; /* RCU protected set */
 };
 
 #define QER_ID_SIZE sizeof(u32)
