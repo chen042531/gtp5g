@@ -12,6 +12,7 @@
 #include "qer.h"
 #include "pktinfo.h"
 #include "log.h"
+#include "util.h"
 
 u64 network_and_transport_header_len(struct sk_buff *skb) {
     u64 hdrlen;
@@ -74,7 +75,7 @@ struct rtable *ip4_find_route(struct sk_buff *skb, struct iphdr *iph,
     fl4->flowi4_oif = sk->sk_bound_dev_if;
     fl4->daddr = daddr;
     fl4->saddr = (saddr ? saddr : inet_sk(sk)->inet_saddr);
-    fl4->flowi4_tos = RT_TOS(inet_sk(sk)->tos) | sock_flag(sk, SOCK_LOCALROUTE);
+    set_flowi4_dsfield(fl4, sk, true);
     fl4->flowi4_proto = sk->sk_protocol;
 
     rt = ip_route_output_key(dev_net(gtp_dev), fl4);
@@ -136,7 +137,7 @@ struct rtable *ip4_find_route_simple(struct sk_buff *skb,
     fl4->flowi4_oif = sk->sk_bound_dev_if;
     fl4->daddr = daddr;
     fl4->saddr = (saddr ? saddr : inet_sk(sk)->inet_saddr);
-    fl4->flowi4_tos = RT_TOS(inet_sk(sk)->tos) | sock_flag(sk, SOCK_LOCALROUTE);
+    set_flowi4_dsfield(fl4, sk, true);
     fl4->flowi4_proto = sk->sk_protocol;
 
     rt = ip_route_output_key(dev_net(gtp_dev), fl4);

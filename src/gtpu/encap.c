@@ -996,7 +996,7 @@ static struct rtable *find_ip4_route(struct flowi4 *fl4,
     fl4->flowi4_oif = sk->sk_bound_dev_if;
     fl4->daddr = daddr;
     fl4->saddr = saddr;
-    fl4->flowi4_tos = RT_TOS(inet_sk(sk)->tos);
+    set_flowi4_dsfield(fl4, sk, false);
     fl4->flowi4_proto = sk->sk_protocol;
     return ip_route_output_key(sock_net(sk), fl4);
 }

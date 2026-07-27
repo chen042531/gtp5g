@@ -151,7 +151,9 @@ int unix_sock_client_new(struct pdr *pdr)
         return err;
     }
 
-    err = (*psock)->ops->connect(*psock, (struct sockaddr *)addr,
+    /* Cast through void *: connect() takes struct sockaddr * on older kernels
+     * and struct sockaddr_unsized * on newer ones. */
+    err = (*psock)->ops->connect(*psock, (void *)addr,
             sizeof(addr->sun_family) + strlen(addr->sun_path), 0);
     if (err) {
         unix_sock_client_delete(pdr);
