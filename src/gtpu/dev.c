@@ -293,6 +293,14 @@ void gtp5g_hashtable_free(struct gtp5g_dev *gtp)
     int i;
 
     /*
+     * Called from newlink's error path and from priv_destructor; on some
+     * kernels both run for a failed register_netdevice(). hash_size is
+     * only set once every table is allocated, and cleared below.
+     */
+    if (!gtp->hash_size)
+        return;
+
+    /*
      * Free the PDRs first. pdr_context_delete() takes each PDR out of the
      * related_*_hash, so the FAR/QER/URR teardown below never walks into a
      * PDR. The _safe walkers read the next entry before the current one is
@@ -331,4 +339,18 @@ void gtp5g_hashtable_free(struct gtp5g_dev *gtp)
     kvfree(gtp->related_qer_hash);
     kvfree(gtp->related_bar_hash);
     kvfree(gtp->related_urr_hash);
+
+    gtp->hash_size = 0;
+    gtp->addr_hash = NULL;
+    gtp->i_teid_hash = NULL;
+    gtp->framed_route_hash = NULL;
+    gtp->pdr_id_hash = NULL;
+    gtp->far_id_hash = NULL;
+    gtp->qer_id_hash = NULL;
+    gtp->bar_id_hash = NULL;
+    gtp->urr_id_hash = NULL;
+    gtp->related_far_hash = NULL;
+    gtp->related_qer_hash = NULL;
+    gtp->related_bar_hash = NULL;
+    gtp->related_urr_hash = NULL;
 }
